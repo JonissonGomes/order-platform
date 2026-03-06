@@ -118,6 +118,18 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 
+		// Log for debugging in development
+		if config.Get().Environment == "development" {
+			log.Printf("CORS: Request from origin: '%s' (Method: %s, Path: %s)", origin, c.Request.Method, c.Request.URL.Path)
+		}
+
+		// If no origin header (same-origin request), allow it
+		if origin == "" {
+			// Same-origin request, allow it
+			c.Next()
+			return
+		}
+
 		// Check if origin is allowed
 		allowOrigin := ""
 		for _, allowed := range allowedOrigins {
@@ -127,14 +139,21 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 			}
 		}
 
-		// If no match found and we have allowed origins configured, reject the request
+		// If no match found and we have allowed origins configured
 		if allowOrigin == "" && len(allowedOrigins) > 0 {
-			// Origin not allowed, but we still need to respond to preflight
+			// Log the rejected origin for debugging (only in development)
+			if config.Get().Environment == "development" {
+				log.Printf("CORS: Origin '%s' not allowed. Allowed origins: %v", origin, allowedOrigins)
+				log.Printf("CORS: Request details - Method: %s, Path: %s, Headers: %v", c.Request.Method, c.Request.URL.Path, c.Request.Header)
+			}
+			// For OPTIONS (preflight), we need to respond but without CORS headers
 			if c.Request.Method == "OPTIONS" {
 				c.AbortWithStatus(204)
 				return
 			}
-			c.Next()
+			// Origin not allowed - reject the request for security
+			c.JSON(403, gin.H{"error": "Origin not allowed"})
+			c.Abort()
 			return
 		}
 

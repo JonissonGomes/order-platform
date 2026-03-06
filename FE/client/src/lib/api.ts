@@ -1,16 +1,34 @@
 // API client for REST API calls to Go backend
 // 
+// IMPORTANTE: VITE_API_URL deve ser configurado sempre (dev e prod)
+// 
 // Development:
-//   - If VITE_API_URL is set: use it directly (bypasses Vite proxy)
-//   - If not set: use "/api" which will be proxied by Vite to http://localhost:8080
+//   - Configure VITE_API_URL=http://localhost:8080 no .env
+//   - Configure CORS_ORIGINS no backend com as URLs do frontend
+//   - O backend valida a origem via CORS para segurança
 //
 // Production:
-//   - VITE_API_URL must be set with the full backend URL (e.g., https://api.example.com)
-//   - No proxy is available in production, so direct URL is required
+//   - Configure VITE_API_URL=https://api.seusite.com no .env
+//   - Configure CORS_ORIGINS no backend com as URLs permitidas
+//   - Use HTTPS sempre em produção
+//
+// Segurança:
+//   - CORS está configurado no backend para validar origens
+//   - Cookies são HTTP-only e SameSite para proteção CSRF
+//   - Credentials são enviados apenas para a origem configurada
 
 import { handleHttpError, handleApiError } from "./errors";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
+// VITE_API_URL é obrigatório para garantir segurança e consistência
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
+if (!API_BASE_URL) {
+  console.error(
+    "⚠️ VITE_API_URL não está configurado! " +
+    "Configure no arquivo .env do frontend. " +
+    "Exemplo: VITE_API_URL=http://localhost:8080 (dev) ou https://api.seusite.com (prod)"
+  );
+}
 
 export interface User {
   id: string;
@@ -69,25 +87,25 @@ async function fetchAPI<T>(
 export const api = {
   // Auth endpoints
   async login(data: LoginRequest): Promise<AuthResponse> {
-    return fetchAPI<AuthResponse>("/auth/login", {
+    return fetchAPI<AuthResponse>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(data),
     });
   },
 
   async register(data: RegisterRequest): Promise<AuthResponse> {
-    return fetchAPI<AuthResponse>("/auth/register", {
+    return fetchAPI<AuthResponse>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     });
   },
 
   async getMe(): Promise<{ user: User | null }> {
-    return fetchAPI<{ user: User | null }>("/auth/me");
+    return fetchAPI<{ user: User | null }>("/api/auth/me");
   },
 
   async logout(): Promise<{ success: boolean }> {
-    return fetchAPI<{ success: boolean }>("/auth/logout", {
+    return fetchAPI<{ success: boolean }>("/api/auth/logout", {
       method: "POST",
     });
   },
