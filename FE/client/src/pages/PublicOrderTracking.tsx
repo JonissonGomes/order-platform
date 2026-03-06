@@ -6,10 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { StatusTimeline } from "@/components/StatusTimeline";
 import type { ServiceOrder, StatusHistory } from "@/types";
-import { Search, FileText } from "lucide-react";
+import { Search, FileText, UserPlus, CheckCircle2, Clock, Bell } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { Loader2 } from "lucide-react";
 
 const statusLabels: Record<string, string> = {
   pending: "Aguardando Avaliação",
@@ -79,15 +80,15 @@ export default function PublicOrderTracking() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <div className="w-full container mx-auto px-4 py-8 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold tracking-tight mb-2">Acompanhe sua Ordem</h1>
-          <p className="text-muted-foreground">
+      <div className="w-full container mx-auto px-4 py-12 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Acompanhe sua Ordem</h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Digite o número da ordem, CPF ou telefone para consultar o status
           </p>
         </div>
 
-        <Card className="mb-6">
+        <Card className="mb-8 shadow-lg">
           <CardHeader>
             <CardTitle>Buscar Ordem de Serviço</CardTitle>
             <CardDescription>Escolha o método de busca e informe os dados</CardDescription>
@@ -153,26 +154,26 @@ export default function PublicOrderTracking() {
         </Card>
 
         {order && (
-          <Card>
+          <Card className="mb-8 shadow-lg">
             <CardHeader>
               <CardTitle>Ordem #{order.orderNumber}</CardTitle>
               <CardDescription>
                 Status: <span className="font-medium">{statusLabels[order.status]}</span>
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-medium mb-2">Informações do Produto</h3>
-                <div className="space-y-1 text-sm text-muted-foreground">
-                  <p><strong>Tipo:</strong> {order.productType}</p>
-                  <p><strong>Marca:</strong> {order.productBrand}</p>
-                  <p><strong>Modelo:</strong> {order.productModel}</p>
-                  <p><strong>Problema:</strong> {order.problemDescription}</p>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <h3 className="font-semibold text-base">Informações do Produto</h3>
+                <div className="space-y-2 text-sm text-muted-foreground bg-slate-50 p-4 rounded-lg">
+                  <p><strong className="text-foreground">Tipo:</strong> {order.productType}</p>
+                  <p><strong className="text-foreground">Marca:</strong> {order.productBrand}</p>
+                  <p><strong className="text-foreground">Modelo:</strong> {order.productModel}</p>
+                  <p><strong className="text-foreground">Problema:</strong> {order.problemDescription}</p>
                 </div>
               </div>
               {history.length > 0 && (
-                <div>
-                  <h3 className="font-medium mb-2">Histórico de Status</h3>
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-base">Histórico de Status</h3>
                   <StatusTimeline history={history} />
                 </div>
               )}
@@ -181,16 +182,16 @@ export default function PublicOrderTracking() {
         )}
 
         {orders.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-6 mb-8">
             {customerName && (
-              <Card>
+              <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle>Cliente: {customerName}</CardTitle>
                 </CardHeader>
               </Card>
             )}
             {orders.map((ord) => (
-              <Card key={ord.orderNumber}>
+              <Card key={ord.orderNumber} className="shadow-lg">
                 <CardHeader>
                   <CardTitle>Ordem #{ord.orderNumber}</CardTitle>
                   <CardDescription>
@@ -198,9 +199,9 @@ export default function PublicOrderTracking() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p><strong>Produto:</strong> {ord.productType} - {ord.productBrand} {ord.productModel}</p>
-                    <p><strong>Criado em:</strong> {new Date(ord.createdAt).toLocaleDateString("pt-BR")}</p>
+                  <div className="space-y-2 text-sm text-muted-foreground bg-slate-50 p-4 rounded-lg">
+                    <p><strong className="text-foreground">Produto:</strong> {ord.productType} - {ord.productBrand} {ord.productModel}</p>
+                    <p><strong className="text-foreground">Criado em:</strong> {new Date(ord.createdAt).toLocaleDateString("pt-BR")}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -208,8 +209,59 @@ export default function PublicOrderTracking() {
           </div>
         )}
 
-        <div className="text-center mt-8">
-          <Button variant="outline" onClick={() => setLocation("/")}>
+        {/* CTA para criar conta */}
+        <Card className="mb-8 shadow-lg border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-slate-50">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
+                <UserPlus className="h-5 w-5 text-white" />
+              </div>
+              <CardTitle className="text-xl">Crie sua conta e acompanhe melhor seus pedidos</CardTitle>
+            </div>
+            <CardDescription className="text-base">
+              Com uma conta, você terá acesso a recursos exclusivos para gerenciar seus serviços
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-sm">Acompanhamento em tempo real</p>
+                  <p className="text-xs text-muted-foreground">Receba notificações sobre o status do seu serviço</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Clock className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-sm">Histórico completo</p>
+                  <p className="text-xs text-muted-foreground">Acesse todo o histórico de seus serviços</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Bell className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-sm">Notificações automáticas</p>
+                  <p className="text-xs text-muted-foreground">Seja avisado sobre mudanças de status</p>
+                </div>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setLocation("/login")} 
+              className="w-full" 
+              size="lg"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Criar conta gratuita
+            </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              Já tem uma conta? <button onClick={() => setLocation("/login")} className="text-blue-600 hover:underline font-medium">Faça login</button>
+            </p>
+          </CardContent>
+        </Card>
+
+        <div className="text-center">
+          <Button variant="outline" onClick={() => setLocation("/")} size="lg">
             Voltar para o início
           </Button>
         </div>

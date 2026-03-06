@@ -17,6 +17,8 @@ import {
   Tablet,
   MessageSquare,
   Zap,
+  UserPlus,
+  Bell,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
@@ -94,10 +96,10 @@ export default function Home() {
             Especialistas em reparo de smartphones, notebooks e tablets. 
             Atendimento rápido, garantia de 90 dias e acompanhamento online do seu serviço.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button
               size="lg"
-              className="text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-all"
+              className="text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-all w-full sm:w-auto"
               onClick={() => {
                 document.getElementById("contato")?.scrollIntoView({ behavior: "smooth" });
               }}
@@ -108,7 +110,7 @@ export default function Home() {
             <Button
               size="lg"
               variant="outline"
-              className="text-lg px-8 py-6"
+              className="text-lg px-8 py-6 w-full sm:w-auto"
               onClick={() => setLocation("/track")}
             >
               Acompanhar Serviço
@@ -187,7 +189,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Contact Info */}
               <div className="space-y-6">
                 <Card className="border-0 shadow-md">
@@ -291,6 +293,57 @@ export default function Home() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* CTA para criar conta - Full width */}
+            <Card className="border-0 shadow-md border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-slate-50">
+              <CardHeader>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
+                    <UserPlus className="h-5 w-5 text-white" />
+                  </div>
+                  <CardTitle className="text-xl">Crie sua conta e acompanhe melhor seus pedidos</CardTitle>
+                </div>
+                <CardDescription className="text-base">
+                  Com uma conta, você terá acesso a recursos exclusivos para gerenciar seus serviços
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-sm">Acompanhamento em tempo real</p>
+                      <p className="text-xs text-muted-foreground">Receba notificações sobre o status do seu serviço</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-sm">Histórico completo</p>
+                      <p className="text-xs text-muted-foreground">Acesse todo o histórico de seus serviços</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Bell className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-sm">Notificações automáticas</p>
+                      <p className="text-xs text-muted-foreground">Seja avisado sobre mudanças de status</p>
+                    </div>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => setLocation("/login")} 
+                  className="w-full" 
+                  size="lg"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Criar conta gratuita
+                </Button>
+                <p className="text-xs text-center text-muted-foreground">
+                  Já tem uma conta? <button onClick={() => setLocation("/login")} className="text-blue-600 hover:underline font-medium">Faça login</button>
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>

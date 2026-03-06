@@ -117,8 +117,20 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    width: 100%;
+    min-height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+    width: 100%;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+  }
+  #root {
+    width: 100%;
+    min-height: 100vh;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
