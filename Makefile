@@ -1,4 +1,4 @@
-.PHONY: help setup setup-backend setup-frontend install-backend install-frontend dev dev-backend dev-frontend build build-backend build-frontend clean test test-backend test-frontend check-env check-make kill-port-backend kill-port-frontend kill-ports
+.PHONY: help setup setup-backend setup-frontend install-backend install-frontend dev dev-backend dev-frontend build build-backend build-frontend clean test test-backend test-frontend check-env check-make kill-port-backend kill-port-frontend kill-ports create-super-admin
 
 # Detectar sistema operacional
 ifeq ($(OS),Windows_NT)
@@ -293,3 +293,17 @@ else
 	fi
 endif
 	@echo "$(GREEN)✓ Frontend configurado$(NC)"
+
+create-super-admin: check-backend-env ## Cria um super admin interativamente (solicita dados no terminal)
+	@echo "$(YELLOW)Criando super admin...$(NC)"
+	@echo "$(BLUE)Você será solicitado a informar:$(NC)"
+	@echo "  - Nome completo"
+	@echo "  - Email"
+	@echo "  - Senha (oculta)"
+	@echo "  - Confirmação de senha (oculta)"
+	@echo ""
+ifeq ($(OS),Windows_NT)
+	@cd $(BACKEND_DIR) && go run cmd/create-super-admin/main.go
+else
+	@cd $(BACKEND_DIR) && go run cmd/create-super-admin/main.go
+endif

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
 	"order-platform/backend/internal/config"
 	"order-platform/backend/internal/database"
+	"order-platform/backend/internal/repository"
 	"order-platform/backend/internal/router"
 	"order-platform/backend/internal/server"
 )
@@ -24,6 +26,15 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Disconnect()
+
+	// Initialize default profiles (CCD-Connect pattern)
+	profileRepo := repository.NewProfileRepository(db.Database)
+	ctx := context.Background()
+	if err := profileRepo.InitializeDefaultProfiles(ctx); err != nil {
+		log.Printf("Warning: Failed to initialize default profiles: %v", err)
+	} else {
+		log.Println("Default profiles initialized successfully")
+	}
 
 	// Initialize router
 	r := router.New(db)

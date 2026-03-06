@@ -9,8 +9,10 @@ import (
 	"order-platform/backend/internal/middleware"
 	"order-platform/backend/internal/models"
 	"order-platform/backend/internal/repository"
+	"order-platform/backend/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type AuthHandler struct {
@@ -38,7 +40,7 @@ type LoginRequest struct {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.RespondWithBadRequest(c, utils.SanitizeValidationError(err))
 		return
 	}
 
@@ -47,25 +49,45 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Check if user already exists
 	existingUser, err := h.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check user"})
+		utils.RespondWithInternalError(c)
 		return
 	}
 	if existingUser != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+		utils.RespondWithConflict(c, utils.ErrUserAlreadyExists)
 		return
 	}
 
 	// Hash password
 	hashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		utils.RespondWithInternalError(c)
 		return
 	}
 
-	// Determine role (first user is admin)
+	// Determine role
 	role := models.RoleUser
-	if config.Get().AdminEmail != "" && req.Email == config.Get().AdminEmail {
+
+	// Check if it's super admin email
+	if config.Get().SuperAdminEmail != "" && req.Email == config.Get().SuperAdminEmail {
+		// Validate max 3 super admins
+		superAdminCount, err := h.userRepo.CountSuperAdmins(ctx)
+		if err != nil {
+			utils.RespondWithInternalError(c)
+			return
+		}
+		if superAdminCount >= 3 {
+			utils.RespondWithForbidden(c, utils.ErrMaxSuperAdmins)
+			return
+		}
+		role = models.RoleSuperAdmin
+	} else if config.Get().AdminEmail != "" && req.Email == config.Get().AdminEmail {
 		role = models.RoleAdmin
+	} else {
+		// Check if this is the first user (becomes admin)
+		count, err := h.userRepo.CountUsers(ctx)
+		if err == nil && count == 0 {
+			role = models.RoleAdmin
+		}
 	}
 
 	// Create user
@@ -77,7 +99,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := h.userRepo.CreateUser(ctx, user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		utils.RespondWithInternalError(c)
 		return
 	}
 
@@ -91,7 +113,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	sessionToken, err := auth.CreateSessionToken(sessionPayload, oneYear)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		utils.RespondWithInternalError(c)
 		return
 	}
 
@@ -120,7 +142,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.RespondWithBadRequest(c, utils.SanitizeValidationError(err))
 		return
 	}
 
@@ -129,17 +151,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Get user by email
 	user, err := h.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+		utils.RespondWithInternalError(c)
 		return
 	}
 	if user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		utils.RespondWithUnauthorized(c, utils.ErrInvalidCredentials)
 		return
 	}
 
 	// Check password
 	if !auth.CheckPasswordHash(req.Password, user.Password) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		utils.RespondWithUnauthorized(c, utils.ErrInvalidCredentials)
 		return
 	}
 
@@ -156,7 +178,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	sessionToken, err := auth.CreateSessionToken(sessionPayload, oneYear)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		utils.RespondWithInternalError(c)
 		return
 	}
 
@@ -203,6 +225,76 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		true,
 	)
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+type UpdateUserRoleRequest struct {
+	Role models.UserRole `json:"role" binding:"required"`
+}
+
+// UpdateUserRole updates a user's role (Super Admin only)
+func (h *AuthHandler) UpdateUserRole(c *gin.Context) {
+	id := c.Param("id")
+	userID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	var req UpdateUserRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Validate super admin limit
+	if req.Role == models.RoleSuperAdmin {
+		superAdminCount, err := h.userRepo.CountSuperAdmins(ctx)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate super admin count"})
+			return
+		}
+
+		// Check if the user being updated is already a super admin
+		existingUser, err := h.userRepo.GetUserByID(ctx, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+			return
+		}
+		if existingUser == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+
+		// If user is not already a super admin, check limit
+		if existingUser.Role != models.RoleSuperAdmin && superAdminCount >= 3 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Maximum of 3 super admins allowed in the system"})
+			return
+		}
+	}
+
+	// Update user role
+	if err := h.userRepo.UpdateUserRole(ctx, userID, req.Role); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user role"})
+		return
+	}
+
+	// Get updated user
+	user, err := h.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get updated user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user": gin.H{
+			"id":    user.ID.Hex(),
+			"email": user.Email,
+			"name":  user.Name,
+			"role":  user.Role,
+		},
+	})
 }
 
 const oneYear = 365 * 24 * time.Hour

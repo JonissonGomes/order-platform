@@ -1,0 +1,90 @@
+package models
+
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+type Profile struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name        string             `bson:"name" json:"name"`
+	Description string             `bson:"description,omitempty" json:"description,omitempty"`
+	Permissions []string            `bson:"permissions" json:"permissions"` // Lista de permissões (ex: "orders.create", "orders.update", etc.)
+	IsDefault   bool               `bson:"isDefault" json:"isDefault"`     // Indica se é um perfil padrão do sistema
+	IsActive    bool               `bson:"isActive" json:"isActive"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
+// DefaultProfiles retorna os perfis padrão do sistema
+func DefaultProfiles() []*Profile {
+	return []*Profile{
+		{
+			Name:        "Super Admin",
+			Description: "Acesso total ao sistema",
+			Permissions: []string{
+				"*", // Todas as permissões
+			},
+			IsDefault: true,
+			IsActive:  true,
+		},
+		{
+			Name:        "Admin",
+			Description: "Administrador do sistema",
+			Permissions: []string{
+				"users.*",
+				"employees.*",
+				"departments.*",
+				"customers.*",
+				"service_orders.*",
+				"reports.*",
+			},
+			IsDefault: true,
+			IsActive:  true,
+		},
+		{
+			Name:        "Gerente de Departamento",
+			Description: "Gerencia um departamento específico",
+			Permissions: []string{
+				"employees.read",
+				"employees.update",
+				"departments.read",
+				"service_orders.*",
+				"reports.department",
+			},
+			IsDefault: true,
+			IsActive:  true,
+		},
+		{
+			Name:        "Atendente",
+			Description: "Atende clientes e cria ordens de serviço",
+			Permissions: []string{
+				"customers.*",
+				"service_orders.create",
+				"service_orders.read",
+				"service_orders.update",
+				"service_orders.status.pending",
+				"service_orders.status.evaluating",
+				"service_orders.status.approved",
+			},
+			IsDefault: true,
+			IsActive:  true,
+		},
+		{
+			Name:        "Técnico",
+			Description: "Realiza consertos e atualiza status técnico",
+			Permissions: []string{
+				"service_orders.read",
+				"service_orders.update",
+				"service_orders.status.in_repair",
+				"service_orders.status.waiting_parts",
+				"service_orders.status.testing",
+				"service_orders.status.ready",
+				"service_orders.notes.create",
+			},
+			IsDefault: true,
+			IsActive:  true,
+		},
+	}
+}

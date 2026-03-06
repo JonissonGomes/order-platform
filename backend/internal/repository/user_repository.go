@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const usersCollection = "users"
@@ -77,4 +78,47 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id primitive.ObjectID)
 	}
 
 	return &user, nil
+}
+
+// CountUsers counts total users
+func (r *UserRepository) CountUsers(ctx context.Context) (int64, error) {
+	return r.collection.CountDocuments(ctx, bson.M{})
+}
+
+// ListUsers lists users with pagination
+func (r *UserRepository) ListUsers(ctx context.Context, skip, limit int64, filter bson.M) ([]*models.User, error) {
+	opts := options.Find().SetSkip(skip).SetLimit(limit).SetSort(bson.M{"createdAt": -1})
+
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []*models.User
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+// CountSuperAdmins counts the number of super admin users
+func (r *UserRepository) CountSuperAdmins(ctx context.Context) (int64, error) {
+	filter := bson.M{"role": models.RoleSuperAdmin}
+	return r.collection.CountDocuments(ctx, filter)
+}
+
+// UpdateUserRole updates a user's role
+func (r *UserRepository) UpdateUserRole(ctx context.Context, userID primitive.ObjectID, newRole models.UserRole) error {
+	filter := bson.M{"_id": userID}
+	update := bson.M{
+		"$set": bson.M{
+			"role":      newRole,
+			"updatedAt": time.Now(),
+		},
+	}
+
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	return err
 }

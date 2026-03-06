@@ -9,8 +9,9 @@ import (
 type UserRole string
 
 const (
-	RoleUser  UserRole = "user"
-	RoleAdmin UserRole = "admin"
+	RoleUser       UserRole = "user"
+	RoleAdmin      UserRole = "admin"
+	RoleSuperAdmin UserRole = "super_admin"
 )
 
 type User struct {
@@ -26,5 +27,10 @@ type User struct {
 
 // IsAdmin checks if the user has admin role
 func (u *User) IsAdmin() bool {
-	return u.Role == RoleAdmin
+	return u.Role == RoleAdmin || u.Role == RoleSuperAdmin
+}
+
+// IsSuperAdmin checks if the user has super admin role
+func (u *User) IsSuperAdmin() bool {
+	return u.Role == RoleSuperAdmin
 }
