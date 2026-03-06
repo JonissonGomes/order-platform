@@ -7,6 +7,10 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import ServiceOrders from "./pages/ServiceOrders";
+import Customers from "./pages/Customers";
+import Departments from "./pages/Departments";
+import PublicOrderTracking from "./pages/PublicOrderTracking";
 
 /**
  * Router da Aplicação
@@ -26,6 +30,10 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/login"} component={Login} />
       <Route path={"/dashboard"} component={Dashboard} />
+      <Route path={"/service-orders"} component={ServiceOrders} />
+      <Route path={"/customers"} component={Customers} />
+      <Route path={"/departments"} component={Departments} />
+      <Route path={"/track"} component={PublicOrderTracking} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

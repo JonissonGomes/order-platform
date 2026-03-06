@@ -48,6 +48,7 @@ export interface Customer {
   phone: string;
   email?: string;
   address?: Address;
+  isTemporary?: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy: string;

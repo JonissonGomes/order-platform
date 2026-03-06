@@ -129,7 +129,7 @@ export default function Home() {
               size="lg"
               variant="outline"
               className="text-lg px-8 py-6"
-              onClick={() => setLocation("/public/track")}
+              onClick={() => setLocation("/track")}
             >
               Acompanhar Serviço
             </Button>
@@ -365,7 +365,7 @@ export default function Home() {
                 size="lg"
                 variant="outline"
                 className="text-lg px-8 py-6 bg-transparent border-white text-white hover:bg-white hover:text-blue-600"
-                onClick={() => setLocation("/public/track")}
+                onClick={() => setLocation("/track")}
               >
                 Acompanhar Serviço
               </Button>

@@ -1,0 +1,763 @@
+package handlers
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
+	"order-platform/backend/internal/middleware"
+	"order-platform/backend/internal/models"
+	"order-platform/backend/internal/repository"
+	"order-platform/backend/internal/utils"
+
+	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+type ServiceOrderHandler struct {
+	serviceOrderRepo  *repository.ServiceOrderRepository
+	customerRepo      *repository.CustomerRepository
+	departmentRepo    *repository.DepartmentRepository
+	employeeRepo      *repository.EmployeeRepository
+	statusHistoryRepo *repository.StatusHistoryRepository
+}
+
+func NewServiceOrderHandler(
+	serviceOrderRepo *repository.ServiceOrderRepository,
+	customerRepo *repository.CustomerRepository,
+	departmentRepo *repository.DepartmentRepository,
+	employeeRepo *repository.EmployeeRepository,
+	statusHistoryRepo *repository.StatusHistoryRepository,
+) *ServiceOrderHandler {
+	return &ServiceOrderHandler{
+		serviceOrderRepo:  serviceOrderRepo,
+		customerRepo:      customerRepo,
+		departmentRepo:    departmentRepo,
+		employeeRepo:      employeeRepo,
+		statusHistoryRepo: statusHistoryRepo,
+	}
+}
+
+type CreateCustomerForOrderRequest struct {
+	Name    string          `json:"name" binding:"required"`
+	CPF     string          `json:"cpf"` // Opcional para avulsos
+	Phone   string          `json:"phone" binding:"required"`
+	Email   string          `json:"email,omitempty"`
+	Address *models.Address `json:"address,omitempty"`
+}
+
+type CreateServiceOrderRequest struct {
+	CustomerID         string                         `json:"customerId,omitempty"` // Opcional se criar cliente avulso
+	Customer           *CreateCustomerForOrderRequest `json:"customer,omitempty"`   // Dados do cliente avulso
+	ProductType        string                         `json:"productType" binding:"required"`
+	ProductBrand       string                         `json:"productBrand" binding:"required"`
+	ProductModel       string                         `json:"productModel" binding:"required"`
+	ProblemDescription string                         `json:"problemDescription" binding:"required"`
+	InitialEvaluation  string                         `json:"initialEvaluation,omitempty"`
+	DepartmentID       string                         `json:"departmentId" binding:"required"`
+	AssignedTo         string                         `json:"assignedTo,omitempty"`
+	Images             []string                       `json:"images,omitempty"` // URLs das imagens
+	EstimatedCost      float64                        `json:"estimatedCost,omitempty"`
+}
+
+type UpdateServiceOrderRequest struct {
+	ProductType        string   `json:"productType,omitempty"`
+	ProductBrand       string   `json:"productBrand,omitempty"`
+	ProductModel       string   `json:"productModel,omitempty"`
+	ProblemDescription string   `json:"problemDescription,omitempty"`
+	InitialEvaluation  string   `json:"initialEvaluation,omitempty"`
+	DepartmentID       string   `json:"departmentId,omitempty"`
+	AssignedTo         string   `json:"assignedTo,omitempty"`
+	Images             []string `json:"images,omitempty"`
+	EstimatedCost      *float64 `json:"estimatedCost,omitempty"`
+	FinalCost          *float64 `json:"finalCost,omitempty"`
+}
+
+type UpdateStatusRequest struct {
+	Status models.ServiceOrderStatus `json:"status" binding:"required"`
+	Notes  string                    `json:"notes,omitempty"`
+}
+
+type AddNoteRequest struct {
+	Content string `json:"content" binding:"required"`
+}
+
+// generateUniqueOrderNumber generates a unique order number
+func (h *ServiceOrderHandler) generateUniqueOrderNumber(ctx context.Context) (string, error) {
+	year := utils.GetCurrentYear()
+
+	// Get all orders for this year to find the highest sequence
+	filter := bson.M{
+		"orderNumber": bson.M{
+			"$regex": fmt.Sprintf("^ORD-%d-", year),
+		},
+	}
+
+	// List all orders for this year (sorted by orderNumber descending)
+	orders, err := h.serviceOrderRepo.ListServiceOrders(ctx, 0, 1000, filter)
+	if err != nil {
+		return "", err
+	}
+
+	sequence := 1
+	if len(orders) > 0 {
+		// Find the highest sequence number
+		for _, order := range orders {
+			var lastYear, lastSeq int
+			if _, err := fmt.Sscanf(order.OrderNumber, "ORD-%d-%d", &lastYear, &lastSeq); err == nil {
+				if lastSeq >= sequence {
+					sequence = lastSeq + 1
+				}
+			}
+		}
+	}
+
+	// Generate new order number
+	orderNumber := utils.GenerateOrderNumber(year, sequence)
+
+	// Verify uniqueness (shouldn't happen, but safety check)
+	existing, err := h.serviceOrderRepo.GetServiceOrderByOrderNumber(ctx, orderNumber)
+	if err != nil {
+		return "", err
+	}
+	if existing != nil {
+		// If somehow exists, increment and try again
+		sequence++
+		orderNumber = utils.GenerateOrderNumber(year, sequence)
+	}
+
+	return orderNumber, nil
+}
+
+// CreateServiceOrder creates a new service order
+func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
+	var req CreateServiceOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondWithBadRequest(c, utils.SanitizeValidationError(err))
+		return
+	}
+
+	ctx := c.Request.Context()
+	currentUser := middleware.GetUserFromContext(c)
+	if currentUser == nil {
+		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
+		return
+	}
+
+	// Get current employee
+	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
+	if err != nil || currentEmployee == nil {
+		utils.RespondWithForbidden(c, "")
+		return
+	}
+
+	// Handle customer: either use existing ID or create temporary customer
+	var customerID primitive.ObjectID
+	var customer *models.Customer
+
+	if req.CustomerID != "" {
+		// Use existing customer
+		customerID, err = primitive.ObjectIDFromHex(req.CustomerID)
+		if err != nil {
+			utils.RespondWithBadRequest(c, "ID do cliente inválido")
+			return
+		}
+
+		// Verify customer exists
+		customer, err = h.customerRepo.GetCustomerByID(ctx, customerID)
+		if err != nil {
+			utils.RespondWithInternalError(c)
+			return
+		}
+		if customer == nil {
+			utils.RespondWithNotFound(c, "Cliente não encontrado")
+			return
+		}
+	} else if req.Customer != nil {
+		// Create temporary customer
+		tempCustomer := &models.Customer{
+			Name:        req.Customer.Name,
+			CPF:         req.Customer.CPF, // Pode ser vazio para avulsos
+			Phone:       req.Customer.Phone,
+			Email:       req.Customer.Email,
+			Address:     req.Customer.Address,
+			IsTemporary: true,
+			CreatedBy:   currentEmployee.ID,
+			UpdatedBy:   currentEmployee.ID,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		// Check if customer with same phone already exists (if CPF not provided)
+		if tempCustomer.CPF == "" {
+			existing, err := h.customerRepo.GetCustomerByPhone(ctx, tempCustomer.Phone)
+			if err != nil {
+				utils.RespondWithInternalError(c)
+				return
+			}
+			if existing != nil {
+				// Use existing customer
+				customerID = existing.ID
+				customer = existing
+			} else {
+				// Create new temporary customer
+				if err := h.customerRepo.CreateCustomer(ctx, tempCustomer); err != nil {
+					utils.RespondWithInternalError(c)
+					return
+				}
+				customerID = tempCustomer.ID
+				customer = tempCustomer
+			}
+		} else {
+			// Check if customer with CPF already exists
+			existing, err := h.customerRepo.GetCustomerByCPF(ctx, tempCustomer.CPF)
+			if err != nil {
+				utils.RespondWithInternalError(c)
+				return
+			}
+			if existing != nil {
+				// Use existing customer
+				customerID = existing.ID
+				customer = existing
+			} else {
+				// Create new temporary customer
+				if err := h.customerRepo.CreateCustomer(ctx, tempCustomer); err != nil {
+					utils.RespondWithInternalError(c)
+					return
+				}
+				customerID = tempCustomer.ID
+				customer = tempCustomer
+			}
+		}
+	} else {
+		utils.RespondWithBadRequest(c, "É necessário informar o ID do cliente ou os dados do cliente avulso")
+		return
+	}
+
+	departmentID, err := primitive.ObjectIDFromHex(req.DepartmentID)
+	if err != nil {
+		utils.RespondWithBadRequest(c, "ID do departamento inválido")
+		return
+	}
+
+	// Verify department exists
+	department, err := h.departmentRepo.GetDepartmentByID(ctx, departmentID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if department == nil {
+		utils.RespondWithNotFound(c, "Departamento não encontrado")
+		return
+	}
+
+	// Parse assignedTo if provided
+	var assignedTo primitive.ObjectID
+	if req.AssignedTo != "" {
+		assignedTo, err = primitive.ObjectIDFromHex(req.AssignedTo)
+		if err != nil {
+			utils.RespondWithBadRequest(c, "ID do colaborador atribuído inválido")
+			return
+		}
+	}
+
+	// Generate unique order number
+	orderNumber, err := h.generateUniqueOrderNumber(ctx)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	// Convert image URLs to Image models
+	images := make([]models.Image, 0, len(req.Images))
+	for _, url := range req.Images {
+		images = append(images, models.Image{
+			ID:         primitive.NewObjectID(),
+			URL:        url,
+			UploadedAt: time.Now(),
+			UploadedBy: currentEmployee.ID,
+		})
+	}
+
+	// Create service order
+	order := &models.ServiceOrder{
+		OrderNumber:        orderNumber,
+		CustomerID:         customerID,
+		ProductType:        req.ProductType,
+		ProductBrand:       req.ProductBrand,
+		ProductModel:       req.ProductModel,
+		ProblemDescription: req.ProblemDescription,
+		InitialEvaluation:  req.InitialEvaluation,
+		Status:             models.StatusPending,
+		DepartmentID:       departmentID,
+		AssignedTo:         assignedTo,
+		Images:             images,
+		EstimatedCost:      req.EstimatedCost,
+		Notes:              []models.Note{},
+		CreatedBy:          currentEmployee.ID,
+		UpdatedBy:          currentEmployee.ID,
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
+	}
+
+	if err := h.serviceOrderRepo.CreateServiceOrder(ctx, order); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"order": order})
+}
+
+// GetServiceOrder retrieves a service order by ID
+func (h *ServiceOrderHandler) GetServiceOrder(c *gin.Context) {
+	id := c.Param("id")
+	orderID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	ctx := c.Request.Context()
+	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if order == nil {
+		utils.RespondWithNotFound(c, "Ordem de serviço não encontrada")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"order": order})
+}
+
+// GetServiceOrderByOrderNumber retrieves a service order by order number (public)
+func (h *ServiceOrderHandler) GetServiceOrderByOrderNumber(c *gin.Context) {
+	orderNumber := c.Param("orderNumber")
+	if orderNumber == "" {
+		utils.RespondWithBadRequest(c, "Número da ordem é obrigatório")
+		return
+	}
+
+	ctx := c.Request.Context()
+	order, err := h.serviceOrderRepo.GetServiceOrderByOrderNumber(ctx, orderNumber)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if order == nil {
+		utils.RespondWithNotFound(c, "Ordem de serviço não encontrada")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"order": order})
+}
+
+// ListServiceOrders lists service orders with filters
+func (h *ServiceOrderHandler) ListServiceOrders(c *gin.Context) {
+	ctx := c.Request.Context()
+	filter := bson.M{}
+
+	// Filter by status
+	if status := c.Query("status"); status != "" {
+		filter["status"] = status
+	}
+
+	// Filter by department
+	if deptID := c.Query("departmentId"); deptID != "" {
+		departmentID, err := primitive.ObjectIDFromHex(deptID)
+		if err == nil {
+			filter["departmentId"] = departmentID
+		}
+	}
+
+	// Filter by customer
+	if custID := c.Query("customerId"); custID != "" {
+		customerID, err := primitive.ObjectIDFromHex(custID)
+		if err == nil {
+			filter["customerId"] = customerID
+		}
+	}
+
+	// Filter by assigned employee
+	if empID := c.Query("assignedTo"); empID != "" {
+		employeeID, err := primitive.ObjectIDFromHex(empID)
+		if err == nil {
+			filter["assignedTo"] = employeeID
+		}
+	}
+
+	// Pagination
+	page, _ := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 64)
+	limit, _ := strconv.ParseInt(c.DefaultQuery("limit", "20"), 10, 64)
+	if limit > 100 {
+		limit = 100
+	}
+	skip := (page - 1) * limit
+
+	orders, err := h.serviceOrderRepo.ListServiceOrders(ctx, skip, limit, filter)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	total, err := h.serviceOrderRepo.CountServiceOrders(ctx, filter)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"orders": orders,
+		"pagination": gin.H{
+			"page":  page,
+			"limit": limit,
+			"total": total,
+		},
+	})
+}
+
+// UpdateServiceOrder updates a service order
+func (h *ServiceOrderHandler) UpdateServiceOrder(c *gin.Context) {
+	id := c.Param("id")
+	orderID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	var req UpdateServiceOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondWithBadRequest(c, utils.SanitizeValidationError(err))
+		return
+	}
+
+	ctx := c.Request.Context()
+	currentUser := middleware.GetUserFromContext(c)
+	if currentUser == nil {
+		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
+		return
+	}
+
+	// Get current employee
+	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
+	if err != nil || currentEmployee == nil {
+		utils.RespondWithForbidden(c, "")
+		return
+	}
+
+	// Get existing order
+	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if order == nil {
+		utils.RespondWithNotFound(c, "Ordem de serviço não encontrada")
+		return
+	}
+
+	// Update fields
+	if req.ProductType != "" {
+		order.ProductType = req.ProductType
+	}
+	if req.ProductBrand != "" {
+		order.ProductBrand = req.ProductBrand
+	}
+	if req.ProductModel != "" {
+		order.ProductModel = req.ProductModel
+	}
+	if req.ProblemDescription != "" {
+		order.ProblemDescription = req.ProblemDescription
+	}
+	if req.InitialEvaluation != "" {
+		order.InitialEvaluation = req.InitialEvaluation
+	}
+	if req.DepartmentID != "" {
+		departmentID, err := primitive.ObjectIDFromHex(req.DepartmentID)
+		if err != nil {
+			utils.RespondWithBadRequest(c, "ID do departamento inválido")
+			return
+		}
+		order.DepartmentID = departmentID
+	}
+	if req.AssignedTo != "" {
+		assignedTo, err := primitive.ObjectIDFromHex(req.AssignedTo)
+		if err != nil {
+			utils.RespondWithBadRequest(c, "ID do colaborador inválido")
+			return
+		}
+		order.AssignedTo = assignedTo
+	}
+	if req.EstimatedCost != nil {
+		order.EstimatedCost = *req.EstimatedCost
+	}
+	if req.FinalCost != nil {
+		order.FinalCost = *req.FinalCost
+	}
+
+	order.UpdatedBy = currentEmployee.ID
+	order.UpdatedAt = time.Now()
+
+	if err := h.serviceOrderRepo.UpdateServiceOrder(ctx, orderID, order); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"order": order})
+}
+
+// UpdateServiceOrderStatus updates the status of a service order
+func (h *ServiceOrderHandler) UpdateServiceOrderStatus(c *gin.Context) {
+	id := c.Param("id")
+	orderID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	var req UpdateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondWithBadRequest(c, utils.SanitizeValidationError(err))
+		return
+	}
+
+	ctx := c.Request.Context()
+	currentUser := middleware.GetUserFromContext(c)
+	if currentUser == nil {
+		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
+		return
+	}
+
+	// Get current employee
+	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
+	if err != nil || currentEmployee == nil {
+		utils.RespondWithForbidden(c, "")
+		return
+	}
+
+	// Get existing order
+	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if order == nil {
+		utils.RespondWithNotFound(c, "Ordem de serviço não encontrada")
+		return
+	}
+
+	// Validate status transition
+	if !models.IsValidStatusTransition(order.Status, req.Status) {
+		utils.RespondWithBadRequest(c, "Transição de status inválida")
+		return
+	}
+
+	// Check if employee can change to this status
+	if !currentEmployee.CanChangeStatus(req.Status) {
+		utils.RespondWithForbidden(c, "Você não tem permissão para mudar para este status")
+		return
+	}
+
+	previousStatus := order.Status
+	order.Status = req.Status
+	order.StatusChangedBy = currentEmployee.ID
+	order.StatusChangedAt = time.Now()
+	order.UpdatedBy = currentEmployee.ID
+	order.UpdatedAt = time.Now()
+
+	// Update order
+	if err := h.serviceOrderRepo.UpdateServiceOrder(ctx, orderID, order); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	// Create status history entry
+	statusHistory := &models.StatusHistory{
+		ID:             primitive.NewObjectID(),
+		ServiceOrderID: orderID,
+		PreviousStatus: previousStatus,
+		NewStatus:      req.Status,
+		ChangedBy:      currentEmployee.ID,
+		EmployeeRole:   currentEmployee.Role,
+		DepartmentID:   currentEmployee.DepartmentID,
+		Notes:          req.Notes,
+		ChangedAt:      time.Now(),
+	}
+
+	// Get department name if available
+	if !currentEmployee.DepartmentID.IsZero() {
+		department, err := h.departmentRepo.GetDepartmentByID(ctx, currentEmployee.DepartmentID)
+		if err == nil && department != nil {
+			statusHistory.DepartmentName = department.Name
+		}
+	}
+
+	if err := h.statusHistoryRepo.CreateStatusHistory(ctx, statusHistory); err != nil {
+		// Log error but don't fail the request
+		// Status was already updated
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"order":         order,
+		"statusHistory": statusHistory,
+	})
+}
+
+// AssignServiceOrder assigns a service order to an employee
+func (h *ServiceOrderHandler) AssignServiceOrder(c *gin.Context) {
+	id := c.Param("id")
+	orderID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	var req struct {
+		EmployeeID string `json:"employeeId" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondWithBadRequest(c, utils.SanitizeValidationError(err))
+		return
+	}
+
+	ctx := c.Request.Context()
+	currentUser := middleware.GetUserFromContext(c)
+	if currentUser == nil {
+		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
+		return
+	}
+
+	// Get current employee
+	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
+	if err != nil || currentEmployee == nil {
+		utils.RespondWithForbidden(c, "")
+		return
+	}
+
+	// Get existing order
+	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if order == nil {
+		utils.RespondWithNotFound(c, "Ordem de serviço não encontrada")
+		return
+	}
+
+	// Parse employee ID
+	employeeID, err := primitive.ObjectIDFromHex(req.EmployeeID)
+	if err != nil {
+		utils.RespondWithBadRequest(c, "ID do colaborador inválido")
+		return
+	}
+
+	// Verify employee exists
+	employee, err := h.employeeRepo.GetEmployeeByID(ctx, employeeID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if employee == nil {
+		utils.RespondWithNotFound(c, "Colaborador não encontrado")
+		return
+	}
+
+	order.AssignedTo = employeeID
+	order.UpdatedBy = currentEmployee.ID
+	order.UpdatedAt = time.Now()
+
+	if err := h.serviceOrderRepo.UpdateServiceOrder(ctx, orderID, order); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"order": order})
+}
+
+// AddNote adds a note to a service order
+func (h *ServiceOrderHandler) AddNote(c *gin.Context) {
+	id := c.Param("id")
+	orderID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	var req AddNoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondWithBadRequest(c, utils.SanitizeValidationError(err))
+		return
+	}
+
+	ctx := c.Request.Context()
+	currentUser := middleware.GetUserFromContext(c)
+	if currentUser == nil {
+		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
+		return
+	}
+
+	// Get current employee
+	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
+	if err != nil || currentEmployee == nil {
+		utils.RespondWithForbidden(c, "")
+		return
+	}
+
+	// Get existing order
+	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if order == nil {
+		utils.RespondWithNotFound(c, "Ordem de serviço não encontrada")
+		return
+	}
+
+	// Add note
+	note := models.Note{
+		ID:        primitive.NewObjectID(),
+		Content:   req.Content,
+		CreatedAt: time.Now(),
+		CreatedBy: currentEmployee.ID,
+	}
+
+	order.Notes = append(order.Notes, note)
+	order.UpdatedBy = currentEmployee.ID
+	order.UpdatedAt = time.Now()
+
+	if err := h.serviceOrderRepo.UpdateServiceOrder(ctx, orderID, order); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"order": order})
+}
+
+// GetServiceOrderHistory retrieves the complete history of a service order
+func (h *ServiceOrderHandler) GetServiceOrderHistory(c *gin.Context) {
+	id := c.Param("id")
+	orderID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Get status history
+	statusHistory, err := h.statusHistoryRepo.GetStatusHistoryByServiceOrderID(ctx, orderID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"statusHistory": statusHistory,
+	})
+}

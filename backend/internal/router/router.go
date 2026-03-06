@@ -26,10 +26,10 @@ func New(db *database.MongoDB) *gin.Engine {
 	userRepo := repository.NewUserRepository(db.Database)
 	employeeRepo := repository.NewEmployeeRepository(db.Database)
 	profileRepo := repository.NewProfileRepository(db.Database)
-	// customerRepo := repository.NewCustomerRepository(db.Database)
-	// serviceOrderRepo := repository.NewServiceOrderRepository(db.Database)
-	// departmentRepo := repository.NewDepartmentRepository(db.Database)
-	// statusHistoryRepo := repository.NewStatusHistoryRepository(db.Database)
+	customerRepo := repository.NewCustomerRepository(db.Database)
+	serviceOrderRepo := repository.NewServiceOrderRepository(db.Database)
+	departmentRepo := repository.NewDepartmentRepository(db.Database)
+	statusHistoryRepo := repository.NewStatusHistoryRepository(db.Database)
 	auditLogRepo := repository.NewAuditLogRepository(db.Database)
 
 	// Initialize default profiles (CCD-Connect pattern)
@@ -45,6 +45,10 @@ func New(db *database.MongoDB) *gin.Engine {
 	authHandler := handlers.NewAuthHandler(userRepo)
 	employeeHandler := handlers.NewEmployeeHandler(userRepo, employeeRepo, profileRepo)
 	profileHandler := handlers.NewProfileHandler(profileRepo)
+	customerHandler := handlers.NewCustomerHandler(customerRepo, serviceOrderRepo, employeeRepo)
+	serviceOrderHandler := handlers.NewServiceOrderHandler(serviceOrderRepo, customerRepo, departmentRepo, employeeRepo, statusHistoryRepo)
+	departmentHandler := handlers.NewDepartmentHandler(departmentRepo, employeeRepo, serviceOrderRepo)
+	publicHandler := handlers.NewPublicHandler(customerRepo, serviceOrderRepo)
 
 	// Auth middleware (optional authentication)
 	authMiddleware := middleware.AuthMiddleware(userRepo)
@@ -94,6 +98,52 @@ func New(db *database.MongoDB) *gin.Engine {
 			employees.GET("", employeeHandler.ListEmployees)
 			employees.GET("/:id", employeeHandler.GetEmployee)
 			employees.PUT("/:id", employeeHandler.UpdateEmployee)
+		}
+
+		// Customer routes (requires auth)
+		customers := api.Group("/customers")
+		customers.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+		{
+			customers.POST("", customerHandler.CreateCustomer)
+			customers.GET("", customerHandler.ListCustomers)
+			customers.GET("/search/cpf", customerHandler.GetCustomerByCPF)
+			customers.GET("/search/phone", customerHandler.GetCustomerByPhone)
+			customers.GET("/:id", customerHandler.GetCustomer)
+			customers.GET("/:id/orders", customerHandler.GetCustomerServiceOrders)
+			customers.PUT("/:id", customerHandler.UpdateCustomer)
+		}
+
+		// Service Order routes (requires auth)
+		serviceOrders := api.Group("/service-orders")
+		serviceOrders.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+		{
+			serviceOrders.POST("", serviceOrderHandler.CreateServiceOrder)
+			serviceOrders.GET("", serviceOrderHandler.ListServiceOrders)
+			serviceOrders.GET("/:id", serviceOrderHandler.GetServiceOrder)
+			serviceOrders.GET("/:id/history", serviceOrderHandler.GetServiceOrderHistory)
+			serviceOrders.PUT("/:id", serviceOrderHandler.UpdateServiceOrder)
+			serviceOrders.PATCH("/:id/status", serviceOrderHandler.UpdateServiceOrderStatus)
+			serviceOrders.PATCH("/:id/assign", serviceOrderHandler.AssignServiceOrder)
+			serviceOrders.POST("/:id/notes", serviceOrderHandler.AddNote)
+		}
+
+		// Department routes (requires auth)
+		departments := api.Group("/departments")
+		departments.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+		{
+			departments.POST("", departmentHandler.CreateDepartment)
+			departments.GET("", departmentHandler.ListDepartments)
+			departments.GET("/:id", departmentHandler.GetDepartment)
+			departments.GET("/:id/employees", departmentHandler.GetDepartmentEmployees)
+			departments.GET("/:id/orders", departmentHandler.GetDepartmentServiceOrders)
+			departments.PUT("/:id", departmentHandler.UpdateDepartment)
+		}
+
+		// Public routes (no auth required)
+		public := api.Group("/public")
+		{
+			public.GET("/service-orders/:orderNumber", serviceOrderHandler.GetServiceOrderByOrderNumber)
+			public.POST("/service-orders/search", publicHandler.SearchServiceOrder)
 		}
 
 		// Admin routes

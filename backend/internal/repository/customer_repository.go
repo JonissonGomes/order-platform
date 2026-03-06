@@ -22,10 +22,10 @@ func NewCustomerRepository(db *mongo.Database) *CustomerRepository {
 		collection: db.Collection(customersCollection),
 	}
 
-	// Criar índice único para CPF
+	// Criar índice único para CPF (apenas para CPFs não vazios)
 	indexModel := mongo.IndexModel{
 		Keys:    bson.D{{Key: "cpf", Value: 1}},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true).SetPartialFilterExpression(bson.M{"cpf": bson.M{"$ne": ""}}),
 	}
 	repo.collection.Indexes().CreateOne(context.Background(), indexModel)
 

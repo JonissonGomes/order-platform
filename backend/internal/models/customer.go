@@ -7,16 +7,17 @@ import (
 )
 
 type Customer struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name      string             `bson:"name" json:"name"`
-	CPF       string             `bson:"cpf" json:"cpf"` // Único, indexado
-	Phone     string             `bson:"phone" json:"phone"`
-	Email     string             `bson:"email,omitempty" json:"email,omitempty"`
-	Address   *Address           `bson:"address,omitempty" json:"address,omitempty"`
-	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
-	UpdatedAt time.Time          `bson:"updatedAt" json:"updatedAt"`
-	CreatedBy primitive.ObjectID `bson:"createdBy" json:"createdBy"` // Employee ID
-	UpdatedBy primitive.ObjectID `bson:"updatedBy" json:"updatedBy"` // Employee ID
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name        string             `bson:"name" json:"name"`
+	CPF         string             `bson:"cpf" json:"cpf"` // Único, indexado (pode ser vazio para avulsos)
+	Phone       string             `bson:"phone" json:"phone"`
+	Email       string             `bson:"email,omitempty" json:"email,omitempty"`
+	Address     *Address           `bson:"address,omitempty" json:"address,omitempty"`
+	IsTemporary bool               `bson:"isTemporary,omitempty" json:"isTemporary,omitempty"` // Cliente avulso
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+	CreatedBy   primitive.ObjectID `bson:"createdBy" json:"createdBy"` // Employee ID
+	UpdatedBy   primitive.ObjectID `bson:"updatedBy" json:"updatedBy"` // Employee ID
 }
 
 type Address struct {
