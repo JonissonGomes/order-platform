@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -15,6 +16,7 @@ type Config struct {
 	ForgeAPIURL  string
 	ForgeAPIKey  string
 	Environment  string
+	CORSOrigins  []string
 }
 
 var cfg *Config
@@ -23,6 +25,21 @@ var cfg *Config
 func Load() error {
 	// Try to load .env file (ignore error if it doesn't exist)
 	_ = godotenv.Load()
+
+	corsOriginsStr := getEnv("CORS_ORIGINS", "")
+	var corsOrigins []string
+	if corsOriginsStr != "" {
+		// Split by comma and trim spaces
+		origins := strings.Split(corsOriginsStr, ",")
+		for _, origin := range origins {
+			trimmed := strings.TrimSpace(origin)
+			if trimmed != "" {
+				corsOrigins = append(corsOrigins, trimmed)
+			}
+		}
+	}
+	// If CORS_ORIGINS is not set, corsOrigins will be empty
+	// The CORS middleware will handle this appropriately
 
 	cfg = &Config{
 		Port:         getEnv("PORT", "8080"),
@@ -33,6 +50,7 @@ func Load() error {
 		ForgeAPIURL:  getEnv("BUILT_IN_FORGE_API_URL", ""),
 		ForgeAPIKey:  getEnv("BUILT_IN_FORGE_API_KEY", ""),
 		Environment:  getEnv("NODE_ENV", "development"),
+		CORSOrigins:  corsOrigins,
 	}
 
 	// Validate required variables
