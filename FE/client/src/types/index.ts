@@ -103,6 +103,8 @@ export interface ServiceOrder {
   images?: Image[];
   estimatedCost?: number;
   finalCost?: number;
+  estimatedDelivery?: string; // Data estimada de entrega
+  priority?: "low" | "normal" | "high" | "urgent"; // Prioridade (não mostrada para clientes)
   notes?: Note[];
   createdAt: string;
   updatedAt: string;
@@ -198,13 +200,17 @@ export interface CreateCustomerRequest {
 }
 
 export interface CreateServiceOrderRequest {
-  customerId: string;
+  customerId?: string;
+  customer?: CreateCustomerRequest;
   productType: string;
   productBrand: string;
   productModel: string;
   problemDescription: string;
   departmentId: string;
   images?: Image[];
+  estimatedCost?: number;
+  estimatedDelivery?: string; // ISO 8601 date string
+  priority?: "low" | "normal" | "high" | "urgent";
 }
 
 export interface UpdateServiceOrderStatusRequest {

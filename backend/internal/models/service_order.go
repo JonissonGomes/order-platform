@@ -38,6 +38,8 @@ type ServiceOrder struct {
 	Images             []Image            `bson:"images,omitempty" json:"images,omitempty"`
 	EstimatedCost      float64            `bson:"estimatedCost,omitempty" json:"estimatedCost,omitempty"`
 	FinalCost          float64            `bson:"finalCost,omitempty" json:"finalCost,omitempty"`
+	EstimatedDelivery  *time.Time         `bson:"estimatedDelivery,omitempty" json:"estimatedDelivery,omitempty"` // Data estimada de entrega
+	Priority           string             `bson:"priority,omitempty" json:"priority,omitempty"`                   // low, normal, high, urgent
 	Notes              []Note             `bson:"notes,omitempty" json:"notes,omitempty"`
 	CreatedAt          time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt          time.Time          `bson:"updatedAt" json:"updatedAt"`

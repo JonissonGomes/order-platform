@@ -61,6 +61,8 @@ type CreateServiceOrderRequest struct {
 	AssignedTo         string                         `json:"assignedTo,omitempty"`
 	Images             []string                       `json:"images,omitempty"` // URLs das imagens
 	EstimatedCost      float64                        `json:"estimatedCost,omitempty"`
+	EstimatedDelivery  *string                        `json:"estimatedDelivery,omitempty"` // Data estimada de entrega (ISO 8601)
+	Priority           string                         `json:"priority,omitempty"`          // low, normal, high, urgent
 }
 
 type UpdateServiceOrderRequest struct {
@@ -74,6 +76,8 @@ type UpdateServiceOrderRequest struct {
 	Images             []string `json:"images,omitempty"`
 	EstimatedCost      *float64 `json:"estimatedCost,omitempty"`
 	FinalCost          *float64 `json:"finalCost,omitempty"`
+	EstimatedDelivery  *string  `json:"estimatedDelivery,omitempty"` // Data estimada de entrega (ISO 8601)
+	Priority           string   `json:"priority,omitempty"`          // low, normal, high, urgent
 }
 
 type UpdateStatusRequest struct {
@@ -282,6 +286,21 @@ func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 		})
 	}
 
+	// Parse estimated delivery date if provided
+	var estimatedDelivery *time.Time
+	if req.EstimatedDelivery != nil && *req.EstimatedDelivery != "" {
+		parsed, err := time.Parse(time.RFC3339, *req.EstimatedDelivery)
+		if err == nil {
+			estimatedDelivery = &parsed
+		}
+	}
+
+	// Set default priority if not provided
+	priority := req.Priority
+	if priority == "" {
+		priority = "normal"
+	}
+
 	// Create service order
 	order := &models.ServiceOrder{
 		OrderNumber:        orderNumber,
@@ -296,6 +315,8 @@ func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 		AssignedTo:         assignedTo,
 		Images:             images,
 		EstimatedCost:      req.EstimatedCost,
+		EstimatedDelivery:  estimatedDelivery,
+		Priority:           priority,
 		Notes:              []models.Note{},
 		CreatedBy:          currentEmployee.ID,
 		UpdatedBy:          currentEmployee.ID,
@@ -388,6 +409,11 @@ func (h *ServiceOrderHandler) ListServiceOrders(c *gin.Context) {
 		if err == nil {
 			filter["assignedTo"] = employeeID
 		}
+	}
+
+	// Filter by priority
+	if priority := c.Query("priority"); priority != "" {
+		filter["priority"] = priority
 	}
 
 	// Pagination

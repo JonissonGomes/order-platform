@@ -88,6 +88,10 @@ async function fetchAPI<T>(
 
   if (!response.ok) {
     // HTTP error (response received but status is not ok)
+    // Não lançar erro para 404 - silenciar
+    if (response.status === 404) {
+      throw new Error("status: 404"); // Marca como 404 mas sem mensagem visível
+    }
     const apiError = await handleHttpError(response);
     throw new Error(apiError.message);
   }
@@ -202,6 +206,7 @@ export const api = {
     departmentId?: string;
     customerId?: string;
     assignedTo?: string;
+    priority?: string;
   }): Promise<{ orders: ServiceOrder[]; pagination: { page: number; limit: number; total: number } }> {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append("page", params.page.toString());

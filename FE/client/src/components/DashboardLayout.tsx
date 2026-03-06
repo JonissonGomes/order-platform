@@ -217,21 +217,31 @@ function DashboardLayoutContent({
 
           <SidebarFooter className="p-3">
             <div className={`flex items-center gap-2 w-full ${isCollapsed ? "justify-center" : ""}`}>
-              <Avatar className="h-9 w-9 border shrink-0">
-                <AvatarFallback className="text-xs font-medium">
-                  {user?.name?.charAt(0).toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
+              <button
+                onClick={() => setLocation("/profile")}
+                className="shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg transition-colors"
+                title="Ver perfil"
+              >
+                <Avatar className="h-9 w-9 border cursor-pointer hover:opacity-80 transition-opacity">
+                  <AvatarFallback className="text-xs font-medium">
+                    {user?.name?.charAt(0).toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate leading-none">
+                  <button
+                    onClick={() => setLocation("/profile")}
+                    className="flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg p-1 -ml-1 hover:bg-accent transition-colors"
+                    title="Ver perfil"
+                  >
+                    <p className="text-sm font-medium truncate leading-none cursor-pointer">
                       {user?.name || "-"}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1.5">
+                    <p className="text-xs text-muted-foreground truncate mt-1.5 cursor-pointer">
                       {user?.email || "-"}
                     </p>
-                  </div>
+                  </button>
                   <Button
                     variant="ghost"
                     size="icon"

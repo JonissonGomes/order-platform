@@ -42,15 +42,15 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const statusLabels: Record<ServiceOrderStatus, string> = {
-  pending: "Aguardando Avaliação",
-  evaluating: "Em Avaliação",
   approved: "Aprovado",
-  waiting_parts: "Aguardando Peças",
-  in_repair: "Em Conserto",
-  testing: "Em Teste",
-  ready: "Pronto para Retirada",
-  delivered: "Entregue",
   cancelled: "Cancelado",
+  delivered: "Entregue",
+  evaluating: "Em Avaliação",
+  in_repair: "Em Conserto",
+  pending: "Aguardando Avaliação",
+  ready: "Pronto para Retirada",
+  testing: "Em Teste",
+  waiting_parts: "Aguardando Peças",
 };
 
 export default function ServiceOrders() {
@@ -58,11 +58,12 @@ export default function ServiceOrders() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   useEffect(() => {
     loadOrders();
-  }, [statusFilter]);
+  }, [statusFilter, priorityFilter]);
 
   const loadOrders = async () => {
     try {
@@ -70,6 +71,9 @@ export default function ServiceOrders() {
       const params: any = { page: 1, limit: 50 };
       if (statusFilter !== "all") {
         params.status = statusFilter;
+      }
+      if (priorityFilter !== "all") {
+        params.priority = priorityFilter;
       }
       const response = await api.listServiceOrders(params);
       setOrders(response.orders);
@@ -144,11 +148,28 @@ export default function ServiceOrders() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
-              {Object.entries(statusLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
+              {Object.entries(statusLabels)
+                .sort(([, labelA], [, labelB]) => labelA.localeCompare(labelB))
+                .map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Filtrar por prioridade" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as prioridades</SelectItem>
+              <SelectItem value="low">Baixa</SelectItem>
+              <SelectItem value="normal">Normal</SelectItem>
+              <SelectItem value="high">Alta</SelectItem>
+              <SelectItem value="urgent">Urgente</SelectItem>
             </SelectContent>
           </Select>
         </div>

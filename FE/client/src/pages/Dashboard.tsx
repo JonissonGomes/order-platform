@@ -110,30 +110,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle>Informações da Conta</CardTitle>
-              <CardDescription>Detalhes do seu perfil</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Nome</p>
-                  <p className="text-sm">{user?.name || "Não informado"}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Email</p>
-                  <p className="text-sm">{user?.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Perfil</p>
-                  <p className="text-sm capitalize">{user?.role || "user"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </DashboardLayout>
   );

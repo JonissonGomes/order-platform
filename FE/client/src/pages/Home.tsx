@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
+import { MapView } from "@/components/Map";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -30,46 +31,46 @@ export default function Home() {
   const services = [
     {
       icon: Smartphone,
-      title: "Reparo de Smartphones",
-      description: "Conserto completo de smartphones de todas as marcas. Tela, bateria, conector e muito mais.",
+      title: "Reparo de Consoles",
+      description: "Especialistas em reparo de Playstation, Xbox e Nintendo. Resolvemos desde problemas simples até reparos complexos.",
     },
     {
       icon: Laptop,
-      title: "Reparo de Notebooks",
-      description: "Manutenção e reparo de notebooks. Troca de peças, limpeza interna e formatação.",
+      title: "Reparo de Controles",
+      description: "Conserto de controles de todas as marcas. Analógicos, botões, conectividade e muito mais.",
     },
     {
       icon: Tablet,
-      title: "Reparo de Tablets",
-      description: "Especialistas em reparo de tablets. Tela, bateria e componentes internos.",
+      title: "Diagnóstico Detalhado",
+      description: "Cada equipamento recebe diagnóstico detalhado e atendimento exclusivo.",
     },
     {
       icon: Zap,
-      title: "Manutenção Preventiva",
-      description: "Mantenha seus aparelhos em perfeito estado com nossa manutenção preventiva.",
+      title: "Coleta e Entrega",
+      description: "Buscamos e entregamos seu console em Recife. Consulte nossas taxas para sua localidade.",
     },
   ];
 
   const benefits = [
     {
+      icon: Wrench,
+      title: "Técnicos qualificados",
+      description: "Nossa equipe é composta por especialistas em videogames.",
+    },
+    {
       icon: Shield,
       title: "Garantia de 90 dias",
-      description: "Todos os nossos serviços possuem garantia de 90 dias",
-    },
-    {
-      icon: Clock,
-      title: "Atendimento Rápido",
-      description: "Avaliação em até 24 horas e conserto rápido",
-    },
-    {
-      icon: Wrench,
-      title: "Técnicos Especializados",
-      description: "Equipe qualificada e certificada pelas principais marcas",
+      description: "Para todos os reparos realizados pela nossa equipe.",
     },
     {
       icon: MessageSquare,
-      title: "Acompanhamento Online",
-      description: "Acompanhe o status do seu conserto em tempo real",
+      title: "Suporte especializado",
+      description: "Cada equipamento recebe diagnóstico detalhado e atendimento exclusivo.",
+    },
+    {
+      icon: Clock,
+      title: "Coleta e entrega",
+      description: "Pensando na sua conveniência, buscamos e entregamos seu console em Recife.",
     },
   ];
 
@@ -88,13 +89,12 @@ export default function Home() {
       {/* Hero Section */}
       <section className="w-full container mx-auto px-4 py-16 md:py-24">
         <div className="text-center max-w-4xl mx-auto mb-16">
-          <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6">
-            Conserto de Aparelhos Eletrônicos
-            <span className="block text-blue-600 mt-2">Profissional e Confiável</span>
+          <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-4">
+            Seu videogame
+            <span className="block text-blue-600 mt-2">quebrou ?</span>
           </h1>
-          <p className="text-xl text-slate-600 mb-8 leading-relaxed">
-            Especialistas em reparo de smartphones, notebooks e tablets. 
-            Atendimento rápido, garantia de 90 dias e acompanhamento online do seu serviço.
+          <p className="text-xl md:text-2xl text-slate-600 mb-8 leading-relaxed font-medium">
+            Reparos de Playstation, Xbox e Nintendo com coleta e entrega em Recife, só na Doutor Game.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button
@@ -123,10 +123,12 @@ export default function Home() {
       <section className="w-full container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-            Nossos Serviços
+            Serviços
           </h2>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Oferecemos soluções completas para o conserto dos seus aparelhos eletrônicos
+          <p className="text-lg text-slate-600 max-w-3xl mx-auto">
+            Na Doutor Game, somos especialistas em reparo de consoles e controles da Playstation, Xbox e Nintendo. 
+            Com uma equipe de técnicos capacitados e tecnologia avançada, resolvemos desde problemas simples até reparos complexos, 
+            sempre com agilidade e qualidade.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
@@ -153,8 +155,14 @@ export default function Home() {
         <div className="w-full container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Por que escolher nossa empresa?
+              Logística
             </h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8">
+              Coleta e entrega
+            </p>
+            <p className="text-base text-slate-600 max-w-2xl mx-auto">
+              Pensando na sua conveniência, buscamos e entregamos seu console em Recife. Consulte nossas taxas para sua localidade.
+            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
             {benefits.map((benefit, index) => (
@@ -182,10 +190,10 @@ export default function Home() {
           <div className="max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-                Entre em Contato
+                Contatos
               </h2>
-              <p className="text-lg text-slate-600">
-                Solicite um orçamento ou tire suas dúvidas
+              <p className="text-lg text-slate-600 mb-2">
+                Fale conosco, e volte a jogar sem preocupações!
               </p>
             </div>
 
@@ -201,14 +209,7 @@ export default function Home() {
                       <Phone className="h-5 w-5 text-blue-600 mt-1" />
                       <div>
                         <p className="font-semibold">Telefone</p>
-                        <p className="text-slate-600">(11) 99999-9999</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Mail className="h-5 w-5 text-blue-600 mt-1" />
-                      <div>
-                        <p className="font-semibold">Email</p>
-                        <p className="text-slate-600">contato@empresa.com.br</p>
+                        <p className="text-slate-600">(81) 9 8676-3169</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -216,18 +217,8 @@ export default function Home() {
                       <div>
                         <p className="font-semibold">Endereço</p>
                         <p className="text-slate-600">
-                          Rua Exemplo, 123<br />
-                          São Paulo - SP, 01234-567
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Clock className="h-5 w-5 text-blue-600 mt-1" />
-                      <div>
-                        <p className="font-semibold">Horário de Atendimento</p>
-                        <p className="text-slate-600">
-                          Segunda a Sexta: 9h às 18h<br />
-                          Sábado: 9h às 13h
+                          Rua Ijuí, nº 293<br />
+                          Torrões, Recife - PE
                         </p>
                       </div>
                     </div>
@@ -281,7 +272,7 @@ export default function Home() {
                         value={contactForm.message}
                         onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
                         required
-                        placeholder="Descreva o problema do seu aparelho..."
+                        placeholder="Descreva o problema do seu console ou controle..."
                         rows={5}
                       />
                     </div>
@@ -331,14 +322,14 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <Button 
-                  onClick={() => setLocation("/login")} 
-                  className="w-full" 
-                  size="lg"
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Criar conta gratuita
-                </Button>
+            <Button 
+              onClick={() => setLocation("/register")} 
+              className="w-full" 
+              size="lg"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Criar conta gratuita
+            </Button>
                 <p className="text-xs text-center text-muted-foreground">
                   Já tem uma conta? <button onClick={() => setLocation("/login")} className="text-blue-600 hover:underline font-medium">Faça login</button>
                 </p>
@@ -353,7 +344,7 @@ export default function Home() {
         <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white max-w-6xl xl:max-w-7xl 2xl:max-w-full mx-auto">
           <CardContent className="p-8 md:p-12 text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Pronto para consertar seu aparelho?
+              Pronto para consertar seu videogame?
             </h2>
             <p className="text-lg mb-8 text-blue-100">
               Solicite um orçamento gratuito e sem compromisso

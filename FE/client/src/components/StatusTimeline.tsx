@@ -4,15 +4,15 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const statusLabels: Record<string, string> = {
-  pending: "Aguardando Avaliação",
-  evaluating: "Em Avaliação",
   approved: "Aprovado",
-  waiting_parts: "Aguardando Peças",
-  in_repair: "Em Conserto",
-  testing: "Em Teste",
-  ready: "Pronto para Retirada",
-  delivered: "Entregue",
   cancelled: "Cancelado",
+  delivered: "Entregue",
+  evaluating: "Em Avaliação",
+  in_repair: "Em Conserto",
+  pending: "Aguardando Avaliação",
+  ready: "Pronto para Retirada",
+  testing: "Em Teste",
+  waiting_parts: "Aguardando Peças",
 };
 
 interface StatusTimelineProps {

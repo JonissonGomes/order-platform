@@ -13,15 +13,15 @@ import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 
 const statusLabels: Record<string, string> = {
-  pending: "Aguardando Avaliação",
-  evaluating: "Em Avaliação",
   approved: "Aprovado",
-  waiting_parts: "Aguardando Peças",
-  in_repair: "Em Conserto",
-  testing: "Em Teste",
-  ready: "Pronto para Retirada",
-  delivered: "Entregue",
   cancelled: "Cancelado",
+  delivered: "Entregue",
+  evaluating: "Em Avaliação",
+  in_repair: "Em Conserto",
+  pending: "Aguardando Avaliação",
+  ready: "Pronto para Retirada",
+  testing: "Em Teste",
+  waiting_parts: "Aguardando Peças",
 };
 
 export default function PublicOrderTracking() {
@@ -72,7 +72,11 @@ export default function PublicOrderTracking() {
         }
       }
     } catch (error: any) {
-      toast.error(error.message || "Erro ao buscar ordem de serviço");
+      // Não mostrar erro se for 404 (recurso não encontrado) ou se a mensagem estiver vazia
+      const errorMessage = error.message || "";
+      if (errorMessage && !errorMessage.includes("status: 404") && errorMessage.trim() !== "") {
+        toast.error(errorMessage || "Erro ao buscar ordem de serviço");
+      }
     } finally {
       setLoading(false);
     }
@@ -247,7 +251,7 @@ export default function PublicOrderTracking() {
               </div>
             </div>
             <Button 
-              onClick={() => setLocation("/login")} 
+              onClick={() => setLocation("/register")} 
               className="w-full" 
               size="lg"
             >
