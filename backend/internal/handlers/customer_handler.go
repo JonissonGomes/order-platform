@@ -16,9 +16,9 @@ import (
 )
 
 type CustomerHandler struct {
-	customerRepo      *repository.CustomerRepository
-	serviceOrderRepo  *repository.ServiceOrderRepository
-	employeeRepo      *repository.EmployeeRepository
+	customerRepo     *repository.CustomerRepository
+	serviceOrderRepo *repository.ServiceOrderRepository
+	employeeRepo     *repository.EmployeeRepository
 }
 
 func NewCustomerHandler(
@@ -284,6 +284,37 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"customer": customer})
+}
+
+// DeleteCustomer deletes a customer
+func (h *CustomerHandler) DeleteCustomer(c *gin.Context) {
+	id := c.Param("id")
+	customerID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Check if customer has service orders
+	orders, err := h.serviceOrderRepo.GetServiceOrdersByCustomerID(ctx, customerID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if len(orders) > 0 {
+		utils.RespondWithConflict(c, "Não é possível deletar cliente com ordens de serviço associadas")
+		return
+	}
+
+	// Delete customer
+	if err := h.customerRepo.DeleteCustomer(ctx, customerID); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 // GetCustomerServiceOrders retrieves all service orders for a customer

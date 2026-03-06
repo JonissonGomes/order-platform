@@ -13,20 +13,20 @@ type ErrorResponse struct {
 
 // Error messages that are safe to expose to users
 const (
-	ErrInvalidCredentials     = "Credenciais inválidas"
-	ErrUserAlreadyExists      = "Este email já está cadastrado"
-	ErrUserNotFound           = "Usuário não encontrado"
-	ErrInvalidRequest         = "Dados inválidos. Verifique os campos e tente novamente"
-	ErrUnauthorized           = "Autenticação necessária"
-	ErrForbidden              = "Você não tem permissão para realizar esta ação"
-	ErrNotFound               = "Recurso não encontrado"
-	ErrInternalServer         = "Ocorreu um erro interno. Tente novamente mais tarde"
-	ErrFailedToCreate         = "Não foi possível criar o recurso. Tente novamente"
-	ErrFailedToUpdate         = "Não foi possível atualizar o recurso. Tente novamente"
-	ErrFailedToDelete         = "Não foi possível excluir o recurso. Tente novamente"
-	ErrInvalidID              = "ID inválido"
-	ErrMaxSuperAdmins         = "Limite máximo de super administradores atingido"
-	ErrEmailAlreadyExists     = "Este email já está em uso"
+	ErrInvalidCredentials = "Credenciais inválidas"
+	ErrUserAlreadyExists  = "Este email já está cadastrado"
+	ErrUserNotFound       = "Usuário não encontrado"
+	ErrInvalidRequest     = "Dados inválidos. Verifique os campos e tente novamente"
+	ErrUnauthorized       = "Autenticação necessária"
+	ErrForbidden          = "Você não tem permissão para realizar esta ação"
+	ErrNotFound           = "Recurso não encontrado"
+	ErrInternalServer     = "Ocorreu um erro interno. Tente novamente mais tarde"
+	ErrFailedToCreate     = "Não foi possível criar o recurso. Tente novamente"
+	ErrFailedToUpdate     = "Não foi possível atualizar o recurso. Tente novamente"
+	ErrFailedToDelete     = "Não foi possível excluir o recurso. Tente novamente"
+	ErrInvalidID          = "ID inválido"
+	ErrMaxSuperAdmins     = "Limite máximo de super administradores atingido"
+	ErrEmailAlreadyExists = "Este email já está em uso"
 )
 
 // RespondWithError sends a standardized error response

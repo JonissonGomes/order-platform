@@ -12,8 +12,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
+import { formatCPF, formatPhone, formatCEP, validateCPF } from "@/lib/formatters";
+import { fetchCEP } from "@/lib/cep";
 import type { Customer } from "@/types";
-import { Plus, Search, User } from "lucide-react";
+import { Plus, Search, User, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -22,6 +24,8 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {
     loadCustomers();
@@ -49,7 +53,7 @@ export default function Customers() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 w-full min-w-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
@@ -62,33 +66,38 @@ export default function Customers() {
                 Novo Cliente
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Novo Cliente</DialogTitle>
-                <DialogDescription>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+                <DialogTitle className="text-lg sm:text-xl">Novo Cliente</DialogTitle>
+                <DialogDescription className="text-sm">
                   Preencha os dados para cadastrar um novo cliente
                 </DialogDescription>
               </DialogHeader>
-              <CreateCustomerForm onSuccess={() => {
-                setIsCreateDialogOpen(false);
-                loadCustomers();
-              }} />
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+                <CreateCustomerForm onSuccess={() => {
+                  setIsCreateDialogOpen(false);
+                  loadCustomers();
+                }} />
+              </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        <div className="flex gap-4">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nome, CPF ou telefone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              className="pl-10"
+              className="pl-10 w-full"
             />
           </div>
-          <Button onClick={handleSearch}>Buscar</Button>
+          <Button onClick={handleSearch} size="icon" className="w-full sm:w-auto" variant="outline">
+            <Search className="h-4 w-4" />
+            <span className="sr-only">Buscar</span>
+          </Button>
         </div>
 
         {loading ? (
@@ -100,43 +109,114 @@ export default function Customers() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {customers.map((customer) => (
-              <CustomerCard key={customer.id} customer={customer} />
+              <CustomerCard 
+                key={customer.id} 
+                customer={customer}
+                onEdit={() => setEditingCustomer(customer)}
+                onDelete={() => setDeletingCustomer(customer)}
+              />
             ))}
           </div>
         )}
+
+        {/* Edit Dialog */}
+        {editingCustomer && (
+          <Dialog open={!!editingCustomer} onOpenChange={(open) => !open && setEditingCustomer(null)}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+                <DialogTitle className="text-lg sm:text-xl">Editar Cliente</DialogTitle>
+                <DialogDescription className="text-sm">
+                  Atualize os dados do cliente
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+                <EditCustomerForm 
+                  customer={editingCustomer}
+                  onSuccess={() => {
+                    setEditingCustomer(null);
+                    loadCustomers();
+                  }}
+                  onCancel={() => setEditingCustomer(null)}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={!!deletingCustomer} onOpenChange={(open) => !open && setDeletingCustomer(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir o cliente {deletingCustomer?.name}? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (deletingCustomer) {
+                    try {
+                      await api.deleteCustomer(deletingCustomer.id);
+                      toast.success("Cliente excluído com sucesso!");
+                      setDeletingCustomer(null);
+                      loadCustomers();
+                    } catch (error: any) {
+                      toast.error(error.message || "Erro ao excluir cliente");
+                    }
+                  }
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
 }
 
-function CustomerCard({ customer }: { customer: Customer }) {
+function CustomerCard({ customer, onEdit, onDelete }: { customer: Customer; onEdit: () => void; onDelete: () => void }) {
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-shadow w-full">
       <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-full">
-            <User className="h-5 w-5 text-blue-600" />
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="p-2 bg-blue-100 rounded-full flex-shrink-0">
+              <User className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-base sm:text-lg truncate">{customer.name}</CardTitle>
+              <CardDescription className="text-xs sm:text-sm break-all">{customer.cpf || "Sem CPF"}</CardDescription>
+            </div>
           </div>
-          <div>
-            <CardTitle className="text-lg">{customer.name}</CardTitle>
-            <CardDescription>CPF: {customer.cpf}</CardDescription>
+          <div className="flex gap-1 flex-shrink-0">
+            <Button variant="ghost" size="icon" onClick={onEdit} className="h-8 w-8">
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8">
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2 text-sm">
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground break-words">
             <strong>Telefone:</strong> {customer.phone}
           </p>
           {customer.email && (
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground break-words">
               <strong>Email:</strong> {customer.email}
             </p>
           )}
           {customer.address && (
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground break-words text-xs">
               <strong>Endereço:</strong> {customer.address.street}, {customer.address.number} - {customer.address.city}/{customer.address.state}
             </p>
           )}
@@ -164,7 +244,7 @@ function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
       city: "",
       state: "",
       zipCode: "",
-    },
+    } as any,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -197,8 +277,20 @@ function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
           <Label htmlFor="cpf">CPF *</Label>
           <Input
             id="cpf"
-            value={formData.cpf}
-            onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+            value={formatCPF(formData.cpf)}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/\D/g, "");
+              if (raw.length <= 11) {
+                setFormData({ ...formData, cpf: raw });
+              }
+            }}
+            onBlur={(e) => {
+              const raw = e.target.value.replace(/\D/g, "");
+              if (raw.length === 11 && !validateCPF(raw)) {
+                toast.error("CPF inválido");
+              }
+            }}
+            placeholder="000.000.000-00"
             required
           />
         </div>
@@ -206,8 +298,14 @@ function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
           <Label htmlFor="phone">Telefone *</Label>
           <Input
             id="phone"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            value={formatPhone(formData.phone)}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/\D/g, "");
+              if (raw.length <= 11) {
+                setFormData({ ...formData, phone: raw });
+              }
+            }}
+            placeholder="(00) 00000-0000"
             required
           />
         </div>
@@ -223,58 +321,316 @@ function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
       <div className="space-y-2">
         <Label>Endereço</Label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <div className="space-y-2 flex-1">
+              <Label htmlFor="zipCode" className="text-xs">CEP</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="zipCode"
+                  value={formatCEP(formData.address.zipCode)}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    if (raw.length <= 8) {
+                      setFormData({
+                        ...formData,
+                        address: { ...formData.address, zipCode: raw }
+                      });
+                    }
+                  }}
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    const cep = formData.address.zipCode.replace(/\D/g, "");
+                    if (cep.length === 8) {
+                      const address = await fetchCEP(cep);
+                      if (address) {
+                        setFormData({
+                          ...formData,
+                          address: { ...formData.address, ...address }
+                        });
+                        toast.success("CEP encontrado!");
+                      } else {
+                        toast.error("CEP não encontrado");
+                      }
+                    } else {
+                      toast.error("CEP deve ter 8 dígitos");
+                    }
+                  }}
+                >
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="street" className="text-xs">Rua</Label>
+              <Input
+                id="street"
+                value={formData.address.street}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, street: e.target.value }
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="number" className="text-xs">Número</Label>
+              <Input
+                id="number"
+                value={formData.address.number}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, number: e.target.value }
+                })}
+              />
+            </div>
+          </div>
           <div className="space-y-2">
-            <Label htmlFor="street" className="text-xs">Rua</Label>
+            <Label htmlFor="complement" className="text-xs">Complemento</Label>
             <Input
-              id="street"
-              value={formData.address.street}
+              id="complement"
+              value={formData.address.complement || ""}
               onChange={(e) => setFormData({
                 ...formData,
-                address: { ...formData.address, street: e.target.value }
+                address: { ...formData.address, complement: e.target.value }
               })}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="number" className="text-xs">Número</Label>
-            <Input
-              id="number"
-              value={formData.address.number}
-              onChange={(e) => setFormData({
-                ...formData,
-                address: { ...formData.address, number: e.target.value }
-              })}
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="city" className="text-xs">Cidade</Label>
-            <Input
-              id="city"
-              value={formData.address.city}
-              onChange={(e) => setFormData({
-                ...formData,
-                address: { ...formData.address, city: e.target.value }
-              })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="state" className="text-xs">Estado</Label>
-            <Input
-              id="state"
-              value={formData.address.state}
-              onChange={(e) => setFormData({
-                ...formData,
-                address: { ...formData.address, state: e.target.value }
-              })}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="neighborhood" className="text-xs">Bairro</Label>
+              <Input
+                id="neighborhood"
+                value={formData.address.neighborhood}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, neighborhood: e.target.value }
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="city" className="text-xs">Cidade</Label>
+              <Input
+                id="city"
+                value={formData.address.city}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, city: e.target.value }
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="state" className="text-xs">Estado</Label>
+              <Input
+                id="state"
+                value={formData.address.state}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, state: e.target.value }
+                })}
+                maxLength={2}
+              />
+            </div>
           </div>
         </div>
       </div>
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={loading}>
           {loading ? "Cadastrando..." : "Cadastrar Cliente"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function EditCustomerForm({ customer, onSuccess, onCancel }: { customer: Customer; onSuccess: () => void; onCancel: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: customer.name,
+    phone: customer.phone,
+    email: customer.email || "",
+    address: customer.address || {
+      street: "",
+      number: "",
+      complement: "",
+      neighborhood: "",
+      city: "",
+      state: "",
+      zipCode: "",
+    } as any,
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      await api.updateCustomer(customer.id, formData);
+      toast.success("Cliente atualizado com sucesso!");
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar cliente");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="edit-name">Nome *</Label>
+        <Input
+          id="edit-name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-phone">Telefone *</Label>
+        <Input
+          id="edit-phone"
+          value={formatPhone(formData.phone)}
+          onChange={(e) => {
+            const raw = e.target.value.replace(/\D/g, "");
+            if (raw.length <= 11) {
+              setFormData({ ...formData, phone: raw });
+            }
+          }}
+          placeholder="(00) 00000-0000"
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-email">Email</Label>
+        <Input
+          id="edit-email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Endereço</Label>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <div className="space-y-2 flex-1">
+              <Label htmlFor="edit-zipCode" className="text-xs">CEP</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="edit-zipCode"
+                  value={formatCEP(formData.address.zipCode)}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    if (raw.length <= 8) {
+                      setFormData({
+                        ...formData,
+                        address: { ...formData.address, zipCode: raw }
+                      });
+                    }
+                  }}
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    const cep = formData.address.zipCode.replace(/\D/g, "");
+                    if (cep.length === 8) {
+                      const address = await fetchCEP(cep);
+                      if (address) {
+                        setFormData({
+                          ...formData,
+                          address: { ...formData.address, ...address }
+                        });
+                        toast.success("CEP encontrado!");
+                      } else {
+                        toast.error("CEP não encontrado");
+                      }
+                    } else {
+                      toast.error("CEP deve ter 8 dígitos");
+                    }
+                  }}
+                >
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-street" className="text-xs">Rua</Label>
+              <Input
+                id="edit-street"
+                value={formData.address.street}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, street: e.target.value }
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-number" className="text-xs">Número</Label>
+              <Input
+                id="edit-number"
+                value={formData.address.number}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, number: e.target.value }
+                })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-neighborhood" className="text-xs">Bairro</Label>
+              <Input
+                id="edit-neighborhood"
+                value={formData.address.neighborhood}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, neighborhood: e.target.value }
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-city" className="text-xs">Cidade</Label>
+              <Input
+                id="edit-city"
+                value={formData.address.city}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, city: e.target.value }
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-state" className="text-xs">Estado</Label>
+              <Input
+                id="edit-state"
+                value={formData.address.state}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  address: { ...formData.address, state: e.target.value }
+                })}
+                maxLength={2}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? "Atualizando..." : "Atualizar Cliente"}
         </Button>
       </div>
     </form>

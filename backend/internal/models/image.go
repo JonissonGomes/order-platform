@@ -8,7 +8,7 @@ import (
 
 type Image struct {
 	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	URL        string             `bson:"url" json:"url"` // URL do Cloudinary
+	URL        string             `bson:"url" json:"url"`           // URL do Cloudinary
 	PublicID   string             `bson:"publicId" json:"publicId"` // ID público do Cloudinary
 	Width      int                `bson:"width,omitempty" json:"width,omitempty"`
 	Height     int                `bson:"height,omitempty" json:"height,omitempty"`

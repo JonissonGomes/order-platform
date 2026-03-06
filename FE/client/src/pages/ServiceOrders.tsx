@@ -32,8 +32,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { api } from "@/lib/api";
-import type { ServiceOrder, ServiceOrderStatus, Customer, Department } from "@/types";
-import { Plus, Search, FileText, Check, ChevronsUpDown, UserPlus } from "lucide-react";
+import { formatPhone } from "@/lib/formatters";
+import { fetchCEP } from "@/lib/cep";
+import { ImageUpload } from "@/components/ImageUpload";
+import type { ServiceOrder, ServiceOrderStatus, Customer, Department, Image } from "@/types";
+import { Plus, Search, FileText, Check, ChevronsUpDown, UserPlus, Filter } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -92,7 +95,7 @@ export default function ServiceOrders() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 w-full min-w-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Ordens de Serviço</h1>
@@ -105,34 +108,39 @@ export default function ServiceOrders() {
                 Nova Ordem
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Nova Ordem de Serviço</DialogTitle>
-                <DialogDescription>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+                <DialogTitle className="text-lg sm:text-xl">Nova Ordem de Serviço</DialogTitle>
+                <DialogDescription className="text-sm">
                   Preencha os dados para criar uma nova ordem de serviço
                 </DialogDescription>
               </DialogHeader>
-              <CreateOrderForm onSuccess={() => {
-                setIsCreateDialogOpen(false);
-                loadOrders();
-              }} />
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+                <CreateOrderForm onSuccess={() => {
+                  setIsCreateDialogOpen(false);
+                  loadOrders();
+                }} />
+              </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por número, produto, marca..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 w-full"
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Filtrar por status" />
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Filtrar por status" />
+              </div>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
@@ -166,44 +174,89 @@ export default function ServiceOrders() {
 }
 
 function OrderCard({ order, onUpdate }: { order: ServiceOrder; onUpdate: () => void }) {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const handleDelete = async () => {
+    try {
+      await api.deleteServiceOrder(order.id);
+      toast.success("Ordem de serviço excluída com sucesso!");
+      setShowDeleteDialog(false);
+      onUpdate();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao excluir ordem de serviço");
+    }
+  };
+
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <CardTitle className="text-lg">#{order.orderNumber}</CardTitle>
-            <CardDescription>
-              {order.productType} - {order.productBrand} {order.productModel}
-            </CardDescription>
+    <>
+      <Card className="hover:shadow-md transition-shadow w-full">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base sm:text-lg truncate">#{order.orderNumber}</CardTitle>
+              <CardDescription className="text-xs sm:text-sm break-words">
+                {order.productType} - {order.productBrand} {order.productModel}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                order.status === "delivered" ? "bg-green-100 text-green-800" :
+                order.status === "cancelled" ? "bg-red-100 text-red-800" :
+                order.status === "ready" ? "bg-blue-100 text-blue-800" :
+                "bg-gray-100 text-gray-800"
+              }`}>
+                {statusLabels[order.status]}
+              </span>
+              {(order.status === "pending" || order.status === "cancelled") && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="h-8 w-8"
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-              order.status === "delivered" ? "bg-green-100 text-green-800" :
-              order.status === "cancelled" ? "bg-red-100 text-red-800" :
-              order.status === "ready" ? "bg-blue-100 text-blue-800" :
-              "bg-gray-100 text-gray-800"
-            }`}>
-              {statusLabels[order.status]}
-            </span>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2 text-sm">
-          <p className="text-muted-foreground">
-            <strong>Problema:</strong> {order.problemDescription}
-          </p>
-          {order.estimatedCost && (
-            <p className="text-muted-foreground">
-              <strong>Valor estimado:</strong> R$ {order.estimatedCost.toFixed(2)}
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 text-sm">
+            <p className="text-muted-foreground break-words">
+              <strong>Problema:</strong> {order.problemDescription}
             </p>
-          )}
-          <p className="text-muted-foreground text-xs">
-            Criado em {new Date(order.createdAt).toLocaleDateString("pt-BR")}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+            {order.estimatedCost && (
+              <p className="text-muted-foreground">
+                <strong>Valor estimado:</strong> R$ {order.estimatedCost.toFixed(2)}
+              </p>
+            )}
+            <p className="text-muted-foreground text-xs">
+              Criado em {new Date(order.createdAt).toLocaleDateString("pt-BR")}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a ordem #{order.orderNumber}? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -263,6 +316,7 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
         productModel: formData.productModel,
         problemDescription: formData.problemDescription,
         departmentId: formData.departmentId,
+        images: formData.images.map((img) => img.url),
       };
 
       if (showNewCustomer && formData.newCustomer.name) {
@@ -336,13 +390,17 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
                 <Label htmlFor="newCustomerPhone">Telefone *</Label>
                 <Input
                   id="newCustomerPhone"
-                  value={formData.newCustomer.phone}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      newCustomer: { ...formData.newCustomer, phone: e.target.value },
-                    })
-                  }
+                  value={formatPhone(formData.newCustomer.phone)}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    if (raw.length <= 11) {
+                      setFormData({
+                        ...formData,
+                        newCustomer: { ...formData.newCustomer, phone: raw },
+                      });
+                    }
+                  }}
+                  placeholder="(00) 00000-0000"
                   required={showNewCustomer}
                 />
               </div>
@@ -351,12 +409,16 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
                 <Input
                   id="newCustomerCPF"
                   value={formData.newCustomer.cpf}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      newCustomer: { ...formData.newCustomer, cpf: e.target.value },
-                    })
-                  }
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    if (raw.length <= 11) {
+                      setFormData({
+                        ...formData,
+                        newCustomer: { ...formData.newCustomer, cpf: raw },
+                      });
+                    }
+                  }}
+                  placeholder="000.000.000-00"
                 />
               </div>
             </div>
@@ -390,10 +452,10 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full p-0" align="start">
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0" align="start">
               <Command>
-                <CommandInput placeholder="Buscar cliente..." />
-                <CommandList>
+                <CommandInput placeholder="Buscar cliente..." className="h-9" />
+                <CommandList className="max-h-[200px] overflow-y-auto">
                   <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                   <CommandGroup>
                     {customers.map((customer) => (
@@ -404,16 +466,17 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
                           setFormData({ ...formData, customerId: customer.id });
                           setCustomerOpen(false);
                         }}
+                        className="cursor-pointer"
                       >
                         <Check
                           className={cn(
-                            "mr-2 h-4 w-4",
+                            "mr-2 h-4 w-4 flex-shrink-0",
                             formData.customerId === customer.id ? "opacity-100" : "opacity-0"
                           )}
                         />
-                        <div className="flex flex-col">
-                          <span>{customer.name}</span>
-                          <span className="text-xs text-muted-foreground">
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="truncate">{customer.name}</span>
+                          <span className="text-xs text-muted-foreground truncate">
                             {customer.phone} {customer.cpf && `- ${customer.cpf}`}
                           </span>
                         </div>
@@ -481,36 +544,37 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-full p-0" align="start">
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0" align="start">
             <Command>
-              <CommandInput placeholder="Buscar departamento..." />
-              <CommandList>
+                <CommandInput placeholder="Buscar departamento..." className="h-9" />
+                <CommandList className="max-h-[200px] overflow-y-auto">
                 <CommandEmpty>Nenhum departamento encontrado.</CommandEmpty>
                 <CommandGroup>
                   {departments.map((department) => (
-                    <CommandItem
-                      key={department.id}
-                      value={department.name}
-                      onSelect={() => {
-                        setFormData({ ...formData, departmentId: department.id });
-                        setDepartmentOpen(false);
-                      }}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          formData.departmentId === department.id ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <div className="flex flex-col">
-                        <span>{department.name}</span>
-                        {department.description && (
-                          <span className="text-xs text-muted-foreground">
-                            {department.description}
-                          </span>
-                        )}
-                      </div>
-                    </CommandItem>
+                      <CommandItem
+                        key={department.id}
+                        value={department.name}
+                        onSelect={() => {
+                          setFormData({ ...formData, departmentId: department.id });
+                          setDepartmentOpen(false);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4 flex-shrink-0",
+                            formData.departmentId === department.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="truncate">{department.name}</span>
+                          {department.description && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              {department.description}
+                            </span>
+                          )}
+                        </div>
+                      </CommandItem>
                   ))}
                 </CommandGroup>
               </CommandList>

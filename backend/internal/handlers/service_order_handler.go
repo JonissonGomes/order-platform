@@ -761,3 +761,40 @@ func (h *ServiceOrderHandler) GetServiceOrderHistory(c *gin.Context) {
 		"statusHistory": statusHistory,
 	})
 }
+
+// DeleteServiceOrder deletes a service order
+func (h *ServiceOrderHandler) DeleteServiceOrder(c *gin.Context) {
+	id := c.Param("id")
+	orderID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Check if order exists
+	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if order == nil {
+		utils.RespondWithNotFound(c, "Ordem de serviço não encontrada")
+		return
+	}
+
+	// Only allow deletion if order is pending or cancelled
+	if order.Status != models.StatusPending && order.Status != models.StatusCancelled {
+		utils.RespondWithBadRequest(c, "Apenas ordens pendentes ou canceladas podem ser deletadas")
+		return
+	}
+
+	// Delete service order
+	if err := h.serviceOrderRepo.DeleteServiceOrder(ctx, orderID); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}

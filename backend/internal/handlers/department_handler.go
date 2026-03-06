@@ -15,9 +15,9 @@ import (
 )
 
 type DepartmentHandler struct {
-	departmentRepo    *repository.DepartmentRepository
-	employeeRepo      *repository.EmployeeRepository
-	serviceOrderRepo  *repository.ServiceOrderRepository
+	departmentRepo   *repository.DepartmentRepository
+	employeeRepo     *repository.EmployeeRepository
+	serviceOrderRepo *repository.ServiceOrderRepository
 }
 
 func NewDepartmentHandler(
@@ -267,4 +267,46 @@ func (h *DepartmentHandler) GetDepartmentServiceOrders(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"orders": orders})
+}
+
+// DeleteDepartment deletes a department
+func (h *DepartmentHandler) DeleteDepartment(c *gin.Context) {
+	id := c.Param("id")
+	departmentID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Check if department has employees
+	employees, err := h.employeeRepo.GetEmployeesByDepartmentID(ctx, departmentID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if len(employees) > 0 {
+		utils.RespondWithConflict(c, "Não é possível deletar departamento com colaboradores associados")
+		return
+	}
+
+	// Check if department has service orders
+	orders, err := h.serviceOrderRepo.ListServiceOrders(ctx, 0, 1, bson.M{"departmentId": departmentID})
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if len(orders) > 0 {
+		utils.RespondWithConflict(c, "Não é possível deletar departamento com ordens de serviço associadas")
+		return
+	}
+
+	// Delete department
+	if err := h.departmentRepo.DeleteDepartment(ctx, departmentID); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }

@@ -75,3 +75,10 @@ func (r *DepartmentRepository) ListDepartments(ctx context.Context, filter bson.
 
 	return departments, nil
 }
+
+// DeleteDepartment deletes a department
+func (r *DepartmentRepository) DeleteDepartment(ctx context.Context, id primitive.ObjectID) error {
+	filter := bson.M{"_id": id}
+	_, err := r.collection.DeleteOne(ctx, filter)
+	return err
+}

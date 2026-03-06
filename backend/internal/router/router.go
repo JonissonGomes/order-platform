@@ -9,6 +9,7 @@ import (
 	"order-platform/backend/internal/handlers"
 	"order-platform/backend/internal/middleware"
 	"order-platform/backend/internal/repository"
+	"order-platform/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -39,6 +40,21 @@ func New(db *database.MongoDB) *gin.Engine {
 		log.Printf("Warning: Failed to initialize default profiles: %v", err)
 	} else {
 		log.Println("Default profiles initialized/verified successfully")
+	}
+
+	// Initialize Cloudinary service (optional, won't fail if not configured)
+	var uploadHandler *handlers.UploadHandler
+	cfg := config.Get()
+	if cfg.CloudinaryCloudName != "" && cfg.CloudinaryAPIKey != "" && cfg.CloudinaryAPISecret != "" {
+		cloudinaryService, err := services.NewCloudinaryService()
+		if err != nil {
+			log.Printf("Warning: Failed to initialize Cloudinary: %v. Image upload will be disabled.", err)
+		} else {
+			uploadHandler = handlers.NewUploadHandler(cloudinaryService)
+			log.Println("Cloudinary service initialized successfully")
+		}
+	} else {
+		log.Println("Cloudinary not configured. Image upload will be disabled.")
 	}
 
 	// Initialize handlers
@@ -111,6 +127,7 @@ func New(db *database.MongoDB) *gin.Engine {
 			customers.GET("/:id", customerHandler.GetCustomer)
 			customers.GET("/:id/orders", customerHandler.GetCustomerServiceOrders)
 			customers.PUT("/:id", customerHandler.UpdateCustomer)
+			customers.DELETE("/:id", customerHandler.DeleteCustomer)
 		}
 
 		// Service Order routes (requires auth)
@@ -125,6 +142,7 @@ func New(db *database.MongoDB) *gin.Engine {
 			serviceOrders.PATCH("/:id/status", serviceOrderHandler.UpdateServiceOrderStatus)
 			serviceOrders.PATCH("/:id/assign", serviceOrderHandler.AssignServiceOrder)
 			serviceOrders.POST("/:id/notes", serviceOrderHandler.AddNote)
+			serviceOrders.DELETE("/:id", serviceOrderHandler.DeleteServiceOrder)
 		}
 
 		// Department routes (requires auth)
@@ -137,6 +155,17 @@ func New(db *database.MongoDB) *gin.Engine {
 			departments.GET("/:id/employees", departmentHandler.GetDepartmentEmployees)
 			departments.GET("/:id/orders", departmentHandler.GetDepartmentServiceOrders)
 			departments.PUT("/:id", departmentHandler.UpdateDepartment)
+			departments.DELETE("/:id", departmentHandler.DeleteDepartment)
+		}
+
+		// Upload routes (requires auth)
+		if uploadHandler != nil {
+			upload := api.Group("/upload")
+			upload.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+			{
+				upload.POST("/image", uploadHandler.UploadImage)
+				upload.DELETE("/image/:id", uploadHandler.DeleteImage)
+			}
 		}
 
 		// Public routes (no auth required)

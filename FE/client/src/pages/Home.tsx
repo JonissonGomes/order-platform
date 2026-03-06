@@ -15,7 +15,6 @@ import {
   Smartphone,
   Laptop,
   Tablet,
-  Star,
   MessageSquare,
   Zap,
 } from "lucide-react";
@@ -72,26 +71,7 @@ export default function Home() {
     },
   ];
 
-  const testimonials = [
-    {
-      name: "Maria Silva",
-      service: "Reparo de Smartphone",
-      rating: 5,
-      comment: "Atendimento excelente! Meu celular foi consertado rapidamente e com muita qualidade.",
-    },
-    {
-      name: "João Santos",
-      service: "Reparo de Notebook",
-      rating: 5,
-      comment: "Profissionais competentes e preço justo. Recomendo!",
-    },
-    {
-      name: "Ana Costa",
-      service: "Reparo de Tablet",
-      rating: 5,
-      comment: "Muito satisfeita com o serviço. Meu tablet voltou a funcionar perfeitamente.",
-    },
-  ];
+  // Depoimentos removidos - podem ser adicionados via API no futuro
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,9 +82,9 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-white to-slate-100">
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-16 md:py-24">
+      <section className="w-full container mx-auto px-4 py-16 md:py-24">
         <div className="text-center max-w-4xl mx-auto mb-16">
           <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6">
             Conserto de Aparelhos Eletrônicos
@@ -138,7 +118,7 @@ export default function Home() {
       </section>
 
       {/* Services Section */}
-      <section className="container mx-auto px-4 py-16">
+      <section className="w-full container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
             Nossos Serviços
@@ -147,7 +127,7 @@ export default function Home() {
             Oferecemos soluções completas para o conserto dos seus aparelhos eletrônicos
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
           {services.map((service, index) => (
             <Card key={index} className="border-0 shadow-md hover:shadow-xl transition-all duration-300">
               <CardHeader>
@@ -167,14 +147,14 @@ export default function Home() {
       </section>
 
       {/* Benefits Section */}
-      <section className="bg-white py-16">
-        <div className="container mx-auto px-4">
+      <section className="w-full bg-white py-16">
+        <div className="w-full container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
               Por que escolher nossa empresa?
             </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
             {benefits.map((benefit, index) => (
               <Card key={index} className="border-0 shadow-md text-center">
                 <CardHeader>
@@ -192,37 +172,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-            O que nossos clientes dizem
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {testimonials.map((testimonial, index) => (
-            <Card key={index} className="border-0 shadow-md">
-              <CardHeader>
-                <div className="flex items-center gap-1 mb-2">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <CardTitle className="text-lg">{testimonial.name}</CardTitle>
-                <CardDescription>{testimonial.service}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-700 italic">"{testimonial.comment}"</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
+      {/* Testimonials Section - Removido dados mockados */}
 
       {/* Contact Section */}
-      <section id="contato" className="bg-gradient-to-br from-blue-50 to-slate-50 py-16">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
+      <section id="contato" className="w-full bg-gradient-to-br from-blue-50 to-slate-50 py-16">
+        <div className="w-full container mx-auto px-4">
+          <div className="max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
                 Entre em Contato
@@ -341,8 +296,8 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="container mx-auto px-4 py-16">
-        <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+      <section className="w-full container mx-auto px-4 py-16">
+        <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white max-w-6xl xl:max-w-7xl 2xl:max-w-full mx-auto">
           <CardContent className="p-8 md:p-12 text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Pronto para consertar seu aparelho?
@@ -350,11 +305,11 @@ export default function Home() {
             <p className="text-lg mb-8 text-blue-100">
               Solicite um orçamento gratuito e sem compromisso
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button
                 size="lg"
                 variant="secondary"
-                className="text-lg px-8 py-6"
+                className="text-lg px-8 py-6 w-full sm:w-auto"
                 onClick={() => {
                   document.getElementById("contato")?.scrollIntoView({ behavior: "smooth" });
                 }}
@@ -364,7 +319,7 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="outline"
-                className="text-lg px-8 py-6 bg-transparent border-white text-white hover:bg-white hover:text-blue-600"
+                className="text-lg px-8 py-6 bg-transparent border-white text-white hover:bg-white hover:text-blue-600 w-full sm:w-auto"
                 onClick={() => setLocation("/track")}
               >
                 Acompanhar Serviço

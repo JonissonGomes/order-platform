@@ -171,7 +171,23 @@
     .container {
       padding-left: 2rem; /* 32px - desktop padding */
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1400px; /* Increased for better ultrawide support */
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .container {
+      padding-left: 3rem; /* 48px - large desktop padding */
+      padding-right: 3rem;
+      max-width: 1600px; /* Better for ultrawide screens */
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .container {
+      padding-left: 4rem; /* 64px - ultrawide padding */
+      padding-right: 4rem;
+      max-width: 100%; /* Use full width on ultrawide */
     }
   }
 }

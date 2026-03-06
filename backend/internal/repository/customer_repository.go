@@ -117,3 +117,10 @@ func (r *CustomerRepository) ListCustomers(ctx context.Context, skip, limit int6
 func (r *CustomerRepository) CountCustomers(ctx context.Context, filter bson.M) (int64, error) {
 	return r.collection.CountDocuments(ctx, filter)
 }
+
+// DeleteCustomer deletes a customer
+func (r *CustomerRepository) DeleteCustomer(ctx context.Context, id primitive.ObjectID) error {
+	filter := bson.M{"_id": id}
+	_, err := r.collection.DeleteOne(ctx, filter)
+	return err
+}

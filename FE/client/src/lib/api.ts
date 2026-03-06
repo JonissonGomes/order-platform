@@ -121,6 +121,11 @@ export const api = {
     });
   },
 
+  // Employee endpoints
+  async listEmployees(): Promise<{ employees: Employee[] }> {
+    return fetchAPI<{ employees: Employee[] }>("/api/employees");
+  },
+
   // Customer endpoints
   async createCustomer(data: CreateCustomerRequest): Promise<{ customer: Customer }> {
     return fetchAPI<{ customer: Customer }>("/api/customers", {
@@ -168,6 +173,12 @@ export const api = {
     });
   },
 
+  async deleteCustomer(id: string): Promise<{ success: boolean }> {
+    return fetchAPI<{ success: boolean }>(`/api/customers/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   async getCustomerServiceOrders(id: string): Promise<{ orders: ServiceOrder[] }> {
     return fetchAPI<{ orders: ServiceOrder[] }>(`/api/customers/${id}/orders`);
   },
@@ -210,6 +221,12 @@ export const api = {
     return fetchAPI<{ order: ServiceOrder }>(`/api/service-orders/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
+    });
+  },
+
+  async deleteServiceOrder(id: string): Promise<{ success: boolean }> {
+    return fetchAPI<{ success: boolean }>(`/api/service-orders/${id}`, {
+      method: "DELETE",
     });
   },
 
@@ -265,6 +282,12 @@ export const api = {
     return fetchAPI<{ department: Department }>(`/api/departments/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
+    });
+  },
+
+  async deleteDepartment(id: string): Promise<{ success: boolean }> {
+    return fetchAPI<{ success: boolean }>(`/api/departments/${id}`, {
+      method: "DELETE",
     });
   },
 

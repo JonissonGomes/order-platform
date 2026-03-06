@@ -79,7 +79,7 @@ export default function PublicOrderTracking() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="w-full container mx-auto px-4 py-8 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold tracking-tight mb-2">Acompanhe sua Ordem</h1>
           <p className="text-muted-foreground">
@@ -136,9 +136,18 @@ export default function PublicOrderTracking() {
                 </div>
               </TabsContent>
             </Tabs>
-            <Button onClick={handleSearch} disabled={loading} className="w-full">
-              <Search className="mr-2 h-4 w-4" />
-              {loading ? "Buscando..." : "Buscar"}
+            <Button onClick={handleSearch} disabled={loading} className="w-full" size="lg">
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Buscando...
+                </>
+              ) : (
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  Buscar
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>

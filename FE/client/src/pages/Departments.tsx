@@ -12,15 +12,31 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
-import type { Department } from "@/types";
-import { Plus, Building2 } from "lucide-react";
+import type { Department, Employee } from "@/types";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Plus, Building2, Check, ChevronsUpDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function Departments() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [deletingDepartment, setDeletingDepartment] = useState<Department | null>(null);
 
   useEffect(() => {
     loadDepartments();
@@ -40,7 +56,7 @@ export default function Departments() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 w-full min-w-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Departamentos</h1>
@@ -54,16 +70,18 @@ export default function Departments() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Novo Departamento</DialogTitle>
-                <DialogDescription>
+              <DialogHeader className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+                <DialogTitle className="text-lg sm:text-xl">Novo Departamento</DialogTitle>
+                <DialogDescription className="text-sm">
                   Preencha os dados para criar um novo departamento
                 </DialogDescription>
               </DialogHeader>
-              <CreateDepartmentForm onSuccess={() => {
-                setIsCreateDialogOpen(false);
-                loadDepartments();
-              }} />
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+                <CreateDepartmentForm onSuccess={() => {
+                  setIsCreateDialogOpen(false);
+                  loadDepartments();
+                }} />
+              </div>
             </DialogContent>
           </Dialog>
         </div>
@@ -77,30 +95,101 @@ export default function Departments() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {departments.map((department) => (
-              <DepartmentCard key={department.id} department={department} />
+              <DepartmentCard 
+                key={department.id} 
+                department={department}
+                onEdit={() => setEditingDepartment(department)}
+                onDelete={() => setDeletingDepartment(department)}
+              />
             ))}
           </div>
         )}
+
+        {/* Edit Dialog */}
+        {editingDepartment && (
+          <Dialog open={!!editingDepartment} onOpenChange={(open) => !open && setEditingDepartment(null)}>
+            <DialogContent>
+              <DialogHeader className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+                <DialogTitle className="text-lg sm:text-xl">Editar Departamento</DialogTitle>
+                <DialogDescription className="text-sm">
+                  Atualize os dados do departamento
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+                <EditDepartmentForm 
+                  department={editingDepartment}
+                  onSuccess={() => {
+                    setEditingDepartment(null);
+                    loadDepartments();
+                  }}
+                  onCancel={() => setEditingDepartment(null)}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={!!deletingDepartment} onOpenChange={(open) => !open && setDeletingDepartment(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir o departamento {deletingDepartment?.name}? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (deletingDepartment) {
+                    try {
+                      await api.deleteDepartment(deletingDepartment.id);
+                      toast.success("Departamento excluído com sucesso!");
+                      setDeletingDepartment(null);
+                      loadDepartments();
+                    } catch (error: any) {
+                      toast.error(error.message || "Erro ao excluir departamento");
+                    }
+                  }
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
 }
 
-function DepartmentCard({ department }: { department: Department }) {
+function DepartmentCard({ department, onEdit, onDelete }: { department: Department; onEdit: () => void; onDelete: () => void }) {
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-shadow w-full">
       <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-100 rounded-full">
-            <Building2 className="h-5 w-5 text-purple-600" />
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="p-2 bg-purple-100 rounded-full flex-shrink-0">
+              <Building2 className="h-5 w-5 text-purple-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-base sm:text-lg truncate">{department.name}</CardTitle>
+              {department.description && (
+                <CardDescription className="text-xs sm:text-sm break-words">{department.description}</CardDescription>
+              )}
+            </div>
           </div>
-          <div>
-            <CardTitle className="text-lg">{department.name}</CardTitle>
-            {department.description && (
-              <CardDescription>{department.description}</CardDescription>
-            )}
+          <div className="flex gap-1 flex-shrink-0">
+            <Button variant="ghost" size="icon" onClick={onEdit} className="h-8 w-8">
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8">
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -114,7 +203,7 @@ function DepartmentCard({ department }: { department: Department }) {
             {department.isActive ? "Ativo" : "Inativo"}
           </p>
           {department.manager && (
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground break-words">
               <strong>Gerente:</strong> {department.manager.name}
             </p>
           )}
@@ -129,17 +218,39 @@ function DepartmentCard({ department }: { department: Department }) {
 
 function CreateDepartmentForm({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [managerOpen, setManagerOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     managerId: "",
   });
 
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const loadEmployees = async () => {
+    try {
+      const response = await api.listEmployees();
+      setEmployees(response.employees || []);
+    } catch (error) {
+      // Silently fail
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
-      await api.createDepartment(formData);
+      const payload: any = {
+        name: formData.name,
+        description: formData.description,
+      };
+      if (formData.managerId) {
+        payload.managerId = formData.managerId;
+      }
+      await api.createDepartment(payload);
       toast.success("Departamento criado com sucesso!");
       onSuccess();
     } catch (error: any) {
@@ -148,6 +259,8 @@ function CreateDepartmentForm({ onSuccess }: { onSuccess: () => void }) {
       setLoading(false);
     }
   };
+
+  const selectedManager = employees.find((e) => e.id === formData.managerId);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -170,12 +283,56 @@ function CreateDepartmentForm({ onSuccess }: { onSuccess: () => void }) {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="managerId">ID do Gerente</Label>
-        <Input
-          id="managerId"
-          value={formData.managerId}
-          onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
-        />
+        <Label>Gerente (opcional)</Label>
+        <Popover open={managerOpen} onOpenChange={setManagerOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={managerOpen}
+              className="w-full justify-between"
+            >
+              {selectedManager
+                ? `${selectedManager.name} - ${selectedManager.role}`
+                : "Selecione um gerente..."}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Buscar colaborador..." className="h-9" />
+              <CommandList className="max-h-[200px] overflow-y-auto">
+                <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                <CommandGroup>
+                  {employees.map((employee) => (
+                    <CommandItem
+                      key={employee.id}
+                      value={`${employee.name} ${employee.role}`}
+                      onSelect={() => {
+                        setFormData({ ...formData, managerId: employee.id });
+                        setManagerOpen(false);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4 flex-shrink-0",
+                          formData.managerId === employee.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="truncate">{employee.name}</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {employee.role} {employee.email}
+                        </span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={loading}>

@@ -10,16 +10,19 @@ import (
 )
 
 type Config struct {
-	Port            string
-	DatabaseURL     string
-	DatabaseName    string
-	JWTSecret       string
-	AdminEmail      string
-	SuperAdminEmail string
-	ForgeAPIURL     string
-	ForgeAPIKey     string
-	Environment     string
-	CORSOrigins     []string
+	Port                string
+	DatabaseURL         string
+	DatabaseName        string
+	JWTSecret           string
+	AdminEmail          string
+	SuperAdminEmail     string
+	ForgeAPIURL         string
+	ForgeAPIKey         string
+	Environment         string
+	CORSOrigins         []string
+	CloudinaryCloudName string
+	CloudinaryAPIKey    string
+	CloudinaryAPISecret string
 }
 
 var cfg *Config
@@ -107,16 +110,19 @@ func Load() error {
 	// The CORS middleware will handle this appropriately
 
 	cfg = &Config{
-		Port:            getEnv("PORT", "8080"),
-		DatabaseURL:     getEnv("DATABASE_URL", ""),
-		DatabaseName:    getEnv("DATABASE_NAME", "order_platform"),
-		JWTSecret:       getEnv("JWT_SECRET", ""),
-		AdminEmail:      getEnv("ADMIN_EMAIL", ""),
-		SuperAdminEmail: getEnv("SUPER_ADMIN_EMAIL", ""),
-		ForgeAPIURL:     getEnv("BUILT_IN_FORGE_API_URL", ""),
-		ForgeAPIKey:     getEnv("BUILT_IN_FORGE_API_KEY", ""),
-		Environment:     getEnv("NODE_ENV", "development"),
-		CORSOrigins:     corsOrigins,
+		Port:                getEnv("PORT", "8080"),
+		DatabaseURL:         getEnv("DATABASE_URL", ""),
+		DatabaseName:        getEnv("DATABASE_NAME", "order_platform"),
+		JWTSecret:           getEnv("JWT_SECRET", ""),
+		AdminEmail:          getEnv("ADMIN_EMAIL", ""),
+		SuperAdminEmail:     getEnv("SUPER_ADMIN_EMAIL", ""),
+		ForgeAPIURL:         getEnv("BUILT_IN_FORGE_API_URL", ""),
+		ForgeAPIKey:         getEnv("BUILT_IN_FORGE_API_KEY", ""),
+		Environment:         getEnv("NODE_ENV", "development"),
+		CORSOrigins:         corsOrigins,
+		CloudinaryCloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
+		CloudinaryAPIKey:    getEnv("CLOUDINARY_API_KEY", ""),
+		CloudinaryAPISecret: getEnv("CLOUDINARY_API_SECRET", ""),
 	}
 
 	// Validate required variables

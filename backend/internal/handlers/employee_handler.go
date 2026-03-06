@@ -34,20 +34,20 @@ func NewEmployeeHandler(
 }
 
 type CreateEmployeeRequest struct {
-	Email        string             `json:"email" binding:"required,email"`
-	Password     string             `json:"password" binding:"required,min=6"`
-	Name         string             `json:"name" binding:"required"`
-	Phone        string             `json:"phone,omitempty"`
+	Email        string              `json:"email" binding:"required,email"`
+	Password     string              `json:"password" binding:"required,min=6"`
+	Name         string              `json:"name" binding:"required"`
+	Phone        string              `json:"phone,omitempty"`
 	Role         models.EmployeeRole `json:"role" binding:"required"`
-	DepartmentID string             `json:"departmentId,omitempty"`
+	DepartmentID string              `json:"departmentId,omitempty"`
 }
 
 type UpdateEmployeeRequest struct {
-	Name         string             `json:"name,omitempty"`
-	Phone        string             `json:"phone,omitempty"`
+	Name         string              `json:"name,omitempty"`
+	Phone        string              `json:"phone,omitempty"`
 	Role         models.EmployeeRole `json:"role,omitempty"`
-	DepartmentID string             `json:"departmentId,omitempty"`
-	IsActive     *bool              `json:"isActive,omitempty"`
+	DepartmentID string              `json:"departmentId,omitempty"`
+	IsActive     *bool               `json:"isActive,omitempty"`
 }
 
 // CreateEmployee creates a new employee (creates User + Employee)

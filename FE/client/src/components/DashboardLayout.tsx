@@ -1,11 +1,15 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Sidebar,
   SidebarContent,
@@ -114,9 +118,16 @@ function DashboardLayoutContent({
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+
+  const handleLogout = async () => {
+    setShowLogoutDialog(false);
+    await logout();
+    setLocation(LOGIN_PATH);
+  };
 
   useEffect(() => {
     if (isCollapsed) {
@@ -205,15 +216,15 @@ function DashboardLayoutContent({
           </SidebarContent>
 
           <SidebarFooter className="p-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium">
-                      {user?.name?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
+            <div className={`flex items-center gap-2 w-full ${isCollapsed ? "justify-center" : ""}`}>
+              <Avatar className="h-9 w-9 border shrink-0">
+                <AvatarFallback className="text-xs font-medium">
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate leading-none">
                       {user?.name || "-"}
                     </p>
@@ -221,18 +232,31 @@ function DashboardLayoutContent({
                       {user?.email || "-"}
                     </p>
                   </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="cursor-pointer text-destructive focus:text-destructive"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowLogoutDialog(true)}
+                    className="shrink-0 h-9 w-9"
+                    title="Sair"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="sr-only">Sair</span>
+                  </Button>
+                </div>
+              )}
+              {isCollapsed && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowLogoutDialog(true)}
+                  className="shrink-0 h-9 w-9"
+                  title="Sair"
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sign out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <LogOut className="h-4 w-4" />
+                  <span className="sr-only">Sair</span>
+                </Button>
+              )}
+            </div>
           </SidebarFooter>
         </Sidebar>
         <div
@@ -260,8 +284,28 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4 w-full min-w-0">{children}</main>
       </SidebarInset>
+
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Saída</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja sair? Você será redirecionado para a página de login.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLogout}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sair
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

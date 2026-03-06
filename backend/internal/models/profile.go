@@ -10,7 +10,7 @@ type Profile struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Name        string             `bson:"name" json:"name"`
 	Description string             `bson:"description,omitempty" json:"description,omitempty"`
-	Permissions []string            `bson:"permissions" json:"permissions"` // Lista de permissões (ex: "orders.create", "orders.update", etc.)
+	Permissions []string           `bson:"permissions" json:"permissions"` // Lista de permissões (ex: "orders.create", "orders.update", etc.)
 	IsDefault   bool               `bson:"isDefault" json:"isDefault"`     // Indica se é um perfil padrão do sistema
 	IsActive    bool               `bson:"isActive" json:"isActive"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`

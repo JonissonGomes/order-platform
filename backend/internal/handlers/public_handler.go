@@ -56,14 +56,14 @@ func (h *PublicHandler) SearchServiceOrder(c *gin.Context) {
 		// Return order with limited information (public view)
 		c.JSON(http.StatusOK, gin.H{
 			"order": gin.H{
-				"orderNumber":       order.OrderNumber,
-				"status":            order.Status,
-				"productType":       order.ProductType,
-				"productBrand":      order.ProductBrand,
-				"productModel":      order.ProductModel,
+				"orderNumber":        order.OrderNumber,
+				"status":             order.Status,
+				"productType":        order.ProductType,
+				"productBrand":       order.ProductBrand,
+				"productModel":       order.ProductModel,
 				"problemDescription": order.ProblemDescription,
-				"createdAt":         order.CreatedAt,
-				"updatedAt":         order.UpdatedAt,
+				"createdAt":          order.CreatedAt,
+				"updatedAt":          order.UpdatedAt,
 			},
 		})
 		return
@@ -92,13 +92,13 @@ func (h *PublicHandler) SearchServiceOrder(c *gin.Context) {
 		publicOrders := make([]gin.H, 0, len(orders))
 		for _, order := range orders {
 			publicOrders = append(publicOrders, gin.H{
-				"orderNumber":       order.OrderNumber,
-				"status":            order.Status,
-				"productType":       order.ProductType,
-				"productBrand":      order.ProductBrand,
-				"productModel":      order.ProductModel,
-				"createdAt":         order.CreatedAt,
-				"updatedAt":         order.UpdatedAt,
+				"orderNumber":  order.OrderNumber,
+				"status":       order.Status,
+				"productType":  order.ProductType,
+				"productBrand": order.ProductBrand,
+				"productModel": order.ProductModel,
+				"createdAt":    order.CreatedAt,
+				"updatedAt":    order.UpdatedAt,
 			})
 		}
 
@@ -134,13 +134,13 @@ func (h *PublicHandler) SearchServiceOrder(c *gin.Context) {
 		publicOrders := make([]gin.H, 0, len(orders))
 		for _, order := range orders {
 			publicOrders = append(publicOrders, gin.H{
-				"orderNumber":       order.OrderNumber,
-				"status":            order.Status,
-				"productType":       order.ProductType,
-				"productBrand":      order.ProductBrand,
-				"productModel":      order.ProductModel,
-				"createdAt":         order.CreatedAt,
-				"updatedAt":         order.UpdatedAt,
+				"orderNumber":  order.OrderNumber,
+				"status":       order.Status,
+				"productType":  order.ProductType,
+				"productBrand": order.ProductBrand,
+				"productModel": order.ProductModel,
+				"createdAt":    order.CreatedAt,
+				"updatedAt":    order.UpdatedAt,
 			})
 		}
 
