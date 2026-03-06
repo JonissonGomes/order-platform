@@ -111,7 +111,7 @@ else
 		echo "$(GREEN)✓ Arquivo .env já existe$(NC)"; \
 	fi
 endif
-	@cd $(FRONTEND_DIR) && (pnpm install || npm install --legacy-peer-deps) || echo "$(RED)✗ Erro ao instalar dependências$(NC)"
+	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm install || npm install --legacy-peer-deps) || echo "$(RED)✗ Erro ao instalar dependências$(NC)"
 	@echo "$(GREEN)✓ Frontend configurado$(NC)"
 
 install-backend: ## Instala dependências do backend
@@ -121,7 +121,11 @@ install-backend: ## Instala dependências do backend
 
 install-frontend: ## Instala dependências do frontend
 	@echo "$(YELLOW)Instalando dependências do frontend...$(NC)"
+ifeq ($(OS),Windows_NT)
 	@cd $(FRONTEND_DIR) && (pnpm install || npm install --legacy-peer-deps)
+else
+	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm install || npm install --legacy-peer-deps)
+endif
 	@echo "$(GREEN)✓ Dependências do frontend instaladas$(NC)"
 
 dev: ## Inicia backend e frontend em modo desenvolvimento (em janelas separadas no Windows)
@@ -139,7 +143,7 @@ else
 	@echo "$(YELLOW)Ou execute 'make dev-backend' e 'make dev-frontend' em terminais separados$(NC)"
 	@cd $(BACKEND_DIR) && go run cmd/server/main.go &
 	@sleep 2
-	@cd $(FRONTEND_DIR) && (pnpm dev || npm run dev)
+	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm dev || npm run dev)
 endif
 
 dev-backend: ## Inicia apenas o backend em modo desenvolvimento
@@ -148,7 +152,11 @@ dev-backend: ## Inicia apenas o backend em modo desenvolvimento
 
 dev-frontend: ## Inicia apenas o frontend em modo desenvolvimento
 	@echo "$(YELLOW)Iniciando frontend React...$(NC)"
+ifeq ($(OS),Windows_NT)
 	@cd $(FRONTEND_DIR) && (pnpm dev || npm run dev)
+else
+	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm dev || npm run dev)
+endif
 
 build: build-backend build-frontend ## Build de backend e frontend para produção
 
@@ -159,7 +167,11 @@ build-backend: ## Build do backend Go
 
 build-frontend: ## Build do frontend React
 	@echo "$(YELLOW)Build do frontend...$(NC)"
+ifeq ($(OS),Windows_NT)
 	@cd $(FRONTEND_DIR) && (pnpm build || npm run build)
+else
+	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm build || npm run build)
+endif
 	@echo "$(GREEN)✓ Frontend compilado$(NC)"
 
 start-backend: ## Inicia o backend em modo produção
@@ -172,7 +184,11 @@ endif
 
 start-frontend: ## Inicia o frontend em modo produção
 	@echo "$(YELLOW)Iniciando frontend em produção...$(NC)"
+ifeq ($(OS),Windows_NT)
 	@cd $(FRONTEND_DIR) && (pnpm start || npm start)
+else
+	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm start || npm start)
+endif
 
 test: test-backend test-frontend ## Executa testes de backend e frontend
 
@@ -182,7 +198,11 @@ test-backend: ## Executa testes do backend
 
 test-frontend: ## Executa testes do frontend
 	@echo "$(YELLOW)Executando testes do frontend...$(NC)"
+ifeq ($(OS),Windows_NT)
 	@cd $(FRONTEND_DIR) && (pnpm test || npm test)
+else
+	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm test || npm test)
+endif
 
 clean: ## Limpa arquivos de build e cache
 	@echo "$(YELLOW)Limpando arquivos...$(NC)"

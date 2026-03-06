@@ -19,7 +19,7 @@ func NewMongoClient(uri, dbName string) (*MongoDB, error) {
 	defer cancel()
 
 	clientOptions := options.Client().ApplyURI(uri)
-	
+
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		return nil, err

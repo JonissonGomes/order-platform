@@ -30,7 +30,7 @@ func main() {
 
 	// Create and start server
 	srv := server.New(r, cfg.Port)
-	
+
 	log.Printf("Server starting on port %s", cfg.Port)
 	if err := srv.Start(); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

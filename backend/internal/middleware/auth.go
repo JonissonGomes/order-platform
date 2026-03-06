@@ -33,7 +33,7 @@ func AuthMiddleware(userRepo *repository.UserRepository) gin.HandlerFunc {
 		}
 
 		ctx := c.Request.Context()
-		
+
 		// Get user from database
 		userID, err := primitive.ObjectIDFromHex(session.UserID)
 		if err != nil {

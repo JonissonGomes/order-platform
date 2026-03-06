@@ -4,10 +4,11 @@ import (
 	"context"
 	"time"
 
+	"order-platform/backend/internal/models"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"order-platform/backend/internal/models"
 )
 
 const usersCollection = "users"
@@ -27,7 +28,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *models.User) erro
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 	user.LastSignedIn = time.Now()
-	
+
 	_, err := r.collection.InsertOne(ctx, user)
 	return err
 }
@@ -36,7 +37,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *models.User) erro
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User
 	filter := bson.M{"email": email}
-	
+
 	err := r.collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -44,7 +45,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 		}
 		return nil, err
 	}
-	
+
 	return &user, nil
 }
 
@@ -57,7 +58,7 @@ func (r *UserRepository) UpdateLastSignedIn(ctx context.Context, userID primitiv
 			"updatedAt":    time.Now(),
 		},
 	}
-	
+
 	_, err := r.collection.UpdateOne(ctx, filter, update)
 	return err
 }
@@ -66,7 +67,7 @@ func (r *UserRepository) UpdateLastSignedIn(ctx context.Context, userID primitiv
 func (r *UserRepository) GetUserByID(ctx context.Context, id primitive.ObjectID) (*models.User, error) {
 	var user models.User
 	filter := bson.M{"_id": id}
-	
+
 	err := r.collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -74,6 +75,6 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id primitive.ObjectID)
 		}
 		return nil, err
 	}
-	
+
 	return &user, nil
 }
