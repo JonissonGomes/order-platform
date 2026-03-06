@@ -8,6 +8,8 @@
 //   - VITE_API_URL must be set with the full backend URL (e.g., https://api.example.com)
 //   - No proxy is available in production, so direct URL is required
 
+import { handleHttpError, handleApiError } from "./errors";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 export interface User {
@@ -38,18 +40,27 @@ async function fetchAPI<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    credentials: "include", // Important for cookies
-  });
+  let response: Response;
+  
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      credentials: "include", // Important for cookies
+    });
+  } catch (error) {
+    // Network error (no response from server)
+    const apiError = handleApiError(error);
+    throw new Error(apiError.message);
+  }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    // HTTP error (response received but status is not ok)
+    const apiError = await handleHttpError(response);
+    throw new Error(apiError.message);
   }
 
   return response.json();
