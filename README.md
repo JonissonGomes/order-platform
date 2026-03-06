@@ -13,6 +13,105 @@ O projeto é dividido em duas partes principais:
 - **Frontend** (`FE/`) - Aplicação React com TypeScript, Vite, e componentes modernos
 - **Backend** (`backend/`) - API RESTful desenvolvida em Go com Gin framework e MongoDB Atlas
 
+### Diagrama da Arquitetura
+
+```mermaid
+graph TB
+    subgraph "Cliente"
+        Browser[🌐 Navegador]
+    end
+    
+    subgraph "Frontend - React (Porta 3000)"
+        Vite[⚡ Vite Dev Server]
+        React[⚛️ React App]
+        API_Client[📡 API Client]
+        Auth_Hook[🔐 useAuth Hook]
+    end
+    
+    subgraph "Backend - Go (Porta 8080)"
+        Gin[🚀 Gin Framework]
+        Router[🛣️ Router]
+        Auth_Handler[🔑 Auth Handler]
+        Middleware[🛡️ Auth Middleware]
+        User_Repo[💾 User Repository]
+    end
+    
+    subgraph "Banco de Dados"
+        MongoDB[(🍃 MongoDB Atlas)]
+    end
+    
+    Browser -->|HTTP Requests| Vite
+    Vite -->|Proxy /api/*| React
+    React -->|Componentes| Auth_Hook
+    Auth_Hook -->|fetch /api/auth/*| API_Client
+    API_Client -->|HTTP REST| Gin
+    Gin -->|Roteamento| Router
+    Router -->|/api/auth/login| Auth_Handler
+    Router -->|/api/auth/register| Auth_Handler
+    Router -->|/api/auth/me| Middleware
+    Middleware -->|Validação JWT| Auth_Handler
+    Auth_Handler -->|CRUD| User_Repo
+    User_Repo -->|Queries| MongoDB
+    MongoDB -->|Dados| User_Repo
+    User_Repo -->|Resultados| Auth_Handler
+    Auth_Handler -->|JSON Response| API_Client
+    API_Client -->|Estado| Auth_Hook
+    Auth_Hook -->|UI Update| React
+    React -->|Render| Browser
+    
+    style Browser fill:#e1f5ff
+    style Vite fill:#646cff
+    style React fill:#61dafb
+    style Gin fill:#00add8
+    style MongoDB fill:#47a248
+    style Auth_Handler fill:#ff6b6b
+    style Middleware fill:#ffd93d
+```
+
+### Fluxo de Autenticação
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant F as Frontend React
+    participant B as Backend Go
+    participant DB as MongoDB
+    
+    Note over U,DB: Registro de Novo Usuário
+    U->>F: Preenche formulário de registro
+    F->>B: POST /api/auth/register
+    B->>DB: Verifica se email existe
+    DB-->>B: Usuário não encontrado
+    B->>B: Hash da senha (bcrypt)
+    B->>DB: Cria novo usuário
+    DB-->>B: Usuário criado
+    B->>B: Gera JWT token
+    B->>F: Set-Cookie: app_session_id
+    B-->>F: { user: {...} }
+    F->>F: Atualiza estado (useAuth)
+    F-->>U: Redireciona para dashboard
+    
+    Note over U,DB: Login
+    U->>F: Preenche formulário de login
+    F->>B: POST /api/auth/login
+    B->>DB: Busca usuário por email
+    DB-->>B: Dados do usuário
+    B->>B: Verifica senha (bcrypt)
+    B->>B: Gera JWT token
+    B->>F: Set-Cookie: app_session_id
+    B-->>F: { user: {...} }
+    F->>F: Atualiza estado (useAuth)
+    F-->>U: Redireciona para dashboard
+    
+    Note over U,DB: Verificação de Sessão
+    F->>B: GET /api/auth/me (com cookie)
+    B->>B: Valida JWT do cookie
+    B->>DB: Busca dados atualizados
+    DB-->>B: Dados do usuário
+    B-->>F: { user: {...} }
+    F->>F: Atualiza estado (useAuth)
+```
+
 ## 🛠️ Stack Tecnológica
 
 ### Frontend
@@ -133,6 +232,13 @@ pnpm dev
 
 O backend estará disponível em `http://localhost:8080` e o frontend em `http://localhost:3000`.
 
+**Importante:** O frontend está configurado com um proxy que redireciona todas as requisições `/api/*` para o backend Go em `http://localhost:8080`. Isso significa que você não precisa configurar CORS manualmente em desenvolvimento - o Vite faz o proxy automaticamente.
+
+**Configuração de CORS:** A variável `CORS_ORIGINS` é **obrigatória** e deve ser configurada no `.env` do backend com as URLs permitidas, separadas por vírgula. 
+  - **Desenvolvimento:** `CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173`
+  - **Produção:** `CORS_ORIGINS=https://meusite.com,https://www.meusite.com`
+  - Não há valores padrão - você deve configurar explicitamente para cada ambiente.
+
 ### Comandos Disponíveis (Makefile)
 
 Execute `make help` para ver todos os comandos disponíveis:
@@ -170,13 +276,48 @@ O arquivo `.env` é criado automaticamente a partir de `backend/.env.example` qu
 
 Edite `backend/.env` com suas credenciais reais após o setup.
 
+**Variáveis importantes:**
+- `CORS_ORIGINS`: **OBRIGATÓRIO** - URLs permitidas para CORS (separadas por vírgula). 
+  - **Desenvolvimento:** `http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173`
+  - **Produção:** `https://meusite.com,https://www.meusite.com`
+  - Esta variável deve ser configurada explicitamente - não há valores padrão hardcoded
+
 #### Frontend (`.env` em `FE/`)
 
 O arquivo `.env` é criado automaticamente a partir de `FE/.env.example` quando você executa `make setup-frontend`.
 
 Edite `FE/.env` com suas credenciais reais após o setup.
 
+**Variáveis importantes:**
+- `VITE_API_URL`: URL do backend Go
+  - **Desenvolvimento (Opcional):** 
+    - Deixe vazio ou não configure: o frontend usará `/api` que será redirecionado pelo proxy do Vite para `http://localhost:8080` (recomendado)
+    - Ou configure `http://localhost:8080`: o frontend fará requisições diretas ao backend
+  - **Produção (OBRIGATÓRIO):** `https://api.meusite.com` (URL completa do seu backend)
+
 **Nota:** Os arquivos `.env.example` contêm templates com todas as variáveis necessárias. Eles são copiados para `.env` automaticamente durante o setup.
+
+#### Integração Frontend-Backend
+
+A integração entre frontend e backend funciona da seguinte forma:
+
+1. **Desenvolvimento:**
+   - O Vite (servidor de desenvolvimento do frontend) está configurado com um proxy que redireciona todas as requisições `/api/*` para o backend Go
+   - **Opção 1 (Recomendada):** Deixe `VITE_API_URL` vazia ou não configure. O frontend usará `/api` que será redirecionado pelo proxy do Vite para `http://localhost:8080`
+   - **Opção 2:** Configure `VITE_API_URL=http://localhost:8080` no frontend. O frontend fará requisições diretas ao backend (sem proxy)
+   - **Configure `CORS_ORIGINS` no `.env` do backend** com: `http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173`
+
+2. **Produção:**
+   - **Configure obrigatoriamente** a variável `VITE_API_URL` no frontend com a URL completa do seu backend em produção
+     - Exemplo: `VITE_API_URL=https://api.meusite.com`
+   - **Configure obrigatoriamente** a variável `CORS_ORIGINS` no backend com as URLs permitidas (separadas por vírgula)
+     - Exemplo: `CORS_ORIGINS=https://meusite.com,https://www.meusite.com`
+   - O frontend usará a URL configurada diretamente para fazer requisições à API (sem proxy)
+
+3. **Autenticação:**
+   - O backend usa JWT tokens armazenados em cookies HTTP-only (`app_session_id`)
+   - O frontend usa o hook `useAuth` que gerencia automaticamente o estado de autenticação
+   - As requisições incluem `credentials: "include"` para enviar cookies automaticamente
 
 ## 🧪 Testes
 

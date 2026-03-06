@@ -27,5 +27,14 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      "/api": {
+        // Use VITE_API_URL if set, otherwise default to localhost:8080
+        target: process.env.VITE_API_URL || "http://localhost:8080",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path, // Keep /api prefix
+      },
+    },
   },
 });

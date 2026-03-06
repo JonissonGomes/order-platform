@@ -1,4 +1,12 @@
 // API client for REST API calls to Go backend
+// 
+// Development:
+//   - If VITE_API_URL is set: use it directly (bypasses Vite proxy)
+//   - If not set: use "/api" which will be proxied by Vite to http://localhost:8080
+//
+// Production:
+//   - VITE_API_URL must be set with the full backend URL (e.g., https://api.example.com)
+//   - No proxy is available in production, so direct URL is required
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
