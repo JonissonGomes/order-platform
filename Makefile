@@ -1,4 +1,4 @@
-.PHONY: help setup setup-backend setup-frontend install-backend install-frontend dev dev-backend dev-frontend build build-backend build-frontend clean test test-backend test-frontend check-env check-make
+.PHONY: help setup setup-backend setup-frontend install-backend install-frontend dev dev-backend dev-frontend build build-backend build-frontend clean test test-backend test-frontend check-env check-make kill-port-backend kill-port-frontend kill-ports
 
 # Detectar sistema operacional
 ifeq ($(OS),Windows_NT)
@@ -128,7 +128,7 @@ else
 endif
 	@echo "$(GREEN)✓ Dependências do frontend instaladas$(NC)"
 
-dev: ## Inicia backend e frontend em modo desenvolvimento (em janelas separadas no Windows)
+dev: kill-ports ## Inicia backend e frontend em modo desenvolvimento (em janelas separadas no Windows)
 ifeq ($(OS),Windows_NT)
 	@echo "$(YELLOW)Iniciando backend e frontend em janelas separadas...$(NC)"
 	@$(DEV_CMD) "cd $(BACKEND_DIR) && go run cmd/server/main.go"
@@ -146,11 +146,45 @@ else
 	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm dev || npm run dev)
 endif
 
-dev-backend: ## Inicia apenas o backend em modo desenvolvimento
+kill-port-backend: ## Mata processos usando a porta 8080 (backend)
+	@echo "$(YELLOW)Verificando porta 8080...$(NC)"
+ifeq ($(OS),Windows_NT)
+	@powershell -Command "$$procId = (Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue).OwningProcess; if ($$procId) { Write-Host '$(YELLOW)Matando processo' $$procId 'na porta 8080...$(NC)'; Stop-Process -Id $$procId -Force -ErrorAction SilentlyContinue; Write-Host '$(GREEN)✓ Processo na porta 8080 finalizado$(NC)' } else { Write-Host '$(GREEN)✓ Porta 8080 está livre$(NC)' }"
+else
+	@PID=$$(lsof -ti:8080 2>/dev/null || echo ""); \
+	if [ -n "$$PID" ]; then \
+		echo "$(YELLOW)Matando processo $$PID na porta 8080...$(NC)"; \
+		kill -9 $$PID 2>/dev/null && \
+		echo "$(GREEN)✓ Processo na porta 8080 finalizado$(NC)" || \
+		echo "$(RED)✗ Erro ao finalizar processo$(NC)"; \
+	else \
+		echo "$(GREEN)✓ Porta 8080 está livre$(NC)"; \
+	fi
+endif
+
+kill-port-frontend: ## Mata processos usando a porta 3000 (frontend)
+	@echo "$(YELLOW)Verificando porta 3000...$(NC)"
+ifeq ($(OS),Windows_NT)
+	@powershell -Command "$$procId = (Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue).OwningProcess; if ($$procId) { Write-Host '$(YELLOW)Matando processo' $$procId 'na porta 3000...$(NC)'; Stop-Process -Id $$procId -Force -ErrorAction SilentlyContinue; Write-Host '$(GREEN)✓ Processo na porta 3000 finalizado$(NC)' } else { Write-Host '$(GREEN)✓ Porta 3000 está livre$(NC)' }"
+else
+	@PID=$$(lsof -ti:3000 2>/dev/null || echo ""); \
+	if [ -n "$$PID" ]; then \
+		echo "$(YELLOW)Matando processo $$PID na porta 3000...$(NC)"; \
+		kill -9 $$PID 2>/dev/null && \
+		echo "$(GREEN)✓ Processo na porta 3000 finalizado$(NC)" || \
+		echo "$(RED)✗ Erro ao finalizar processo$(NC)"; \
+	else \
+		echo "$(GREEN)✓ Porta 3000 está livre$(NC)"; \
+	fi
+endif
+
+kill-ports: kill-port-backend kill-port-frontend ## Mata processos nas portas 8080 e 3000
+
+dev-backend: kill-port-backend ## Inicia apenas o backend em modo desenvolvimento
 	@echo "$(YELLOW)Iniciando backend Go...$(NC)"
 	@cd $(BACKEND_DIR) && go run cmd/server/main.go
 
-dev-frontend: ## Inicia apenas o frontend em modo desenvolvimento
+dev-frontend: kill-port-frontend ## Inicia apenas o frontend em modo desenvolvimento
 	@echo "$(YELLOW)Iniciando frontend React...$(NC)"
 ifeq ($(OS),Windows_NT)
 	@cd $(FRONTEND_DIR) && (pnpm dev || npm run dev)

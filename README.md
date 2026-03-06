@@ -244,7 +244,12 @@ O backend estará disponível em `http://localhost:8080` e o frontend em `http:/
 Execute `make help` para ver todos os comandos disponíveis:
 
 - `make setup` - Configura todo o ambiente
-- `make dev` - Inicia backend e frontend
+- `make dev` - Inicia backend e frontend (mata processos nas portas automaticamente)
+- `make dev-backend` - Inicia apenas o backend (mata processo na porta 8080 se necessário)
+- `make dev-frontend` - Inicia apenas o frontend (mata processo na porta 3000 se necessário)
+- `make kill-port-backend` - Mata processos usando a porta 8080
+- `make kill-port-frontend` - Mata processos usando a porta 3000
+- `make kill-ports` - Mata processos nas portas 8080 e 3000
 - `make build` - Build para produção
 - `make test` - Executa testes
 - `make clean` - Limpa arquivos de build
@@ -296,6 +301,11 @@ Edite `FE/.env` com suas credenciais reais após o setup.
   - **Produção (OBRIGATÓRIO):** `https://api.meusite.com` (URL completa do seu backend)
 
 **Nota:** Os arquivos `.env.example` contêm templates com todas as variáveis necessárias. Eles são copiados para `.env` automaticamente durante o setup.
+
+**Importante para WSL:** Se você estiver usando WSL e encontrar erros de DNS ao conectar ao MongoDB Atlas, verifique:
+1. A URL do MongoDB deve incluir os parâmetros de query: `?retryWrites=true&w=majority`
+2. O arquivo `.env` deve ser salvo como UTF-8 **sem BOM** (Byte Order Mark)
+3. Se o problema persistir, tente configurar o DNS do WSL ou use o IP do servidor DNS do Windows
 
 #### Integração Frontend-Backend
 
