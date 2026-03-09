@@ -86,6 +86,22 @@ func (r *CustomerRepository) GetCustomerByPhone(ctx context.Context, phone strin
 	return &customer, nil
 }
 
+// GetCustomerByEmail retrieves a customer by email
+func (r *CustomerRepository) GetCustomerByEmail(ctx context.Context, email string) (*models.Customer, error) {
+	var customer models.Customer
+	filter := bson.M{"email": email}
+
+	err := r.collection.FindOne(ctx, filter).Decode(&customer)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &customer, nil
+}
+
 // UpdateCustomer updates a customer
 func (r *CustomerRepository) UpdateCustomer(ctx context.Context, id primitive.ObjectID, customer *models.Customer) error {
 	filter := bson.M{"_id": id}

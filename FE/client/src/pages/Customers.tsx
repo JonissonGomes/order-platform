@@ -1,6 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,12 +20,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
 import { formatCPF, formatPhone, formatCEP, validateCPF } from "@/lib/formatters";
 import { fetchCEP } from "@/lib/cep";
 import type { Customer } from "@/types";
-import { Plus, Search, User, Loader2, Edit, Trash2, Bell } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import { Plus, Search, Users, Loader2, Edit, Trash2, Bell, UserCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -35,6 +42,7 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
 
@@ -45,20 +53,16 @@ export default function Customers() {
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      const params: any = { page: 1, limit: 50 };
-      if (searchTerm) {
-        params.name = searchTerm;
-      }
+      const params: any = { page: 1, limit: 100 };
+      if (searchTerm) params.name = searchTerm;
       const response = await api.listCustomers(params);
       setCustomers(response.customers || []);
     } catch (error: any) {
-      // Se for 404 (não encontrado), apenas definir array vazio sem mostrar erro
       if (error.message === "status: 404" || error.message?.includes("404")) {
         setCustomers([]);
         return;
       }
-      // Apenas mostrar erro se não for 404
-      if (error.message && error.message.trim() !== "" && !error.message.includes("status: 404")) {
+      if (error.message && !error.message.includes("status: 404")) {
         toast.error(error.message || "Erro ao carregar clientes");
       }
     } finally {
@@ -66,9 +70,35 @@ export default function Customers() {
     }
   };
 
-  const handleSearch = () => {
-    loadCustomers();
+  const handleSearch = () => loadCustomers();
+
+  const handleDelete = async () => {
+    if (!deletingCustomer) return;
+    try {
+      await api.deleteCustomer(deletingCustomer.id);
+      toast.success("Cliente excluído com sucesso!");
+      setDeletingCustomer(null);
+      setSelectedCustomer(null);
+      loadCustomers();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao excluir cliente");
+    }
   };
+
+  const filteredCustomers = customers.filter((c) => {
+    if (!searchTerm) return true;
+    const t = searchTerm.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(t) ||
+      c.cpf?.includes(searchTerm.replace(/\D/g, "")) ||
+      c.phone?.includes(searchTerm.replace(/\D/g, "")) ||
+      c.email?.toLowerCase().includes(t)
+    );
+  });
+
+  const isMaintenanceOverdue = (c: Customer) =>
+    !!c.maintenanceIntervalMonths && c.maintenanceIntervalMonths > 0 &&
+    !!c.nextMaintenanceDate && new Date(c.nextMaintenanceDate) <= new Date();
 
   return (
     <DashboardLayout>
@@ -80,641 +110,461 @@ export default function Customers() {
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Cliente
-              </Button>
+              <Button><Plus className="mr-2 h-4 w-4" />Novo Cliente</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
-                <DialogTitle className="text-lg sm:text-xl">Novo Cliente</DialogTitle>
-                <DialogDescription className="text-sm">
-                  Preencha os dados para cadastrar um novo cliente
-                </DialogDescription>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader className="border-b pb-3">
+                <DialogTitle>Novo Cliente</DialogTitle>
+                <DialogDescription>Preencha os dados para cadastrar um novo cliente</DialogDescription>
               </DialogHeader>
-              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-                <CreateCustomerForm onSuccess={() => {
-                  setIsCreateDialogOpen(false);
-                  loadCustomers();
-                }} />
+              <div className="py-4">
+                <CustomerForm onSuccess={() => { setIsCreateDialogOpen(false); loadCustomers(); }} />
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-          <div className="relative flex-1 min-w-0">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nome, CPF ou telefone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              className="pl-10 w-full"
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="pl-10"
             />
           </div>
-          <Button onClick={handleSearch} size="icon" className="w-full sm:w-auto" variant="outline">
-            <Search className="h-4 w-4" />
-            <span className="sr-only">Buscar</span>
-          </Button>
+          <Button onClick={handleSearch} variant="outline" size="icon"><Search className="h-4 w-4" /></Button>
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-        ) : customers.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Nenhum cliente encontrado
-            </CardContent>
-          </Card>
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredCustomers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
+            <Users className="h-12 w-12 opacity-30" />
+            <p>Nenhum cliente encontrado</p>
+          </div>
         ) : (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {customers.map((customer) => (
-              <CustomerCard 
-                key={customer.id} 
-                customer={customer}
-                onEdit={() => setEditingCustomer(customer)}
-                onDelete={() => setDeletingCustomer(customer)}
-              />
-            ))}
+          <div className="rounded-md border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="hidden sm:table-cell">CPF</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead className="hidden lg:table-cell">Cidade</TableHead>
+                  <TableHead className="w-8"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCustomers.map((customer) => (
+                  <TableRow
+                    key={customer.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setSelectedCustomer(customer)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{customer.name}</span>
+                        {isMaintenanceOverdue(customer) && (
+                          <Bell className="h-3 w-3 text-orange-500 flex-shrink-0" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                      {customer.cpf ? formatCPF(customer.cpf) : "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {customer.phone ? formatPhone(customer.phone) : "—"}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                      {customer.email || "—"}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
+                      {customer.address ? `${customer.address.city}/${customer.address.state}` : "—"}
+                    </TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
-
-        {/* Edit Dialog */}
-        {editingCustomer && (
-          <Dialog open={!!editingCustomer} onOpenChange={(open) => !open && setEditingCustomer(null)}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
-                <DialogTitle className="text-lg sm:text-xl">Editar Cliente</DialogTitle>
-                <DialogDescription className="text-sm">
-                  Atualize os dados do cliente
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-                <EditCustomerForm 
-                  customer={editingCustomer}
-                  onSuccess={() => {
-                    setEditingCustomer(null);
-                    loadCustomers();
-                  }}
-                  onCancel={() => setEditingCustomer(null)}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
-
-        {/* Delete Confirmation */}
-        <AlertDialog open={!!deletingCustomer} onOpenChange={(open) => !open && setDeletingCustomer(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tem certeza que deseja excluir o cliente {deletingCustomer?.name}? Esta ação não pode ser desfeita.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={async () => {
-                  if (deletingCustomer) {
-                    try {
-                      await api.deleteCustomer(deletingCustomer.id);
-                      toast.success("Cliente excluído com sucesso!");
-                      setDeletingCustomer(null);
-                      loadCustomers();
-                    } catch (error: any) {
-                      toast.error(error.message || "Erro ao excluir cliente");
-                    }
-                  }
-                }}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Excluir
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
+
+      {/* Detail Modal */}
+      {selectedCustomer && !editingCustomer && (
+        <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-blue-100">
+                  <UserCircle className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <DialogTitle>{selectedCustomer.name}</DialogTitle>
+                  <DialogDescription>
+                    {selectedCustomer.cpf ? formatCPF(selectedCustomer.cpf) : "Sem CPF"}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+            <div className="space-y-3 text-sm py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Telefone</p>
+                  <p className="mt-1">{formatPhone(selectedCustomer.phone)}</p>
+                </div>
+                {selectedCustomer.email && (
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Email</p>
+                    <p className="mt-1 truncate">{selectedCustomer.email}</p>
+                  </div>
+                )}
+              </div>
+              {selectedCustomer.address && (
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Endereço</p>
+                  <p className="mt-1">
+                    {selectedCustomer.address.street}, {selectedCustomer.address.number}
+                    {selectedCustomer.address.complement ? ` — ${selectedCustomer.address.complement}` : ""}<br />
+                    {selectedCustomer.address.neighborhood} — {selectedCustomer.address.city}/{selectedCustomer.address.state}
+                    {selectedCustomer.address.zipCode ? ` — CEP ${formatCEP(selectedCustomer.address.zipCode)}` : ""}
+                  </p>
+                </div>
+              )}
+              {selectedCustomer.notes && (
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Observações</p>
+                  <p className="mt-1 text-muted-foreground">{selectedCustomer.notes}</p>
+                </div>
+              )}
+              {selectedCustomer.maintenanceIntervalMonths != null && selectedCustomer.maintenanceIntervalMonths > 0 && (
+                <div className={`rounded-md px-3 py-2 text-xs ${
+                  isMaintenanceOverdue(selectedCustomer)
+                    ? "bg-orange-50 text-orange-700 border border-orange-200"
+                    : "bg-blue-50 text-blue-700 border border-blue-200"
+                }`}>
+                  <div className="flex items-center gap-1 font-medium mb-1">
+                    <Bell className="h-3 w-3" /> Alerta de Manutenção
+                  </div>
+                  <p>Intervalo: a cada {selectedCustomer.maintenanceIntervalMonths} meses</p>
+                  {selectedCustomer.nextMaintenanceDate && (
+                    <p>Próxima: {new Date(selectedCustomer.nextMaintenanceDate).toLocaleDateString("pt-BR")}</p>
+                  )}
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Cadastrado em</p>
+                <p className="mt-1">{new Date(selectedCustomer.createdAt).toLocaleDateString("pt-BR")}</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => { setDeletingCustomer(selectedCustomer); setSelectedCustomer(null); }}
+              >
+                <Trash2 className="h-4 w-4 mr-1" /> Excluir
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => { setEditingCustomer(selectedCustomer); setSelectedCustomer(null); }}
+              >
+                <Edit className="h-4 w-4 mr-1" /> Editar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Dialog */}
+      {editingCustomer && (
+        <Dialog open={!!editingCustomer} onOpenChange={(open) => !open && setEditingCustomer(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="border-b pb-3">
+              <DialogTitle>Editar Cliente</DialogTitle>
+              <DialogDescription>Atualize os dados do cliente</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <CustomerForm
+                customer={editingCustomer}
+                onSuccess={() => { setEditingCustomer(null); loadCustomers(); }}
+                onCancel={() => setEditingCustomer(null)}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingCustomer} onOpenChange={(open) => !open && setDeletingCustomer(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o cliente <strong>{deletingCustomer?.name}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
 
-function CustomerCard({ customer, onEdit, onDelete }: { customer: Customer; onEdit: () => void; onDelete: () => void }) {
-  return (
-    <Card className="hover:shadow-md transition-shadow w-full">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="p-2 bg-blue-100 rounded-full flex-shrink-0">
-              <User className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <CardTitle className="text-base sm:text-lg truncate">{customer.name}</CardTitle>
-              <CardDescription className="text-xs sm:text-sm break-all">{customer.cpf || "Sem CPF"}</CardDescription>
-            </div>
-          </div>
-          <div className="flex gap-1 flex-shrink-0">
-            <Button variant="ghost" size="icon" onClick={onEdit} className="h-8 w-8">
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2 text-sm">
-          <p className="text-muted-foreground break-words">
-            <strong>Telefone:</strong> {customer.phone}
-          </p>
-          {customer.email && (
-            <p className="text-muted-foreground break-words">
-              <strong>Email:</strong> {customer.email}
-            </p>
-          )}
-          {customer.address && (
-            <p className="text-muted-foreground break-words text-xs">
-              <strong>Endereço:</strong> {customer.address.street}, {customer.address.number} - {customer.address.city}/{customer.address.state}
-            </p>
-          )}
-          {customer.notes && (
-            <p className="text-muted-foreground break-words text-xs">
-              <strong>Obs:</strong> {customer.notes}
-            </p>
-          )}
-          {/* Alerta de manutenção periódica */}
-          {customer.maintenanceIntervalMonths != null && customer.maintenanceIntervalMonths > 0 && (
-            <div className={`flex items-center gap-1 text-xs rounded px-2 py-1 w-fit ${
-              customer.nextMaintenanceDate && new Date(customer.nextMaintenanceDate) <= new Date()
-                ? "bg-orange-100 text-orange-700"
-                : "bg-blue-50 text-blue-600"
-            }`}>
-              <Bell className="h-3 w-3" />
-              {customer.nextMaintenanceDate && new Date(customer.nextMaintenanceDate) <= new Date()
-                ? `⚠ Manutenção atrasada (${new Date(customer.nextMaintenanceDate).toLocaleDateString("pt-BR")})`
-                : `Próx. manutenção: ${customer.nextMaintenanceDate ? new Date(customer.nextMaintenanceDate).toLocaleDateString("pt-BR") : `${customer.maintenanceIntervalMonths}m`}`
-              }
-            </div>
-          )}
-          <p className="text-muted-foreground text-xs">
-            Cadastrado em {new Date(customer.createdAt).toLocaleDateString("pt-BR")}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
+/** Formulário unificado de criação e edição de clientes */
+function CustomerForm({
+  customer,
+  onSuccess,
+  onCancel,
+}: {
+  customer?: Customer;
+  onSuccess: () => void;
+  onCancel?: () => void;
+}) {
+  const isEdit = !!customer;
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    cpf: "",
-    phone: "",
-    email: "",
+    name: customer?.name || "",
+    cpf: customer?.cpf?.replace(/\D/g, "") || "",
+    phone: customer?.phone?.replace(/\D/g, "") || "",
+    email: customer?.email || "",
+    notes: customer?.notes || "",
+    maintenanceIntervalMonths: customer?.maintenanceIntervalMonths ?? 0,
     address: {
-      street: "",
-      number: "",
-      complement: "",
-      neighborhood: "",
-      city: "",
-      state: "",
-      zipCode: "",
-    } as any,
+      street: customer?.address?.street || "",
+      number: customer?.address?.number || "",
+      complement: customer?.address?.complement || "",
+      neighborhood: customer?.address?.neighborhood || "",
+      city: customer?.address?.city || "",
+      state: customer?.address?.state || "",
+      zipCode: customer?.address?.zipCode?.replace(/\D/g, "") || "",
+    },
   });
 
-  // Auto-busca de CEP ao completar 8 dígitos
-  useEffect(() => {
-    const cep = formData.address.zipCode.replace(/\D/g, "");
-    if (cep.length === 8) {
-      setCepLoading(true);
-      fetchCEP(cep).then((address) => {
-        if (address) {
-          setFormData((prev) => ({
-            ...prev,
-            address: { ...prev.address, ...address },
-          }));
-        } else {
-          toast.error("CEP não encontrado");
-        }
-      }).finally(() => setCepLoading(false));
+  const handleCEP = async (cep: string) => {
+    const raw = cep.replace(/\D/g, "");
+    if (raw.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const data = await fetchCEP(raw);
+      if (data) {
+        setFormData((prev) => ({
+          ...prev,
+          address: {
+            ...prev.address,
+            street: data.street || prev.address.street,
+            neighborhood: data.neighborhood || prev.address.neighborhood,
+            city: data.city || prev.address.city,
+            state: data.state || prev.address.state,
+          },
+        }));
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCepLoading(false);
     }
-  }, [formData.address.zipCode]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cpfRaw = formData.cpf.replace(/\D/g, "");
+    if (!isEdit && cpfRaw.length === 11 && !validateCPF(cpfRaw)) {
+      toast.error("CPF inválido");
+      return;
+    }
     try {
       setLoading(true);
-      await api.createCustomer(formData);
-      toast.success("Cliente cadastrado com sucesso!");
+      const hasAddress = formData.address.street || formData.address.city;
+      const payload: any = {
+        name: formData.name,
+        cpf: cpfRaw,
+        phone: formData.phone,
+        email: formData.email || undefined,
+        notes: formData.notes || undefined,
+        maintenanceIntervalMonths: formData.maintenanceIntervalMonths,
+        address: hasAddress ? {
+          ...formData.address,
+          zipCode: formData.address.zipCode.replace(/\D/g, ""),
+        } : undefined,
+      };
+      if (isEdit) {
+        await api.updateCustomer(customer!.id, payload);
+        toast.success("Cliente atualizado com sucesso!");
+      } else {
+        await api.createCustomer(payload);
+        toast.success("Cliente cadastrado com sucesso!");
+      }
       onSuccess();
     } catch (error: any) {
-      toast.error(error.message || "Erro ao cadastrar cliente");
+      toast.error(error.message || "Erro ao salvar cliente");
     } finally {
       setLoading(false);
     }
   };
 
+  const setAddr = (field: string, value: string) =>
+    setFormData((prev) => ({ ...prev, address: { ...prev.address, [field]: value } }));
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Nome *</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          required
-        />
+        <Label htmlFor="c-name">Nome *</Label>
+        <Input id="c-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="cpf">CPF *</Label>
+          <Label htmlFor="c-cpf">CPF {!isEdit && "*"}</Label>
           <Input
-            id="cpf"
+            id="c-cpf"
             value={formatCPF(formData.cpf)}
             onChange={(e) => {
               const raw = e.target.value.replace(/\D/g, "");
-              if (raw.length <= 11) {
-                setFormData({ ...formData, cpf: raw });
-              }
-            }}
-            onBlur={(e) => {
-              const raw = e.target.value.replace(/\D/g, "");
-              if (raw.length === 11 && !validateCPF(raw)) {
-                toast.error("CPF inválido");
-              }
+              if (raw.length <= 11) setFormData({ ...formData, cpf: raw });
             }}
             placeholder="000.000.000-00"
-            required
+            required={!isEdit}
+            disabled={isEdit}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="phone">Telefone *</Label>
+          <Label htmlFor="c-phone">Telefone *</Label>
           <Input
-            id="phone"
+            id="c-phone"
             value={formatPhone(formData.phone)}
             onChange={(e) => {
               const raw = e.target.value.replace(/\D/g, "");
-              if (raw.length <= 11) {
-                setFormData({ ...formData, phone: raw });
-              }
+              if (raw.length <= 11) setFormData({ ...formData, phone: raw });
             }}
             placeholder="(00) 00000-0000"
             required
           />
         </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Endereço</Label>
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <div className="space-y-2 flex-1">
-              <Label htmlFor="zipCode" className="text-xs">CEP</Label>
-              <div className="relative">
-                <Input
-                  id="zipCode"
-                  value={formatCEP(formData.address.zipCode)}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, "");
-                    if (raw.length <= 8) {
-                      setFormData({
-                        ...formData,
-                        address: { ...formData.address, zipCode: raw }
-                      });
-                    }
-                  }}
-                  placeholder="00000-000"
-                  maxLength={9}
-                />
-                {cepLoading && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="street" className="text-xs">Rua</Label>
-              <Input
-                id="street"
-                value={formData.address.street}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, street: e.target.value }
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="number" className="text-xs">Número</Label>
-              <Input
-                id="number"
-                value={formData.address.number}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, number: e.target.value }
-                })}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="complement" className="text-xs">Complemento</Label>
-            <Input
-              id="complement"
-              value={formData.address.complement || ""}
-              onChange={(e) => setFormData({
-                ...formData,
-                address: { ...formData.address, complement: e.target.value }
-              })}
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="neighborhood" className="text-xs">Bairro</Label>
-              <Input
-                id="neighborhood"
-                value={formData.address.neighborhood}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, neighborhood: e.target.value }
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="city" className="text-xs">Cidade</Label>
-              <Input
-                id="city"
-                value={formData.address.city}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, city: e.target.value }
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="state" className="text-xs">Estado</Label>
-              <Input
-                id="state"
-                value={formData.address.state}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, state: e.target.value }
-                })}
-                maxLength={2}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button type="submit" disabled={loading}>
-          {loading ? "Cadastrando..." : "Cadastrar Cliente"}
-        </Button>
-      </div>
-    </form>
-  );
-}
 
-function EditCustomerForm({ customer, onSuccess, onCancel }: { customer: Customer; onSuccess: () => void; onCancel: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [cepLoading, setCepLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: customer.name,
-    phone: customer.phone,
-    email: customer.email || "",
-    notes: customer.notes || "",
-    maintenanceIntervalMonths: customer.maintenanceIntervalMonths ?? 0,
-    address: customer.address || {
-      street: "",
-      number: "",
-      complement: "",
-      neighborhood: "",
-      city: "",
-      state: "",
-      zipCode: "",
-    } as any,
-  });
-
-  // Auto-busca de CEP ao completar 8 dígitos
-  useEffect(() => {
-    const cep = formData.address.zipCode?.replace(/\D/g, "") || "";
-    if (cep.length === 8) {
-      setCepLoading(true);
-      fetchCEP(cep).then((address) => {
-        if (address) {
-          setFormData((prev) => ({
-            ...prev,
-            address: { ...prev.address, ...address },
-          }));
-        } else {
-          toast.error("CEP não encontrado");
-        }
-      }).finally(() => setCepLoading(false));
-    }
-  }, [formData.address.zipCode]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      await api.updateCustomer(customer.id, formData as any);
-      toast.success("Cliente atualizado com sucesso!");
-      onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar cliente");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="edit-name">Nome *</Label>
-        <Input
-          id="edit-name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-phone">Telefone *</Label>
-        <Input
-          id="edit-phone"
-          value={formatPhone(formData.phone)}
-          onChange={(e) => {
-            const raw = e.target.value.replace(/\D/g, "");
-            if (raw.length <= 11) {
-              setFormData({ ...formData, phone: raw });
-            }
-          }}
-          placeholder="(00) 00000-0000"
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-email">Email</Label>
-        <Input
-          id="edit-email"
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Endereço</Label>
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <div className="space-y-2 flex-1">
-              <Label htmlFor="edit-zipCode" className="text-xs">CEP</Label>
-              <div className="relative">
-                <Input
-                  id="edit-zipCode"
-                  value={formatCEP(formData.address.zipCode)}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, "");
-                    if (raw.length <= 8) {
-                      setFormData({
-                        ...formData,
-                        address: { ...formData.address, zipCode: raw }
-                      });
-                    }
-                  }}
-                  placeholder="00000-000"
-                  maxLength={9}
-                />
-                {cepLoading && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-street" className="text-xs">Rua</Label>
-              <Input
-                id="edit-street"
-                value={formData.address.street}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, street: e.target.value }
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-number" className="text-xs">Número</Label>
-              <Input
-                id="edit-number"
-                value={formData.address.number}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, number: e.target.value }
-                })}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-neighborhood" className="text-xs">Bairro</Label>
-              <Input
-                id="edit-neighborhood"
-                value={formData.address.neighborhood}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, neighborhood: e.target.value }
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-city" className="text-xs">Cidade</Label>
-              <Input
-                id="edit-city"
-                value={formData.address.city}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, city: e.target.value }
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-state" className="text-xs">Estado</Label>
-              <Input
-                id="edit-state"
-                value={formData.address.state}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: { ...formData.address, state: e.target.value }
-                })}
-                maxLength={2}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* Fidelização e Manutenção */}
-      <div className="space-y-1 pt-2">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Bell className="h-4 w-4 text-blue-500" />
-          Fidelização e Manutenção Periódica
-        </h3>
-        <Separator />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="edit-maintenanceInterval">
-          Intervalo de Manutenção (meses)
-          <span className="ml-1 text-xs text-muted-foreground">(0 = sem alertas)</span>
+        <Label htmlFor="c-email">
+          Email <span className="text-xs text-muted-foreground">(opcional)</span>
         </Label>
         <Input
-          id="edit-maintenanceInterval"
-          type="number"
-          min="0"
-          max="36"
-          value={formData.maintenanceIntervalMonths}
-          onChange={(e) => setFormData({ ...formData, maintenanceIntervalMonths: parseInt(e.target.value) || 0 })}
-          placeholder="Ex: 12 para limpeza anual"
+          id="c-email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          placeholder="cliente@email.com"
         />
-        {formData.maintenanceIntervalMonths > 0 && (
-          <p className="text-xs text-muted-foreground">
-            O sistema alertará quando a manutenção estiver próxima a cada {formData.maintenanceIntervalMonths} meses
-          </p>
+      </div>
+
+      {/* Endereço */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Endereço</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2 space-y-1">
+            <Label className="text-xs">CEP</Label>
+            <div className="relative">
+              <Input
+                value={formatCEP(formData.address.zipCode)}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, "");
+                  if (raw.length <= 8) {
+                    setAddr("zipCode", raw);
+                    if (raw.length === 8) handleCEP(raw);
+                  }
+                }}
+                placeholder="00000-000"
+              />
+              {cepLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Estado</Label>
+            <Input value={formData.address.state} onChange={(e) => setAddr("state", e.target.value.toUpperCase().slice(0,2))} placeholder="PE" maxLength={2} />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2 space-y-1">
+            <Label className="text-xs">Rua / Logradouro</Label>
+            <Input value={formData.address.street} onChange={(e) => setAddr("street", e.target.value)} placeholder="Rua das Flores" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Número</Label>
+            <Input value={formData.address.number} onChange={(e) => setAddr("number", e.target.value)} placeholder="123" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Bairro</Label>
+            <Input value={formData.address.neighborhood} onChange={(e) => setAddr("neighborhood", e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Cidade</Label>
+            <Input value={formData.address.city} onChange={(e) => setAddr("city", e.target.value)} />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Complemento</Label>
+          <Input value={formData.address.complement} onChange={(e) => setAddr("complement", e.target.value)} placeholder="Apto 10, Bloco A..." />
+        </div>
+      </div>
+
+      {/* Manutenção */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Manutenção Periódica</h3>
+          <Bell className="h-3 w-3 text-blue-500" />
+        </div>
+        <Separator />
+        <div className="space-y-2">
+          <Label htmlFor="c-maintenance">
+            Intervalo (meses) <span className="text-xs text-muted-foreground">— 0 = sem alertas</span>
+          </Label>
+          <Input
+            id="c-maintenance"
+            type="number"
+            min="0" max="36"
+            value={formData.maintenanceIntervalMonths}
+            onChange={(e) => setFormData({ ...formData, maintenanceIntervalMonths: parseInt(e.target.value) || 0 })}
+            placeholder="Ex: 12"
+          />
+        </div>
+        {isEdit && customer?.lastMaintenanceDate && (
+          <div className="p-3 bg-blue-50 rounded-md text-xs text-blue-800 space-y-1">
+            <p><strong>Última:</strong> {new Date(customer.lastMaintenanceDate).toLocaleDateString("pt-BR")}</p>
+            {customer.nextMaintenanceDate && (
+              <p><strong>Próxima:</strong> {new Date(customer.nextMaintenanceDate).toLocaleDateString("pt-BR")}</p>
+            )}
+          </div>
         )}
       </div>
-      {customer.lastMaintenanceDate && (
-        <div className="p-3 bg-blue-50 rounded-md text-xs text-blue-800 space-y-1">
-          <p><strong>Última manutenção:</strong> {new Date(customer.lastMaintenanceDate).toLocaleDateString("pt-BR")}</p>
-          {customer.nextMaintenanceDate && (
-            <p><strong>Próxima manutenção:</strong> {new Date(customer.nextMaintenanceDate).toLocaleDateString("pt-BR")}</p>
-          )}
-        </div>
-      )}
+
       <div className="space-y-2">
-        <Label htmlFor="edit-notes">Observações</Label>
+        <Label htmlFor="c-notes">Observações</Label>
         <textarea
-          id="edit-notes"
-          className="w-full min-h-[80px] px-3 py-2 border rounded-md text-sm resize-none"
-          placeholder="Notas sobre o cliente, preferências, histórico..."
+          id="c-notes"
+          className="w-full min-h-[72px] px-3 py-2 border rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          placeholder="Notas sobre o cliente, preferências..."
         />
       </div>
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancelar
-        </Button>
+
+      <div className="flex justify-end gap-2 pt-2 border-t">
+        {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>Cancelar</Button>}
         <Button type="submit" disabled={loading}>
-          {loading ? "Atualizando..." : "Atualizar Cliente"}
+          {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : isEdit ? "Atualizar" : "Cadastrar"}
         </Button>
       </div>
     </form>

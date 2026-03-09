@@ -20,6 +20,7 @@ export const MODULE_NAMES: Record<string, string> = {
   "/stock": "Estoque",
   "/financial": "Financeiro",
   "/profiles": "Perfis e Módulos",
+  "/settings": "Configurações",
 };
 
 export const MODULES: Module[] = [
@@ -86,6 +87,14 @@ export const MODULES: Module[] = [
     icon: "Shield",
     path: "/profiles",
     permissions: ["profiles.read", "profiles.*", "*"],
+  },
+  {
+    id: "settings",
+    name: "settings",
+    label: "Configurações",
+    icon: "Settings",
+    path: "/settings",
+    permissions: ["settings.read", "settings.*", "*"],
   },
 ];
 

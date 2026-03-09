@@ -33,16 +33,18 @@ func NewDepartmentHandler(
 }
 
 type CreateDepartmentRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description,omitempty"`
-	ManagerID   string `json:"managerId,omitempty"`
+	Name        string          `json:"name" binding:"required"`
+	Description string          `json:"description,omitempty"`
+	ManagerID   string          `json:"managerId,omitempty"`
+	Address     *models.Address `json:"address,omitempty"`
 }
 
 type UpdateDepartmentRequest struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-	ManagerID   string `json:"managerId,omitempty"`
-	IsActive    *bool  `json:"isActive,omitempty"`
+	Name        string          `json:"name,omitempty"`
+	Description string          `json:"description,omitempty"`
+	ManagerID   string          `json:"managerId,omitempty"`
+	Address     *models.Address `json:"address,omitempty"`
+	IsActive    *bool           `json:"isActive,omitempty"`
 }
 
 // CreateDepartment creates a new department
@@ -108,6 +110,7 @@ func (h *DepartmentHandler) CreateDepartment(c *gin.Context) {
 	department := &models.Department{
 		Name:        req.Name,
 		Description: req.Description,
+		Address:     req.Address,
 		ManagerID:   managerID,
 		IsActive:    true,
 		CreatedBy:   createdBy,
@@ -219,6 +222,9 @@ func (h *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 	}
 	if req.Description != "" {
 		department.Description = req.Description
+	}
+	if req.Address != nil {
+		department.Address = req.Address
 	}
 	if req.ManagerID != "" {
 		managerID, err := primitive.ObjectIDFromHex(req.ManagerID)

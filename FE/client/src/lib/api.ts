@@ -36,6 +36,7 @@ import type {
   Transaction,
   FinancialSummary,
   CashFlowEntry,
+  Settings,
 } from "@/types";
 
 // Em desenvolvimento sem VITE_API_URL, usa string vazia (Vite proxy cuida do /api/*)
@@ -358,6 +359,7 @@ export const api = {
     orderNumber?: string;
     cpf?: string;
     phone?: string;
+    email?: string;
   }): Promise<{ order?: ServiceOrder; orders?: ServiceOrder[]; customer?: { name: string } }> {
     return fetchAPI<{ order?: ServiceOrder; orders?: ServiceOrder[]; customer?: { name: string } }>(
       "/api/public/service-orders/search",
@@ -447,6 +449,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(data),
     });
+  },
+
+  async deleteStockItem(id: string): Promise<void> {
+    return fetchAPI(`/api/stock/${id}`, { method: "DELETE" });
   },
 
   async createStockMovement(
@@ -558,6 +564,19 @@ export const api = {
   async deleteTransaction(id: string): Promise<{ success: boolean }> {
     return fetchAPI<{ success: boolean }>(`/api/financial/transactions/${id}`, {
       method: "DELETE",
+    });
+  },
+
+  // ── Settings endpoints ─────────────────────────────────────────────────────
+
+  async getSettings(): Promise<{ settings: Settings }> {
+    return fetchAPI<{ settings: Settings }>("/api/settings");
+  },
+
+  async updateSettings(data: Partial<Settings>): Promise<{ settings: Settings }> {
+    return fetchAPI<{ settings: Settings }>("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
     });
   },
 };

@@ -3,6 +3,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -18,6 +28,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/lib/api";
 import type { CashFlowEntry, Transaction } from "@/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,6 +45,7 @@ import {
   BadgeDollarSign,
   CheckCircle,
   Clock,
+  Loader2,
   Plus,
   TrendingUp,
   Trash2,
@@ -215,52 +234,7 @@ function TransactionForm({ onSave, onCancel, loading }: TransactionFormProps) {
   );
 }
 
-// ── Transaction Card ──────────────────────────────────────────────────────────
-
-interface TransactionCardProps {
-  transaction: Transaction;
-  onMarkPaid: (id: string) => void;
-  onDelete: (id: string) => void;
-}
-
-function TransactionCard({ transaction: t, onMarkPaid, onDelete }: TransactionCardProps) {
-  const isIncome = t.type === "income";
-  return (
-    <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/30 transition-colors">
-      <div className={`p-2 rounded-full ${isIncome ? "bg-green-100" : "bg-red-100"}`}>
-        {isIncome
-          ? <ArrowUpCircle className="h-4 w-4 text-green-600" />
-          : <ArrowDownCircle className="h-4 w-4 text-red-500" />
-        }
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{t.description}</p>
-        <p className="text-xs text-muted-foreground">
-          {CATEGORY_LABELS[t.category] ?? t.category} · {PAYMENT_LABELS[t.paymentMethod] ?? t.paymentMethod}
-          {" · "}{new Date(t.referenceDate).toLocaleDateString("pt-BR")}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span className={`font-semibold text-sm ${isIncome ? "text-green-600" : "text-red-500"}`}>
-          {isIncome ? "+" : "-"}{formatCurrency(t.amount)}
-        </span>
-        {t.isPaid ? (
-          <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">Pago</Badge>
-        ) : (
-          <Badge variant="secondary" className="text-xs">Pendente</Badge>
-        )}
-        {!t.isPaid && (
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Marcar como pago" onClick={() => onMarkPaid(t.id)}>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </Button>
-        )}
-        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => onDelete(t.id)}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
+// (TransactionCard removed — now using table rows)
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -269,6 +243,8 @@ export default function Financial() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
   const [typeFilter, setTypeFilter] = useState("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
 
   const { data: summaryData } = useQuery({
     queryKey: ["financial-summary", selectedMonth],
@@ -319,6 +295,8 @@ export default function Financial() {
       queryClient.invalidateQueries({ queryKey: ["financial-summary"] });
       queryClient.invalidateQueries({ queryKey: ["cash-flow"] });
       toast.success("Transação excluída");
+      setDeletingTransaction(null);
+      setSelectedTransaction(null);
     },
     onError: () => toast.error("Erro ao excluir"),
   });
@@ -432,44 +410,198 @@ export default function Financial() {
           </Card>
         )}
 
-        {/* Transactions */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Lançamentos de {formatMonth(selectedMonth)}</CardTitle>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-32 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="income">Receitas</SelectItem>
-                  <SelectItem value="expense">Despesas</SelectItem>
-                </SelectContent>
-              </Select>
+        {/* Transactions Table */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Lançamentos de {formatMonth(selectedMonth)}
+            </h2>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="income">Receitas</SelectItem>
+                <SelectItem value="expense">Despesas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {isLoading ? (
-              <p className="text-sm text-muted-foreground">Carregando...</p>
-            ) : transactions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <BadgeDollarSign className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Nenhum lançamento neste período.</p>
-              </div>
-            ) : (
-              transactions.map((t) => (
-                <TransactionCard
-                  key={t.id}
-                  transaction={t}
-                  onMarkPaid={(id) => markPaidMutation.mutate(id)}
-                  onDelete={(id) => deleteMutation.mutate(id)}
-                />
-              ))
-            )}
-          </CardContent>
-        </Card>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground border rounded-md">
+              <BadgeDollarSign className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Nenhum lançamento neste período.</p>
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="hidden sm:table-cell">Categoria</TableHead>
+                    <TableHead className="hidden md:table-cell">Pagamento</TableHead>
+                    <TableHead className="hidden md:table-cell">Data</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((t) => {
+                    const isIncome = t.type === "income";
+                    return (
+                      <TableRow
+                        key={t.id}
+                        className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setSelectedTransaction(t)}
+                      >
+                        <TableCell>
+                          <div className={`p-1.5 rounded-full w-fit ${isIncome ? "bg-green-100" : "bg-red-100"}`}>
+                            {isIncome
+                              ? <ArrowUpCircle className="h-3.5 w-3.5 text-green-600" />
+                              : <ArrowDownCircle className="h-3.5 w-3.5 text-red-500" />
+                            }
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium text-sm max-w-[180px] truncate">{t.description}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                          {CATEGORY_LABELS[t.category] ?? t.category}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                          {PAYMENT_LABELS[t.paymentMethod] ?? t.paymentMethod}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                          {new Date(t.referenceDate).toLocaleDateString("pt-BR")}
+                        </TableCell>
+                        <TableCell className={`font-semibold text-sm ${isIncome ? "text-green-600" : "text-red-500"}`}>
+                          {isIncome ? "+" : "-"}{formatCurrency(t.amount)}
+                        </TableCell>
+                        <TableCell>
+                          {t.isPaid
+                            ? <Badge className="text-xs bg-green-100 text-green-700 border-green-200">Pago</Badge>
+                            : <Badge variant="secondary" className="text-xs">Pendente</Badge>
+                          }
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Transaction Detail Modal */}
+      {selectedTransaction && (
+        <Dialog open={!!selectedTransaction} onOpenChange={(open) => !open && setSelectedTransaction(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {selectedTransaction.type === "income"
+                  ? <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                  : <ArrowDownCircle className="h-5 w-5 text-red-500" />
+                }
+                {selectedTransaction.description}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm py-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Tipo</p>
+                  <p className="mt-1 font-medium">{selectedTransaction.type === "income" ? "Receita" : "Despesa"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Valor</p>
+                  <p className={`mt-1 font-bold ${selectedTransaction.type === "income" ? "text-green-600" : "text-red-500"}`}>
+                    {selectedTransaction.type === "income" ? "+" : "-"}{formatCurrency(selectedTransaction.amount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Categoria</p>
+                  <p className="mt-1">{CATEGORY_LABELS[selectedTransaction.category] ?? selectedTransaction.category}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Pagamento</p>
+                  <p className="mt-1">{PAYMENT_LABELS[selectedTransaction.paymentMethod] ?? selectedTransaction.paymentMethod}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Competência</p>
+                  <p className="mt-1">{new Date(selectedTransaction.referenceDate).toLocaleDateString("pt-BR")}</p>
+                </div>
+                {selectedTransaction.dueDate && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Vencimento</p>
+                    <p className="mt-1">{new Date(selectedTransaction.dueDate).toLocaleDateString("pt-BR")}</p>
+                  </div>
+                )}
+              </div>
+              {selectedTransaction.notes && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Observações</p>
+                  <p className="mt-1 text-muted-foreground">{selectedTransaction.notes}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Status</p>
+                <div className="mt-1">
+                  {selectedTransaction.isPaid
+                    ? <Badge className="bg-green-100 text-green-700 border-green-200">Pago / Recebido</Badge>
+                    : <Badge variant="secondary">Pendente</Badge>
+                  }
+                </div>
+              </div>
+              <Separator />
+              <div className="flex justify-between">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => { setDeletingTransaction(selectedTransaction); setSelectedTransaction(null); }}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Excluir
+                </Button>
+                <div className="flex gap-2">
+                  {!selectedTransaction.isPaid && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { markPaidMutation.mutate(selectedTransaction.id); setSelectedTransaction(null); }}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1 text-green-600" /> Marcar como Pago
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingTransaction} onOpenChange={(open) => !open && setDeletingTransaction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o lançamento <strong>"{deletingTransaction?.description}"</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletingTransaction && deleteMutation.mutate(deletingTransaction.id)}
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>

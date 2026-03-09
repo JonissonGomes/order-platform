@@ -1,7 +1,17 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +28,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/lib/api";
 import type { StockItem, StockMovement } from "@/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +49,8 @@ import {
   Search,
   SlidersHorizontal,
   TrendingDown,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -299,9 +319,11 @@ export default function Stock() {
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showMovementDialog, setShowMovementDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deletingItem, setDeletingItem] = useState<StockItem | null>(null);
 
   const { data: summaryData } = useQuery({
     queryKey: ["stock-summary"],
@@ -340,6 +362,19 @@ export default function Stock() {
       setSelectedItem(null);
     },
     onError: () => toast.error("Erro ao atualizar item"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteStockItem(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stock-items"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-summary"] });
+      toast.success("Item excluído!");
+      setDeletingItem(null);
+      setShowDetailDialog(false);
+      setSelectedItem(null);
+    },
+    onError: () => toast.error("Erro ao excluir item"),
   });
 
   const movementMutation = useMutation({
@@ -446,89 +481,168 @@ export default function Stock() {
           </Button>
         </div>
 
-        {/* Items List */}
+        {/* Items Table */}
         {isLoading ? (
-          <p className="text-muted-foreground text-sm">Carregando itens...</p>
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
         ) : items.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p>Nenhum item encontrado.</p>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => {
-              const status = stockStatus(item);
-              return (
-                <Card key={item.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <CardTitle className="text-base truncate">{item.name}</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-0.5">{item.category}{item.sku ? ` · ${item.sku}` : ""}</p>
-                      </div>
-                      <Badge
-                        variant={status === "ok" ? "default" : status === "low" ? "secondary" : "destructive"}
-                        className="shrink-0"
-                      >
-                        {status === "ok" ? "OK" : status === "low" ? "Baixo" : "Zerado"}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Quantidade</span>
-                      <span className={`font-bold ${status === "out" ? "text-red-600" : status === "low" ? "text-yellow-600" : ""}`}>
-                        {item.quantity}
-                        {item.minQuantity > 0 && <span className="text-muted-foreground font-normal"> / mín. {item.minQuantity}</span>}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Custo</span>
-                      <span>{formatCurrency(item.costPrice)}</span>
-                    </div>
-                    {item.supplier && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Fornecedor</span>
-                        <span className="truncate max-w-32">{item.supplier}</span>
-                      </div>
-                    )}
-                    {item.location && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Local</span>
-                        <span>{item.location}</span>
-                      </div>
-                    )}
-                    <Separator />
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="flex-1 gap-1"
-                        onClick={() => { setSelectedItem(item); setShowMovementDialog(true); }}
-                      >
-                        <RefreshCw className="h-3 w-3" /> Movimentar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => { setSelectedItem(item); setShowHistoryDialog(true); }}
-                      >
-                        Histórico
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => { setSelectedItem(item); setShowEditDialog(true); }}
-                      >
-                        Editar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <div className="rounded-md border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="hidden sm:table-cell">Categoria</TableHead>
+                  <TableHead>Qtd</TableHead>
+                  <TableHead className="hidden md:table-cell">Custo</TableHead>
+                  <TableHead className="hidden lg:table-cell">Fornecedor</TableHead>
+                  <TableHead className="hidden lg:table-cell">Local</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => {
+                  const status = stockStatus(item);
+                  return (
+                    <TableRow
+                      key={item.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => { setSelectedItem(item); setShowDetailDialog(true); }}
+                    >
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-sm">{item.name}</p>
+                          {item.sku && <p className="text-xs text-muted-foreground">{item.sku}</p>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{item.category}</TableCell>
+                      <TableCell>
+                        <span className={`font-bold text-sm ${status === "out" ? "text-red-600" : status === "low" ? "text-yellow-600" : ""}`}>
+                          {item.quantity}
+                          {item.minQuantity > 0 && <span className="text-muted-foreground font-normal text-xs"> /min {item.minQuantity}</span>}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm">{formatCurrency(item.costPrice)}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{item.supplier || "—"}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{item.location || "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={status === "ok" ? "default" : status === "low" ? "secondary" : "destructive"} className="text-xs">
+                          {status === "ok" ? "OK" : status === "low" ? "Baixo" : "Zerado"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
+
+      {/* Detail Modal */}
+      <Dialog open={showDetailDialog} onOpenChange={(open) => { if (!open) { setShowDetailDialog(false); setSelectedItem(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedItem?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedItem && (
+            <div className="space-y-3 text-sm py-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Categoria</p>
+                  <p className="mt-1 font-medium">{selectedItem.category}</p>
+                </div>
+                {selectedItem.sku && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">SKU</p>
+                    <p className="mt-1 font-medium">{selectedItem.sku}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Quantidade</p>
+                  <p className={`mt-1 font-bold ${stockStatus(selectedItem) === "out" ? "text-red-600" : stockStatus(selectedItem) === "low" ? "text-yellow-600" : ""}`}>
+                    {selectedItem.quantity}
+                    {selectedItem.minQuantity > 0 && <span className="text-muted-foreground font-normal text-xs"> / mín. {selectedItem.minQuantity}</span>}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Preço de Custo</p>
+                  <p className="mt-1">{formatCurrency(selectedItem.costPrice)}</p>
+                </div>
+                {selectedItem.sellingPrice > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Preço de Venda</p>
+                    <p className="mt-1">{formatCurrency(selectedItem.sellingPrice)}</p>
+                  </div>
+                )}
+                {selectedItem.supplier && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Fornecedor</p>
+                    <p className="mt-1">{selectedItem.supplier}</p>
+                  </div>
+                )}
+                {selectedItem.location && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Localização</p>
+                    <p className="mt-1">{selectedItem.location}</p>
+                  </div>
+                )}
+              </div>
+              {selectedItem.description && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Descrição</p>
+                  <p className="mt-1 text-muted-foreground">{selectedItem.description}</p>
+                </div>
+              )}
+              <Separator />
+              <div className="flex justify-between">
+                <div className="flex gap-2">
+                  <Button variant="destructive" size="sm" onClick={() => { setDeletingItem(selectedItem); setShowDetailDialog(false); }}>
+                    <Trash2 className="h-4 w-4 mr-1" /> Excluir
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setShowDetailDialog(false); setShowHistoryDialog(true); }}>
+                    Histórico
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setShowDetailDialog(false); setShowMovementDialog(true); }}>
+                    <RefreshCw className="h-3 w-3 mr-1" /> Movimentar
+                  </Button>
+                  <Button size="sm" onClick={() => { setShowDetailDialog(false); setShowEditDialog(true); }}>
+                    Editar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o item <strong>{deletingItem?.name}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletingItem && deleteMutation.mutate(deletingItem.id)}
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialogs */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>

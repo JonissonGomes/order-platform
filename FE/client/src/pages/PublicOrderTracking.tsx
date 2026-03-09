@@ -4,13 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
+import { formatPhone, formatCPF } from "@/lib/formatters";
 import { StatusTimeline } from "@/components/StatusTimeline";
 import type { ServiceOrder, StatusHistory } from "@/types";
-import { Search, FileText, UserPlus, CheckCircle2, Clock, Bell } from "lucide-react";
+import { Search, FileText, UserPlus, CheckCircle2, Clock, Bell, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { Loader2 } from "lucide-react";
 
 const statusLabels: Record<string, string> = {
   approved: "Aprovado",
@@ -26,7 +26,7 @@ const statusLabels: Record<string, string> = {
 
 export default function PublicOrderTracking() {
   const [, setLocation] = useLocation();
-  const [searchType, setSearchType] = useState<"orderNumber" | "cpf" | "phone">("orderNumber");
+  const [searchType, setSearchType] = useState<"orderNumber" | "cpf" | "phone" | "email">("orderNumber");
   const [searchValue, setSearchValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState<ServiceOrder | null>(null);
@@ -47,7 +47,7 @@ export default function PublicOrderTracking() {
       setHistory([]);
 
       if (searchType === "orderNumber") {
-        const response = await api.getPublicServiceOrder(searchValue);
+        const response = await api.getPublicServiceOrder(searchValue.trim());
         setOrder(response.order);
         // Load history if order found
         try {
@@ -57,8 +57,12 @@ export default function PublicOrderTracking() {
           // History might not be available for public
         }
       } else {
+        // For CPF/phone, strip formatting before sending
+        const cleanValue = searchType === "cpf" || searchType === "phone"
+          ? searchValue.replace(/\D/g, "")
+          : searchValue.trim();
         const response = await api.searchPublicServiceOrder({
-          [searchType]: searchValue,
+          [searchType]: cleanValue,
         });
         if (response.order) {
           setOrder(response.order);
@@ -98,11 +102,12 @@ export default function PublicOrderTracking() {
             <CardDescription>Escolha o método de busca e informe os dados</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={searchType} onValueChange={(v) => setSearchType(v as any)}>
-              <TabsList className="grid w-full grid-cols-3 mb-4">
-                <TabsTrigger value="orderNumber">Número da Ordem</TabsTrigger>
-                <TabsTrigger value="cpf">CPF</TabsTrigger>
-                <TabsTrigger value="phone">Telefone</TabsTrigger>
+            <Tabs value={searchType} onValueChange={(v) => { setSearchType(v as any); setSearchValue(""); }}>
+              <TabsList className="grid w-full grid-cols-4 mb-4">
+                <TabsTrigger value="orderNumber" className="text-xs">Nº da Ordem</TabsTrigger>
+                <TabsTrigger value="cpf" className="text-xs">CPF</TabsTrigger>
+                <TabsTrigger value="phone" className="text-xs">Telefone</TabsTrigger>
+                <TabsTrigger value="email" className="text-xs">E-mail</TabsTrigger>
               </TabsList>
               <TabsContent value="orderNumber" className="space-y-4">
                 <div className="space-y-2">
@@ -112,7 +117,7 @@ export default function PublicOrderTracking() {
                     placeholder="Ex: ORD-2024-0001"
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
               </TabsContent>
@@ -122,9 +127,12 @@ export default function PublicOrderTracking() {
                   <Input
                     id="cpf"
                     placeholder="000.000.000-00"
-                    value={searchValue}
-                    onChange={(e) => setSearchValue(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                    value={formatCPF(searchValue)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      if (raw.length <= 11) setSearchValue(raw);
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
               </TabsContent>
@@ -134,9 +142,25 @@ export default function PublicOrderTracking() {
                   <Input
                     id="phone"
                     placeholder="(00) 00000-0000"
+                    value={formatPhone(searchValue)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      if (raw.length <= 11) setSearchValue(raw);
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="email" className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
               </TabsContent>

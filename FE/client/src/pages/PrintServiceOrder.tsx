@@ -1,15 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "wouter";
 import { api } from "@/lib/api";
-import type { ServiceOrder } from "@/types";
-
-// Termos de garantia padrão usados quando a OS não possui termos customizados
-const DEFAULT_WARRANTY_TERMS = `1. O equipamento deve ser retirado em até 30 dias após a conclusão do serviço ou orçamento. Após esse prazo, será cobrada uma taxa de R$ 50,00 por mês referente a armazenamento. Equipamentos não retirados em até 90 dias serão considerados abandonados e poderão ser descartados.
-2. Reparos de consoles e controles possuem 90 dias de garantia, válida apenas para o mesmo defeito relatado, com lacre intacto e sem sinais de mau uso.
-3. Serviços como limpeza, desoxidação, troca de conectores, desbloqueio, formatação ou relacionados a software não possuem garantia.
-4. A empresa não se responsabiliza pela perda de arquivos (jogos, fotos, vídeos, aplicativos, etc.). Recomendamos que o cliente realize backup antes da entrega do equipamento.
-5. Em casos em que o orçamento não for aprovado pelo cliente, será cobrada uma taxa referente ao custo operacional do diagnóstico técnico.
-6. Produtos vendidos pela empresa têm garantia de 90 dias, conforme o Código de Defesa do Consumidor.`;
+import type { Customer, ServiceOrder, Settings } from "@/types";
 
 function formatDate(dateStr?: string | null) {
   if (!dateStr) return "-";
@@ -30,21 +22,38 @@ function formatCurrency(value?: number) {
 export default function PrintServiceOrder() {
   const params = useParams<{ id: string }>();
   const [order, setOrder] = useState<ServiceOrder | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadOrder = async () => {
+    const loadData = async () => {
       try {
-        const response = await api.getServiceOrder(params.id);
-        setOrder(response.order);
+        const [orderRes, settingsRes] = await Promise.all([
+          api.getServiceOrder(params.id),
+          api.getSettings().catch(() => ({ settings: null })),
+        ]);
+        const loadedOrder = orderRes.order;
+        setOrder(loadedOrder);
+        if (settingsRes.settings) setSettings(settingsRes.settings);
+
+        // If customer is not populated in the order, fetch separately
+        if (!loadedOrder.customer && loadedOrder.customerId) {
+          try {
+            const customerRes = await api.getCustomer(loadedOrder.customerId);
+            setCustomer(customerRes.customer);
+          } catch {
+            // ignore customer fetch error
+          }
+        }
       } catch (err: any) {
         setError(err.message || "Erro ao carregar ordem de serviço");
       } finally {
         setLoading(false);
       }
     };
-    if (params.id) loadOrder();
+    if (params.id) loadData();
   }, [params.id]);
 
   useEffect(() => {
@@ -69,9 +78,13 @@ export default function PrintServiceOrder() {
     );
   }
 
+  // Use customer from order.customer or separately fetched
+  const displayCustomer = order.customer ?? customer;
+
   const totalServices = order.serviceItems?.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0) ?? 0;
   const finalTotal = order.finalCost ?? totalServices;
-  const warrantyTerms = order.warrantyTerms || DEFAULT_WARRANTY_TERMS;
+  // Warranty terms: order-specific > global settings > empty
+  const warrantyTerms = order.warrantyTerms || settings?.defaultWarrantyTerms || "";
 
   return (
     <>
@@ -95,15 +108,21 @@ export default function PrintServiceOrder() {
 
         {/* Cabeçalho da empresa */}
         <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
-          <h1 className="text-2xl font-bold uppercase tracking-wide">{import.meta.env.VITE_COMPANY_NAME || "Sistema de OS"}</h1>
-          {import.meta.env.VITE_COMPANY_CNPJ && (
-            <p className="text-xs text-gray-600">CNPJ: {import.meta.env.VITE_COMPANY_CNPJ}</p>
+          <h1 className="text-2xl font-bold uppercase tracking-wide">
+            {settings?.companyName || import.meta.env.VITE_COMPANY_NAME || "Sistema de OS"}
+          </h1>
+          {(settings?.companyCNPJ || import.meta.env.VITE_COMPANY_CNPJ) && (
+            <p className="text-xs text-gray-600">CNPJ: {settings?.companyCNPJ || import.meta.env.VITE_COMPANY_CNPJ}</p>
           )}
-          {import.meta.env.VITE_COMPANY_ADDRESS && (
-            <p className="text-xs text-gray-600">{import.meta.env.VITE_COMPANY_ADDRESS}</p>
+          {(settings?.companyAddress || import.meta.env.VITE_COMPANY_ADDRESS) && (
+            <p className="text-xs text-gray-600">
+              {settings?.companyAddress
+                ? `${settings.companyAddress.street}, ${settings.companyAddress.number} — ${settings.companyAddress.city}/${settings.companyAddress.state}`
+                : import.meta.env.VITE_COMPANY_ADDRESS}
+            </p>
           )}
-          {import.meta.env.VITE_COMPANY_PHONE && (
-            <p className="text-xs text-gray-600">{import.meta.env.VITE_COMPANY_PHONE}</p>
+          {(settings?.companyPhone || import.meta.env.VITE_COMPANY_PHONE) && (
+            <p className="text-xs text-gray-600">{settings?.companyPhone || import.meta.env.VITE_COMPANY_PHONE}</p>
           )}
         </div>
 
@@ -141,36 +160,36 @@ export default function PrintServiceOrder() {
             <tbody>
               <tr>
                 <td className="border border-gray-300 px-2 py-1 w-20 font-medium">Cliente:</td>
-                <td className="border border-gray-300 px-2 py-1 font-semibold">{order.customer?.name ?? "-"}</td>
+                <td className="border border-gray-300 px-2 py-1 font-semibold">{displayCustomer?.name ?? "-"}</td>
                 <td className="border border-gray-300 px-2 py-1 w-28 font-medium">CPF:</td>
-                <td className="border border-gray-300 px-2 py-1">{order.customer?.cpf ?? "-"}</td>
+                <td className="border border-gray-300 px-2 py-1">{displayCustomer?.cpf ?? "-"}</td>
               </tr>
-              {order.customer?.address && (
+              {displayCustomer?.address && (
                 <>
                   <tr>
                     <td className="border border-gray-300 px-2 py-1 font-medium">Endereço:</td>
                     <td className="border border-gray-300 px-2 py-1" colSpan={2}>
-                      {order.customer.address.street}, {order.customer.address.number}
-                      {order.customer.address.complement && ` (${order.customer.address.complement})`}
-                      {" - "}{order.customer.address.neighborhood}
+                      {displayCustomer.address.street}, {displayCustomer.address.number}
+                      {displayCustomer.address.complement && ` (${displayCustomer.address.complement})`}
+                      {" - "}{displayCustomer.address.neighborhood}
                     </td>
                     <td className="border border-gray-300 px-2 py-1">
-                      CEP: {order.customer.address.zipCode}
+                      CEP: {displayCustomer.address.zipCode}
                     </td>
                   </tr>
                   <tr>
                     <td className="border border-gray-300 px-2 py-1 font-medium">Cidade:</td>
-                    <td className="border border-gray-300 px-2 py-1">{order.customer.address.city}</td>
+                    <td className="border border-gray-300 px-2 py-1">{displayCustomer.address.city}</td>
                     <td className="border border-gray-300 px-2 py-1 font-medium">Estado:</td>
-                    <td className="border border-gray-300 px-2 py-1">{order.customer.address.state}</td>
+                    <td className="border border-gray-300 px-2 py-1">{displayCustomer.address.state}</td>
                   </tr>
                 </>
               )}
               <tr>
                 <td className="border border-gray-300 px-2 py-1 font-medium">Telefone:</td>
-                <td className="border border-gray-300 px-2 py-1">{order.customer?.phone ?? "-"}</td>
+                <td className="border border-gray-300 px-2 py-1">{displayCustomer?.phone ?? "-"}</td>
                 <td className="border border-gray-300 px-2 py-1 font-medium">E-mail:</td>
-                <td className="border border-gray-300 px-2 py-1">{order.customer?.email ?? "-"}</td>
+                <td className="border border-gray-300 px-2 py-1">{displayCustomer?.email ?? "-"}</td>
               </tr>
             </tbody>
           </table>

@@ -181,6 +181,7 @@ export interface Department {
   id: string;
   name: string;
   description?: string;
+  address?: Address;
   managerId?: string;
   manager?: Employee;
   isActive: boolean;
@@ -188,6 +189,16 @@ export interface Department {
   updatedAt: string;
   createdBy: string;
   updatedBy: string;
+}
+
+export interface Settings {
+  id?: string;
+  companyName?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyAddress?: Address;
+  warrantyTerms?: string;
+  updatedAt?: string;
 }
 
 export interface Product {
@@ -397,6 +408,7 @@ export interface CreateDepartmentRequest {
   name: string;
   description?: string;
   managerId?: string;
+  address?: Address;
 }
 
 export interface Profile {

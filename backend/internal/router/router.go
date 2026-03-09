@@ -38,6 +38,7 @@ func New(db *database.MongoDB) *gin.Engine {
 	auditLogRepo := repository.NewAuditLogRepository(db.Database)
 	stockRepo := repository.NewStockRepository(db.Database)
 	financialRepo := repository.NewFinancialRepository(db.Database)
+	settingsRepo := repository.NewSettingsRepository(db.Database)
 
 	// Initialize Cloudinary service (optional, won't fail if not configured)
 	var uploadHandler *handlers.UploadHandler
@@ -63,6 +64,7 @@ func New(db *database.MongoDB) *gin.Engine {
 	publicHandler := handlers.NewPublicHandler(customerRepo, serviceOrderRepo)
 	stockHandler := handlers.NewStockHandler(stockRepo, employeeRepo)
 	financialHandler := handlers.NewFinancialHandler(financialRepo, employeeRepo)
+	settingsHandler := handlers.NewSettingsHandler(settingsRepo, employeeRepo)
 
 	// Auth middleware (optional authentication)
 	authMiddleware := middleware.AuthMiddleware(userRepo)
@@ -221,6 +223,13 @@ func New(db *database.MongoDB) *gin.Engine {
 			financial.GET("/transactions/:id", financialHandler.GetTransaction)
 			financial.PUT("/transactions/:id", financialHandler.UpdateTransaction)
 			financial.DELETE("/transactions/:id", middleware.RequireAdminOrSuperAdmin(), financialHandler.DeleteTransaction)
+		}
+
+		// Settings routes (public GET, admin PUT)
+		settings := api.Group("/settings")
+		{
+			settings.GET("", settingsHandler.GetSettings) // Público para ler termos de garantia na impressão
+			settings.PUT("", authMiddleware, middleware.RequireAuth(), middleware.RequireAdminOrSuperAdmin(), auditMiddleware, settingsHandler.UpdateSettings)
 		}
 
 		// Admin routes
