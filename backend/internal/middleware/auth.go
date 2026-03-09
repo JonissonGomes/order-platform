@@ -56,6 +56,16 @@ func AuthMiddleware(userRepo *repository.UserRepository) gin.HandlerFunc {
 
 		log.Printf("[AuthMiddleware] User authenticated: %s, Role: %s", user.Email, user.Role)
 
+		// Check if user is suspended
+		if user.IsSuspended {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Sua conta está suspensa. Entre em contato com o time de gestão de pessoas.",
+				"code":  "USER_SUSPENDED",
+			})
+			c.Abort()
+			return
+		}
+
 		// Update last signed in
 		_ = userRepo.UpdateLastSignedIn(ctx, user.ID)
 

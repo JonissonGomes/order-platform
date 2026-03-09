@@ -172,6 +172,18 @@ export const api = {
     });
   },
 
+  async suspendEmployee(id: string): Promise<{ success: boolean; message: string }> {
+    return fetchAPI<{ success: boolean; message: string }>(`/api/employees/${id}/suspend`, {
+      method: "POST",
+    });
+  },
+
+  async unsuspendEmployee(id: string): Promise<{ success: boolean; message: string }> {
+    return fetchAPI<{ success: boolean; message: string }>(`/api/employees/${id}/unsuspend`, {
+      method: "POST",
+    });
+  },
+
   // Customer endpoints
   async createCustomer(data: CreateCustomerRequest): Promise<{ customer: Customer }> {
     return fetchAPI<{ customer: Customer }>("/api/customers", {

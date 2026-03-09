@@ -28,6 +28,7 @@ type Employee struct {
 	DepartmentID primitive.ObjectID `bson:"departmentId,omitempty" json:"departmentId,omitempty"`
 	Department   *Department        `bson:"-" json:"department,omitempty"`
 	IsActive     bool               `bson:"isActive" json:"isActive"`
+	IsSuspended  bool               `bson:"-" json:"isSuspended"` // Populated from User.IsSuspended
 	CreatedAt    time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt    time.Time          `bson:"updatedAt" json:"updatedAt"`
 	CreatedBy    primitive.ObjectID `bson:"createdBy" json:"createdBy"` // Employee ID

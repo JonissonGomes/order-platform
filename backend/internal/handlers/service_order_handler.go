@@ -437,6 +437,15 @@ func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"order": order})
 }
 
+// populateServiceOrderCustomer populates the Customer field for a service order
+func (h *ServiceOrderHandler) populateServiceOrderCustomer(ctx context.Context, order *models.ServiceOrder) {
+	if !order.CustomerID.IsZero() && order.Customer == nil {
+		if customer, err := h.customerRepo.GetCustomerByID(ctx, order.CustomerID); err == nil && customer != nil {
+			order.Customer = customer
+		}
+	}
+}
+
 // GetServiceOrder retrieves a service order by ID
 func (h *ServiceOrderHandler) GetServiceOrder(c *gin.Context) {
 	id := c.Param("id")
@@ -457,6 +466,7 @@ func (h *ServiceOrderHandler) GetServiceOrder(c *gin.Context) {
 		return
 	}
 
+	h.populateServiceOrderCustomer(ctx, order)
 	c.JSON(http.StatusOK, gin.H{"order": order})
 }
 
@@ -533,6 +543,11 @@ func (h *ServiceOrderHandler) ListServiceOrders(c *gin.Context) {
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
+	}
+
+	// Populate customer for each order
+	for _, order := range orders {
+		h.populateServiceOrderCustomer(ctx, order)
 	}
 
 	total, err := h.serviceOrderRepo.CountServiceOrders(ctx, filter)

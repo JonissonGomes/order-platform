@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -124,7 +125,17 @@ func (h *DepartmentHandler) CreateDepartment(c *gin.Context) {
 		return
 	}
 
+	h.populateDepartmentManager(ctx, department)
 	c.JSON(http.StatusCreated, gin.H{"department": department})
+}
+
+// populateDepartmentManager populates the Manager field for a department
+func (h *DepartmentHandler) populateDepartmentManager(ctx context.Context, dept *models.Department) {
+	if !dept.ManagerID.IsZero() {
+		if manager, err := h.employeeRepo.GetEmployeeByID(ctx, dept.ManagerID); err == nil && manager != nil {
+			dept.Manager = manager
+		}
+	}
 }
 
 // GetDepartment retrieves a department by ID
@@ -147,6 +158,8 @@ func (h *DepartmentHandler) GetDepartment(c *gin.Context) {
 		return
 	}
 
+	h.populateDepartmentManager(ctx, department)
+
 	c.JSON(http.StatusOK, gin.H{"department": department})
 }
 
@@ -168,6 +181,11 @@ func (h *DepartmentHandler) ListDepartments(c *gin.Context) {
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
+	}
+
+	// Populate manager for each department
+	for _, dept := range departments {
+		h.populateDepartmentManager(ctx, dept)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"departments": departments})
@@ -251,6 +269,7 @@ func (h *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 		return
 	}
 
+	h.populateDepartmentManager(ctx, department)
 	c.JSON(http.StatusOK, gin.H{"department": department})
 }
 

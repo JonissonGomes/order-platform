@@ -501,7 +501,7 @@ export default function Financial() {
       {selectedTransaction && (
         <Dialog open={!!selectedTransaction} onOpenChange={(open) => !open && setSelectedTransaction(null)}>
           <DialogContent className="max-w-md">
-            <DialogHeader>
+            <DialogHeader className="border-b pb-3">
               <DialogTitle className="flex items-center gap-2">
                 {selectedTransaction.type === "income"
                   ? <ArrowUpCircle className="h-5 w-5 text-green-600" />
@@ -510,7 +510,7 @@ export default function Financial() {
                 {selectedTransaction.description}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-3 text-sm py-1">
+            <div className="space-y-3 text-sm py-2">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Tipo</p>

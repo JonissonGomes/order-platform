@@ -26,6 +26,7 @@ export interface Employee {
   departmentId?: string;
   department?: Department;
   isActive: boolean;
+  isSuspended?: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy: string;

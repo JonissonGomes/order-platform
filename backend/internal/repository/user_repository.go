@@ -122,7 +122,20 @@ func (r *UserRepository) MigrateSuperAdminRole(ctx context.Context) (int64, erro
 	return result.ModifiedCount, nil
 }
 
-// UpdateUserRole updates a user's role
+// SetUserSuspended sets the suspended status of a user
+func (r *UserRepository) SetUserSuspended(ctx context.Context, userID primitive.ObjectID, suspended bool) error {
+	filter := bson.M{"_id": userID}
+	update := bson.M{
+		"$set": bson.M{
+			"isSuspended": suspended,
+			"updatedAt":   time.Now(),
+		},
+	}
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	return err
+}
+
+// UpdateUserRoleAndSuspension updates a user's role
 func (r *UserRepository) UpdateUserRole(ctx context.Context, userID primitive.ObjectID, newRole models.UserRole) error {
 	filter := bson.M{"_id": userID}
 	update := bson.M{

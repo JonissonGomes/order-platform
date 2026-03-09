@@ -57,7 +57,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import type { ServiceOrder, ServiceOrderStatus, Customer, Department, Employee, Image, ServiceItem } from "@/types";
 import {
   Plus, Search, FileText, Check, ChevronsUpDown, UserPlus,
-  Filter, Trash2, Printer, X, Loader2, ChevronLeft, ChevronRight,
+  Filter, Trash2, Printer, X, Loader2, ChevronLeft, ChevronRight, Pencil,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
@@ -231,53 +231,79 @@ export default function ServiceOrders() {
             <p>Nenhuma ordem de serviço encontrada</p>
           </div>
         ) : (
-          <div className="rounded-md border overflow-hidden">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>OS #</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead className="hidden md:table-cell">Cliente</TableHead>
+                  <TableHead className="w-[120px]">OS #</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+                  <TableHead className="hidden md:table-cell">Produto</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Entrada</TableHead>
-                  <TableHead className="hidden lg:table-cell">Total</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => {
-                  const total = order.finalCost
-                    ?? order.serviceItems?.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
-                    ?? 0;
-                  return (
-                    <TableRow
-                      key={order.id}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => setSelectedOrder(order)}
-                    >
-                      <TableCell className="font-mono font-medium text-sm">#{order.orderNumber}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-sm">{order.productBrand} {order.productModel}</p>
-                          <p className="text-xs text-muted-foreground">{order.productType}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                        {order.customer?.name || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusColors[order.status]}`}>
-                          {statusLabels[order.status]}
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                        {new Date(order.entryDate ?? order.createdAt).toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-sm font-medium">
-                        {total > 0 ? `R$ ${total.toFixed(2).replace(".", ",")}` : "—"}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {filteredOrders.map((order) => (
+                  <TableRow
+                    key={order.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setSelectedOrder(order)}
+                  >
+                    <TableCell className="font-mono font-medium text-sm">#{order.orderNumber}</TableCell>
+                    <TableCell className="font-medium text-sm">
+                      {order.customer?.name || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                      {order.productType}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      {order.productBrand} {order.productModel}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusColors[order.status]}`}>
+                        {statusLabels[order.status]}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                      {new Date(order.entryDate ?? order.createdAt).toLocaleDateString("pt-BR")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Imprimir"
+                          onClick={() => window.open(`/print/order/${order.id}`, "_blank")}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Editar"
+                          onClick={() => { setEditingOrder(order); setSelectedOrder(null); }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {(order.status === "pending" || order.status === "cancelled") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            title="Excluir"
+                            onClick={() => setDeletingOrder(order)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
@@ -288,7 +314,7 @@ export default function ServiceOrders() {
       {selectedOrder && !editingOrder && (
         <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
           <DialogContent className="max-w-lg">
-            <DialogHeader>
+            <DialogHeader className="border-b pb-3">
               <div className="flex items-center justify-between">
                 <div>
                   <DialogTitle className="font-mono">OS #{selectedOrder.orderNumber}</DialogTitle>
@@ -299,7 +325,7 @@ export default function ServiceOrders() {
                 </span>
               </div>
             </DialogHeader>
-            <div className="space-y-3 text-sm py-1">
+            <div className="space-y-3 text-sm py-2">
               {selectedOrder.customer && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -357,27 +383,31 @@ export default function ServiceOrders() {
             </div>
             <div className="flex justify-between pt-2 border-t">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => window.open(`/print/order/${selectedOrder.id}`, "_blank")}
               >
                 <Printer className="h-4 w-4 mr-1" /> Imprimir
               </Button>
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 {(selectedOrder.status === "pending" || selectedOrder.status === "cancelled") && (
                   <Button
-                    variant="destructive"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    title="Excluir"
                     onClick={() => { setDeletingOrder(selectedOrder); setSelectedOrder(null); }}
                   >
-                    <Trash2 className="h-4 w-4 mr-1" /> Excluir
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
                 <Button
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
+                  title="Editar"
                   onClick={() => { setEditingOrder(selectedOrder); setSelectedOrder(null); }}
                 >
-                  <FileText className="h-4 w-4 mr-1" /> Editar
+                  <Pencil className="h-4 w-4" />
                 </Button>
               </div>
             </div>

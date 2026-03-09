@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { LOGIN_PATH } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LogOut, PanelLeft } from "lucide-react";
+import { LogOut, PanelLeft, AlertTriangle, PhoneCall } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -47,7 +47,7 @@ export default function DashboardLayout({
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
-  const { loading, user } = useAuth();
+  const { loading, user, isSuspended } = useAuth();
   
   // Get visible modules based on user role
   const visibleModules = useMemo(() => {
@@ -63,16 +63,48 @@ export default function DashboardLayout({
     return <DashboardLayoutSkeleton />
   }
 
+  if (isSuspended) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center gap-6 p-8 max-w-md w-full text-center">
+          <div className="p-5 rounded-full bg-destructive/10">
+            <AlertTriangle className="h-14 w-14 text-destructive" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight">Conta Suspensa</h1>
+            <p className="text-muted-foreground">
+              Sua conta foi suspensa e você não possui acesso ao sistema no momento.
+            </p>
+          </div>
+          <div className="w-full rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground space-y-2">
+            <div className="flex items-center gap-2 justify-center font-medium text-foreground">
+              <PhoneCall className="h-4 w-4" />
+              <span>Entre em contato com o RH</span>
+            </div>
+            <p>Para reativar o seu acesso, entre em contato com o time de Gestão de Pessoas ou o seu gestor responsável.</p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => { window.location.href = LOGIN_PATH; }}
+            className="w-full"
+          >
+            Voltar para o Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-6">
             <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Sign in to continue
+              Faça login para continuar
             </h1>
             <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
+              O acesso ao painel requer autenticação. Clique abaixo para fazer login.
             </p>
           </div>
           <Button
@@ -82,7 +114,7 @@ export default function DashboardLayout({
             size="lg"
             className="w-full shadow-lg hover:shadow-xl transition-all"
           >
-            Sign in
+            Entrar
           </Button>
         </div>
       </div>

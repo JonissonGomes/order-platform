@@ -52,7 +52,7 @@ import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { formatPhone } from "@/lib/formatters";
 import type { Employee, EmployeeRole, Department } from "@/types";
-import { Plus, Search, Users, Loader2, Edit, Trash2, Check, ChevronsUpDown, Filter, UserCircle } from "lucide-react";
+import { Plus, Search, Users, Loader2, Edit, Trash2, Check, ChevronsUpDown, Filter, UserCircle, ShieldOff, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -80,6 +80,7 @@ export default function Employees() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null);
+  const [suspendingEmployee, setSuspendingEmployee] = useState<Employee | null>(null);
 
   useEffect(() => {
     loadEmployees();
@@ -117,6 +118,24 @@ export default function Employees() {
       loadEmployees();
     } catch (error: any) {
       toast.error(error.message || "Erro ao desativar colaborador");
+    }
+  };
+
+  const handleSuspend = async () => {
+    if (!suspendingEmployee) return;
+    try {
+      if (suspendingEmployee.isSuspended) {
+        await api.unsuspendEmployee(suspendingEmployee.id);
+        toast.success("Colaborador reativado com sucesso!");
+      } else {
+        await api.suspendEmployee(suspendingEmployee.id);
+        toast.success("Colaborador suspenso com sucesso!");
+      }
+      setSuspendingEmployee(null);
+      setSelectedEmployee(null);
+      loadEmployees();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao alterar suspensão do colaborador");
     }
   };
 
@@ -208,6 +227,7 @@ export default function Employees() {
                   <TableHead>Perfil</TableHead>
                   <TableHead className="hidden lg:table-cell">Departamento</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -231,9 +251,40 @@ export default function Employees() {
                       {employee.department?.name || "—"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={employee.isActive ? "default" : "secondary"} className="text-xs">
-                        {employee.isActive ? "Ativo" : "Inativo"}
-                      </Badge>
+                      {employee.isSuspended ? (
+                        <Badge variant="destructive" className="text-xs">Suspenso</Badge>
+                      ) : (
+                        <Badge variant={employee.isActive ? "default" : "secondary"} className="text-xs">
+                          {employee.isActive ? "Ativo" : "Inativo"}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8"
+                          title={employee.isSuspended ? "Reativar" : "Suspender"}
+                          onClick={() => setSuspendingEmployee(employee)}
+                        >
+                          {employee.isSuspended
+                            ? <ShieldCheck className="h-4 w-4 text-green-600" />
+                            : <ShieldOff className="h-4 w-4 text-amber-500" />}
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8"
+                          title="Editar"
+                          onClick={() => { setEditingEmployee(employee); setSelectedEmployee(null); }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
+                          title="Desativar"
+                          onClick={() => { setDeletingEmployee(employee); setSelectedEmployee(null); }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -271,9 +322,13 @@ export default function Employees() {
                 <div>
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</p>
                   <p className="mt-1">
-                    <Badge variant={selectedEmployee.isActive ? "default" : "secondary"}>
-                      {selectedEmployee.isActive ? "Ativo" : "Inativo"}
-                    </Badge>
+                    {selectedEmployee.isSuspended ? (
+                      <Badge variant="destructive">Suspenso</Badge>
+                    ) : (
+                      <Badge variant={selectedEmployee.isActive ? "default" : "secondary"}>
+                        {selectedEmployee.isActive ? "Ativo" : "Inativo"}
+                      </Badge>
+                    )}
                   </p>
                 </div>
               </div>
@@ -294,20 +349,36 @@ export default function Employees() {
                 <p className="mt-1">{new Date(selectedEmployee.createdAt).toLocaleDateString("pt-BR")}</p>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t">
+            <div className="flex justify-between pt-2 border-t">
               <Button
-                variant="destructive"
+                variant="ghost"
                 size="sm"
-                onClick={() => { setDeletingEmployee(selectedEmployee); setSelectedEmployee(null); }}
+                className={selectedEmployee.isSuspended ? "text-green-600 hover:text-green-700" : "text-amber-600 hover:text-amber-700"}
+                onClick={() => { setSuspendingEmployee(selectedEmployee); setSelectedEmployee(null); }}
               >
-                <Trash2 className="h-4 w-4 mr-1" /> Desativar
+                {selectedEmployee.isSuspended
+                  ? <><ShieldCheck className="h-4 w-4 mr-1" /> Reativar</>
+                  : <><ShieldOff className="h-4 w-4 mr-1" /> Suspender</>}
               </Button>
-              <Button
-                size="sm"
-                onClick={() => { setEditingEmployee(selectedEmployee); setSelectedEmployee(null); }}
-              >
-                <Edit className="h-4 w-4 mr-1" /> Editar
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive"
+                  title="Desativar"
+                  onClick={() => { setDeletingEmployee(selectedEmployee); setSelectedEmployee(null); }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Editar"
+                  onClick={() => { setEditingEmployee(selectedEmployee); setSelectedEmployee(null); }}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -337,6 +408,33 @@ export default function Employees() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Desativar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Suspend/Unsuspend Confirmation */}
+      <AlertDialog open={!!suspendingEmployee} onOpenChange={(open) => !open && setSuspendingEmployee(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {suspendingEmployee?.isSuspended ? "Reativar Colaborador" : "Suspender Colaborador"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {suspendingEmployee?.isSuspended
+                ? <>Deseja reativar o acesso de <strong>{suspendingEmployee?.name}</strong>? O colaborador poderá acessar o sistema novamente.</>
+                : <>Deseja suspender o acesso de <strong>{suspendingEmployee?.name}</strong>? O colaborador não conseguirá acessar o sistema e verá uma mensagem informando que deve entrar em contato com o RH.</>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSuspend}
+              className={suspendingEmployee?.isSuspended
+                ? "bg-green-600 text-white hover:bg-green-700"
+                : "bg-amber-600 text-white hover:bg-amber-700"}
+            >
+              {suspendingEmployee?.isSuspended ? "Reativar" : "Suspender"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

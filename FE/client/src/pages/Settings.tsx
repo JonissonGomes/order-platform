@@ -88,10 +88,10 @@ export default function SettingsPage() {
       if (data) {
         setForm((f) => ({
           ...f,
-          street: data.logradouro || f.street,
-          neighborhood: data.bairro || f.neighborhood,
-          city: data.localidade || f.city,
-          state: data.uf || f.state,
+          street: data.street || f.street,
+          neighborhood: data.neighborhood || f.neighborhood,
+          city: data.city || f.city,
+          state: data.state || f.state,
         }));
       }
     } catch {

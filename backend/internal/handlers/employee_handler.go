@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
@@ -17,20 +18,51 @@ import (
 )
 
 type EmployeeHandler struct {
-	userRepo     *repository.UserRepository
-	employeeRepo *repository.EmployeeRepository
-	profileRepo  *repository.ProfileRepository
+	userRepo       *repository.UserRepository
+	employeeRepo   *repository.EmployeeRepository
+	profileRepo    *repository.ProfileRepository
+	departmentRepo *repository.DepartmentRepository
 }
 
 func NewEmployeeHandler(
 	userRepo *repository.UserRepository,
 	employeeRepo *repository.EmployeeRepository,
 	profileRepo *repository.ProfileRepository,
+	departmentRepo *repository.DepartmentRepository,
 ) *EmployeeHandler {
 	return &EmployeeHandler{
-		userRepo:     userRepo,
-		employeeRepo: employeeRepo,
-		profileRepo:  profileRepo,
+		userRepo:       userRepo,
+		employeeRepo:   employeeRepo,
+		profileRepo:    profileRepo,
+		departmentRepo: departmentRepo,
+	}
+}
+
+// populateEmployeeDepartment populates the Department field for an employee
+func (h *EmployeeHandler) populateEmployeeDepartment(ctx context.Context, emp *models.Employee) {
+	if !emp.DepartmentID.IsZero() {
+		if dept, err := h.departmentRepo.GetDepartmentByID(ctx, emp.DepartmentID); err == nil && dept != nil {
+			emp.Department = dept
+		}
+	}
+}
+
+// populateEmployeeFromUser populates IsSuspended from the linked User record
+func (h *EmployeeHandler) populateEmployeeFromUser(ctx context.Context, emp *models.Employee) {
+	if !emp.UserID.IsZero() {
+		if user, err := h.userRepo.GetUserByID(ctx, emp.UserID); err == nil && user != nil {
+			emp.IsSuspended = user.IsSuspended
+		}
+	}
+}
+
+// mapRoleToUserRole maps EmployeeRole to UserRole for the associated User
+func mapRoleToUserRole(role models.EmployeeRole) models.UserRole {
+	switch role {
+	case models.EmployeeRoleAdmin, models.EmployeeRoleDepartmentManager:
+		return models.RoleAdmin
+	default:
+		return models.RoleUser
 	}
 }
 
@@ -47,7 +79,7 @@ type UpdateEmployeeRequest struct {
 	Name         string              `json:"name,omitempty"`
 	Phone        string              `json:"phone,omitempty"`
 	Role         models.EmployeeRole `json:"role,omitempty"`
-	DepartmentID string              `json:"departmentId,omitempty"`
+	DepartmentID *string             `json:"departmentId"` // pointer to allow explicit empty string to unlink
 	IsActive     *bool               `json:"isActive,omitempty"`
 }
 
@@ -111,12 +143,12 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 		return
 	}
 
-	// Create User first
+	// Create User first — role depends on employee function
 	user := &models.User{
 		Email:    req.Email,
 		Password: hashedPassword,
 		Name:     req.Name,
-		Role:     models.RoleUser, // Employees are regular users, role is in Employee
+		Role:     mapRoleToUserRole(req.Role), // admin/department_manager get "admin", others get "user"
 	}
 
 	if err := h.userRepo.CreateUser(ctx, user); err != nil {
@@ -231,6 +263,8 @@ func (h *EmployeeHandler) GetEmployee(c *gin.Context) {
 		return
 	}
 
+	h.populateEmployeeDepartment(ctx, employee)
+	h.populateEmployeeFromUser(ctx, employee)
 	c.JSON(http.StatusOK, gin.H{"employee": employee})
 }
 
@@ -265,6 +299,12 @@ func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
+	}
+
+	// Populate department and suspension status for each employee
+	for _, emp := range employees {
+		h.populateEmployeeDepartment(ctx, emp)
+		h.populateEmployeeFromUser(ctx, emp)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"employees": employees})
@@ -319,16 +359,23 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 	if req.Phone != "" {
 		employee.Phone = req.Phone
 	}
-	if req.Role != "" {
+	roleChanged := false
+	if req.Role != "" && req.Role != employee.Role {
 		employee.Role = req.Role
+		roleChanged = true
 	}
-	if req.DepartmentID != "" {
-		departmentID, err := primitive.ObjectIDFromHex(req.DepartmentID)
-		if err != nil {
-			utils.RespondWithBadRequest(c, utils.ErrInvalidID)
-			return
+	if req.DepartmentID != nil {
+		if *req.DepartmentID == "" {
+			// Explicitly unlink department
+			employee.DepartmentID = primitive.NilObjectID
+		} else {
+			departmentID, err := primitive.ObjectIDFromHex(*req.DepartmentID)
+			if err != nil {
+				utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+				return
+			}
+			employee.DepartmentID = departmentID
 		}
-		employee.DepartmentID = departmentID
 	}
 	if req.IsActive != nil {
 		employee.IsActive = *req.IsActive
@@ -347,5 +394,95 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 
+	// Sync User.Role if employee role changed
+	if roleChanged {
+		newUserRole := mapRoleToUserRole(employee.Role)
+		_ = h.userRepo.UpdateUserRole(ctx, employee.UserID, newUserRole)
+	}
+
+	h.populateEmployeeDepartment(ctx, employee)
+	h.populateEmployeeFromUser(ctx, employee)
 	c.JSON(http.StatusOK, gin.H{"employee": employee})
+}
+
+// SuspendEmployee suspends an employee (sets isSuspended=true on user, isActive=false on employee)
+func (h *EmployeeHandler) SuspendEmployee(c *gin.Context) {
+	id := c.Param("id")
+	employeeID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	ctx := c.Request.Context()
+	currentUser := middleware.GetUserFromContext(c)
+	if currentUser == nil {
+		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
+		return
+	}
+
+	employee, err := h.employeeRepo.GetEmployeeByID(ctx, employeeID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if employee == nil {
+		utils.RespondWithNotFound(c, "Colaborador não encontrado")
+		return
+	}
+
+	// Suspend: set employee inactive + suspend user
+	employee.IsActive = false
+	employee.UpdatedAt = time.Now()
+	if err := h.employeeRepo.UpdateEmployee(ctx, employeeID, employee); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if err := h.userRepo.SetUserSuspended(ctx, employee.UserID, true); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Colaborador suspenso com sucesso"})
+}
+
+// UnsuspendEmployee removes the suspension from an employee
+func (h *EmployeeHandler) UnsuspendEmployee(c *gin.Context) {
+	id := c.Param("id")
+	employeeID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+
+	ctx := c.Request.Context()
+	currentUser := middleware.GetUserFromContext(c)
+	if currentUser == nil {
+		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
+		return
+	}
+
+	employee, err := h.employeeRepo.GetEmployeeByID(ctx, employeeID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if employee == nil {
+		utils.RespondWithNotFound(c, "Colaborador não encontrado")
+		return
+	}
+
+	// Unsuspend: set employee active + remove suspension from user
+	employee.IsActive = true
+	employee.UpdatedAt = time.Now()
+	if err := h.employeeRepo.UpdateEmployee(ctx, employeeID, employee); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if err := h.userRepo.SetUserSuspended(ctx, employee.UserID, false); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Suspensão do colaborador removida com sucesso"})
 }

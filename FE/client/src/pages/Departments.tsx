@@ -46,7 +46,7 @@ import { api } from "@/lib/api";
 import { formatPhone, formatCEP } from "@/lib/formatters";
 import { fetchCEP } from "@/lib/cep";
 import type { Department, Employee, Address } from "@/types";
-import { Plus, Building2, Check, ChevronsUpDown, Edit, Trash2, MapPin, Loader2 } from "lucide-react";
+import { Plus, Building2, Check, ChevronsUpDown, Pencil, Trash2, MapPin, Loader2, Users, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,7 @@ export default function Departments() {
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [deletingDepartment, setDeletingDepartment] = useState<Department | null>(null);
+  const [linkingEmployeesDept, setLinkingEmployeesDept] = useState<Department | null>(null);
 
   useEffect(() => {
     loadDepartments();
@@ -137,6 +138,7 @@ export default function Departments() {
                   <TableHead className="hidden md:table-cell">Localização</TableHead>
                   <TableHead className="hidden lg:table-cell">Gerente</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -172,6 +174,37 @@ export default function Departments() {
                       <Badge variant={dept.isActive ? "default" : "secondary"} className="text-xs">
                         {dept.isActive ? "Ativo" : "Inativo"}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Definir Colaboradores"
+                          onClick={() => setLinkingEmployeesDept(dept)}
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Editar"
+                          onClick={() => { setEditingDepartment(dept); setSelectedDepartment(null); }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          title="Excluir"
+                          onClick={() => setDeletingDepartment(dept)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -225,20 +258,33 @@ export default function Departments() {
                 </p>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t">
+            <div className="flex justify-between pt-2 border-t">
               <Button
-                variant="destructive"
+                variant="ghost"
                 size="sm"
-                onClick={() => { setDeletingDepartment(selectedDepartment); setSelectedDepartment(null); }}
+                onClick={() => { setLinkingEmployeesDept(selectedDepartment); setSelectedDepartment(null); }}
               >
-                <Trash2 className="h-4 w-4 mr-1" /> Excluir
+                <Users className="h-4 w-4 mr-1" /> Colaboradores
               </Button>
-              <Button
-                size="sm"
-                onClick={() => { setEditingDepartment(selectedDepartment); setSelectedDepartment(null); }}
-              >
-                <Edit className="h-4 w-4 mr-1" /> Editar
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive"
+                  title="Excluir"
+                  onClick={() => { setDeletingDepartment(selectedDepartment); setSelectedDepartment(null); }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Editar"
+                  onClick={() => { setEditingDepartment(selectedDepartment); setSelectedDepartment(null); }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -281,7 +327,191 @@ export default function Departments() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Link Employees Dialog */}
+      {linkingEmployeesDept && (
+        <LinkEmployeesDialog
+          department={linkingEmployeesDept}
+          open={!!linkingEmployeesDept}
+          onOpenChange={(open) => !open && setLinkingEmployeesDept(null)}
+          onSuccess={() => { setLinkingEmployeesDept(null); loadDepartments(); }}
+        />
+      )}
     </DashboardLayout>
+  );
+}
+
+function LinkEmployeesDialog({
+  department,
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  department: Department;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}) {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setLoading(true);
+      api.listEmployees()
+        .then((r) => setEmployees(r.employees || []))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  }, [open]);
+
+  const deptEmployees = employees.filter((e) => e.departmentId === department.id);
+  const otherEmployees = employees.filter((e) => e.departmentId !== department.id);
+
+  const filtered = (list: Employee[]) =>
+    search
+      ? list.filter(
+          (e) =>
+            e.name.toLowerCase().includes(search.toLowerCase()) ||
+            e.email.toLowerCase().includes(search.toLowerCase())
+        )
+      : list;
+
+  const handleLink = async (employee: Employee) => {
+    setSaving(true);
+    try {
+      await api.updateEmployee(employee.id, { departmentId: department.id });
+      toast.success(`${employee.name} vinculado ao departamento`);
+      const r = await api.listEmployees();
+      setEmployees(r.employees || []);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao vincular colaborador");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUnlink = async (employee: Employee) => {
+    setSaving(true);
+    try {
+      await api.updateEmployee(employee.id, { departmentId: "" });
+      toast.success(`${employee.name} desvinculado do departamento`);
+      const r = await api.listEmployees();
+      setEmployees(r.employees || []);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao desvincular colaborador");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="border-b pb-3">
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Colaboradores — {department.name}
+          </DialogTitle>
+          <DialogDescription>Vincule ou desvincule colaboradores a este departamento</DialogDescription>
+        </DialogHeader>
+        <div className="py-3 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar colaborador..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+              {deptEmployees.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Neste departamento ({deptEmployees.length})
+                  </p>
+                  <div className="space-y-1">
+                    {filtered(deptEmployees).map((emp) => (
+                      <div
+                        key={emp.id}
+                        className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{emp.name}</p>
+                          <p className="text-xs text-muted-foreground">{emp.email}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          disabled={saving}
+                          onClick={() => handleUnlink(emp)}
+                        >
+                          Remover
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {otherEmployees.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Outros colaboradores ({otherEmployees.length})
+                  </p>
+                  <div className="space-y-1">
+                    {filtered(otherEmployees).map((emp) => (
+                      <div
+                        key={emp.id}
+                        className="flex items-center justify-between rounded-lg border px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{emp.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {emp.email}
+                            {emp.departmentId && emp.department?.name ? (
+                              <span className="ml-1 text-amber-600">({emp.department.name})</span>
+                            ) : null}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-blue-600 hover:text-blue-700"
+                          disabled={saving}
+                          onClick={() => handleLink(emp)}
+                        >
+                          Vincular
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {employees.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                  Nenhum colaborador encontrado
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <div className="flex justify-end border-t pt-3">
+          <Button onClick={() => { onSuccess(); onOpenChange(false); }}>Concluído</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

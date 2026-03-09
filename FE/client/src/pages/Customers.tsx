@@ -200,7 +200,7 @@ export default function Customers() {
       {selectedCustomer && !editingCustomer && (
         <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
           <DialogContent className="max-w-lg">
-            <DialogHeader>
+            <DialogHeader className="border-b pb-3">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-blue-100">
                   <UserCircle className="h-6 w-6 text-blue-600" />

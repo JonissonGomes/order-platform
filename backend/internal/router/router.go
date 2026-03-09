@@ -56,7 +56,7 @@ func New(db *database.MongoDB) *gin.Engine {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo)
-	employeeHandler := handlers.NewEmployeeHandler(userRepo, employeeRepo, profileRepo)
+	employeeHandler := handlers.NewEmployeeHandler(userRepo, employeeRepo, profileRepo, departmentRepo)
 	profileHandler := handlers.NewProfileHandler(profileRepo)
 	customerHandler := handlers.NewCustomerHandler(customerRepo, serviceOrderRepo, employeeRepo)
 	serviceOrderHandler := handlers.NewServiceOrderHandler(serviceOrderRepo, customerRepo, departmentRepo, employeeRepo, statusHistoryRepo)
@@ -119,6 +119,10 @@ func New(db *database.MongoDB) *gin.Engine {
 		{
 			employees.POST("", middleware.RequireAdminOrSuperAdmin(), employeeHandler.CreateEmployee) // Admin or Super Admin only
 			employees.GET("", employeeHandler.ListEmployees)
+			// Specific routes before generic /:id
+			employees.POST("/:id/suspend", middleware.RequireAdminOrSuperAdmin(), employeeHandler.SuspendEmployee)
+			employees.POST("/:id/unsuspend", middleware.RequireAdminOrSuperAdmin(), employeeHandler.UnsuspendEmployee)
+			// Generic routes
 			employees.GET("/:id", employeeHandler.GetEmployee)
 			employees.PUT("/:id", middleware.RequireAdminOrSuperAdmin(), employeeHandler.UpdateEmployee)
 		}

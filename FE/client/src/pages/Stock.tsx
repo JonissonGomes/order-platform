@@ -547,11 +547,14 @@ export default function Stock() {
       {/* Detail Modal */}
       <Dialog open={showDetailDialog} onOpenChange={(open) => { if (!open) { setShowDetailDialog(false); setSelectedItem(null); } }}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
+          <DialogHeader className="border-b pb-3">
             <DialogTitle>{selectedItem?.name}</DialogTitle>
+            {selectedItem?.category && (
+              <p className="text-sm text-muted-foreground">{selectedItem.category}{selectedItem.sku ? ` • SKU: ${selectedItem.sku}` : ""}</p>
+            )}
           </DialogHeader>
           {selectedItem && (
-            <div className="space-y-3 text-sm py-1">
+            <div className="space-y-3 text-sm py-2">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Categoria</p>
