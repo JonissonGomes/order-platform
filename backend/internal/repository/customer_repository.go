@@ -134,6 +134,11 @@ func (r *CustomerRepository) CountCustomers(ctx context.Context, filter bson.M) 
 	return r.collection.CountDocuments(ctx, filter)
 }
 
+// Collection returns the MongoDB collection for aggregation queries
+func (r *CustomerRepository) Collection() *mongo.Collection {
+	return r.collection
+}
+
 // DeleteCustomer deletes a customer
 func (r *CustomerRepository) DeleteCustomer(ctx context.Context, id primitive.ObjectID) error {
 	filter := bson.M{"_id": id}

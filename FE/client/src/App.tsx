@@ -19,6 +19,8 @@ import PrintServiceOrder from "./pages/PrintServiceOrder";
 import Stock from "./pages/Stock";
 import Financial from "./pages/Financial";
 import SettingsPage from "./pages/Settings";
+import Reports from "./pages/Reports";
+import Notifications from "./pages/Notifications";
 
 /**
  * Router da Aplicação
@@ -48,6 +50,8 @@ function Router() {
       <Route path={"/stock"} component={Stock} />
       <Route path={"/financial"} component={Financial} />
       <Route path={"/settings"} component={SettingsPage} />
+      <Route path={"/reports"} component={Reports} />
+      <Route path={"/notifications"} component={Notifications} />
       <Route path={"/track"} component={PublicOrderTracking} />
       <Route path={"/print/order/:id"} component={PrintServiceOrder} />
       <Route path={"/404"} component={NotFound} />

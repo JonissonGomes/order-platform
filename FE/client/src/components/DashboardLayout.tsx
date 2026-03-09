@@ -32,6 +32,7 @@ import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 import { getVisibleModules } from "@/types/modules";
 import * as Icons from "lucide-react";
+import { NotificationBell } from "./NotificationBell";
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;
@@ -282,6 +283,7 @@ function DashboardLayoutContent({
                       {user?.email || "-"}
                     </p>
                   </button>
+                  <NotificationBell />
                   <Button
                     variant="ghost"
                     size="icon"

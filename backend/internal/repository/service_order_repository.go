@@ -142,3 +142,8 @@ func (r *ServiceOrderRepository) DeleteServiceOrder(ctx context.Context, id prim
 	_, err := r.collection.DeleteOne(ctx, filter)
 	return err
 }
+
+// Collection returns the MongoDB collection for aggregation queries
+func (r *ServiceOrderRepository) Collection() *mongo.Collection {
+	return r.collection
+}

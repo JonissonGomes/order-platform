@@ -208,3 +208,8 @@ func (r *FinancialRepository) GetCashFlow(ctx context.Context, months int) ([]mo
 func fmt(year, month int) string {
 	return time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC).Format("2006-01")
 }
+
+// Collection returns the MongoDB collection for aggregation queries
+func (r *FinancialRepository) Collection() *mongo.Collection {
+	return r.collection
+}

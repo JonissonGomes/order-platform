@@ -54,6 +54,36 @@ func New(db *database.MongoDB) *gin.Engine {
 		log.Println("Cloudinary not configured. Image upload will be disabled.")
 	}
 
+	// Initialize WhatsApp service (optional, won't fail if not configured)
+	var whatsappHandler *handlers.WhatsAppHandler
+	if cfg.WhatsAppAPIURL != "" && cfg.WhatsAppAPIToken != "" && cfg.WhatsAppPhoneID != "" {
+		whatsappService := services.NewWhatsAppService(cfg.WhatsAppAPIURL, cfg.WhatsAppAPIToken, cfg.WhatsAppPhoneID)
+		whatsappHandler = handlers.NewWhatsAppHandler(whatsappService)
+		log.Println("WhatsApp service initialized successfully")
+	} else {
+		log.Println("WhatsApp not configured. WhatsApp notifications will be disabled.")
+	}
+
+	// Initialize Payment service (optional, won't fail if not configured)
+	var paymentHandler *handlers.PaymentHandler
+	if cfg.PaymentProvider != "" && cfg.PaymentAPIKey != "" && cfg.PaymentAPIURL != "" {
+		paymentService := services.NewPaymentService(cfg.PaymentProvider, cfg.PaymentAPIKey, cfg.PaymentAPIURL)
+		paymentHandler = handlers.NewPaymentHandler(paymentService)
+		log.Println("Payment service initialized successfully")
+	} else {
+		log.Println("Payment gateway not configured. Payment processing will be disabled.")
+	}
+
+	// Initialize NFE service (optional, won't fail if not configured)
+	var nfeHandler *handlers.NFEHandler
+	if cfg.NFEAPIURL != "" && cfg.NFEAPIToken != "" && cfg.NFEAPIKey != "" {
+		nfeService := services.NewNFEService(cfg.NFEAPIURL, cfg.NFEAPIToken, cfg.NFEAPIKey)
+		nfeHandler = handlers.NewNFEHandler(nfeService)
+		log.Println("NF-e service initialized successfully")
+	} else {
+		log.Println("NF-e service not configured. NF-e emission will be disabled.")
+	}
+
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo)
 	employeeHandler := handlers.NewEmployeeHandler(userRepo, employeeRepo, profileRepo, departmentRepo)
@@ -65,6 +95,24 @@ func New(db *database.MongoDB) *gin.Engine {
 	stockHandler := handlers.NewStockHandler(stockRepo, employeeRepo)
 	financialHandler := handlers.NewFinancialHandler(financialRepo, employeeRepo)
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo, employeeRepo)
+
+	quotationRepo := repository.NewQuotationRepository(db.Database)
+	supplierRepo := repository.NewSupplierRepository(db.Database)
+	notificationRepo := repository.NewNotificationRepository(db.Database)
+	quotationHandler := handlers.NewQuotationHandler(quotationRepo, customerRepo, departmentRepo, serviceOrderRepo, employeeRepo)
+	supplierHandler := handlers.NewSupplierHandler(supplierRepo, employeeRepo, stockRepo)
+	notificationHandler := handlers.NewNotificationHandler(notificationRepo)
+
+	// Initialize report service and handler
+	reportService := services.NewReportService(
+		serviceOrderRepo,
+		customerRepo,
+		stockRepo,
+		financialRepo,
+		departmentRepo,
+		employeeRepo,
+	)
+	reportHandler := handlers.NewReportHandler(reportService)
 
 	// Auth middleware (optional authentication)
 	authMiddleware := middleware.AuthMiddleware(userRepo)
@@ -234,6 +282,96 @@ func New(db *database.MongoDB) *gin.Engine {
 		{
 			settings.GET("", settingsHandler.GetSettings) // Público para ler termos de garantia na impressão
 			settings.PUT("", authMiddleware, middleware.RequireAuth(), middleware.RequireAdminOrSuperAdmin(), auditMiddleware, settingsHandler.UpdateSettings)
+		}
+
+		// WhatsApp routes (requires auth, optional if not configured)
+		if whatsappHandler != nil {
+			whatsapp := api.Group("/whatsapp")
+			whatsapp.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+			{
+				whatsapp.POST("/send", whatsappHandler.SendMessage)
+				whatsapp.POST("/service-order-status", whatsappHandler.SendServiceOrderStatus)
+			}
+		}
+
+		// Payment routes (requires auth, optional if not configured)
+		if paymentHandler != nil {
+			payments := api.Group("/payments")
+			payments.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+			{
+				payments.POST("/create", paymentHandler.CreatePayment)
+				payments.GET("/:id/status", paymentHandler.GetPaymentStatus)
+				payments.POST("/webhook/:provider", paymentHandler.Webhook) // Public webhook (no auth)
+			}
+		}
+
+		// NFE routes (requires auth, optional if not configured)
+		if nfeHandler != nil {
+			nfe := api.Group("/nfe")
+			nfe.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+			{
+				nfe.POST("/emit", nfeHandler.EmitNFE)
+				nfe.GET("/:accessKey/status", nfeHandler.GetNFEStatus)
+				nfe.POST("/:accessKey/cancel", nfeHandler.CancelNFE)
+			}
+		}
+
+		// Reports routes (requires auth)
+		reports := api.Group("/reports")
+		reports.Use(authMiddleware, middleware.RequireAuth())
+		{
+			reports.GET("/service-orders", reportHandler.GetServiceOrderReport)
+			reports.GET("/financial", reportHandler.GetFinancialReport)
+			reports.GET("/stock", reportHandler.GetStockReport)
+			reports.GET("/customers", reportHandler.GetCustomerReport)
+			reports.GET("/dashboard", reportHandler.GetDashboardReport)
+			reports.GET("/export", reportHandler.ExportReport)
+		}
+
+		// Quotation routes (requires auth)
+		quotations := api.Group("/quotations")
+		quotations.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+		{
+			quotations.POST("", quotationHandler.CreateQuotation)
+			quotations.GET("", quotationHandler.ListQuotations)
+			// Specific routes before generic /:id
+			quotations.POST("/:id/convert", quotationHandler.ConvertToServiceOrder)
+			// Generic routes
+			quotations.GET("/:id", quotationHandler.GetQuotation)
+			quotations.PUT("/:id", quotationHandler.UpdateQuotation)
+			quotations.DELETE("/:id", quotationHandler.DeleteQuotation)
+		}
+
+		// Supplier routes (requires auth)
+		suppliers := api.Group("/suppliers")
+		suppliers.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+		{
+			suppliers.POST("", middleware.RequireAdminOrSuperAdmin(), supplierHandler.CreateSupplier)
+			suppliers.GET("", supplierHandler.ListSuppliers)
+			suppliers.GET("/:id", supplierHandler.GetSupplier)
+			suppliers.PUT("/:id", middleware.RequireAdminOrSuperAdmin(), supplierHandler.UpdateSupplier)
+			suppliers.DELETE("/:id", middleware.RequireAdminOrSuperAdmin(), supplierHandler.DeleteSupplier)
+		}
+
+		// Purchase Order routes (requires auth)
+		purchaseOrders := api.Group("/purchase-orders")
+		purchaseOrders.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+		{
+			purchaseOrders.POST("", middleware.RequireAdminOrSuperAdmin(), supplierHandler.CreatePurchaseOrder)
+			purchaseOrders.GET("", supplierHandler.ListPurchaseOrders)
+			purchaseOrders.GET("/:id", supplierHandler.GetPurchaseOrder)
+			purchaseOrders.PUT("/:id", middleware.RequireAdminOrSuperAdmin(), supplierHandler.UpdatePurchaseOrder)
+			purchaseOrders.DELETE("/:id", middleware.RequireAdminOrSuperAdmin(), supplierHandler.DeletePurchaseOrder)
+		}
+
+		// Notification routes (requires auth)
+		notifications := api.Group("/notifications")
+		notifications.Use(authMiddleware, middleware.RequireAuth())
+		{
+			notifications.GET("", notificationHandler.ListNotifications)
+			notifications.GET("/unread-count", notificationHandler.GetUnreadCount)
+			notifications.POST("/:id/read", notificationHandler.MarkAsRead)
+			notifications.POST("/read-all", notificationHandler.MarkAllAsRead)
 		}
 
 		// Admin routes

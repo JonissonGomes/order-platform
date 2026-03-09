@@ -19,6 +19,7 @@ export const MODULE_NAMES: Record<string, string> = {
   "/employees": "Colaboradores",
   "/stock": "Estoque",
   "/financial": "Financeiro",
+  "/reports": "Relatórios",
   "/profiles": "Perfis e Módulos",
   "/settings": "Configurações",
 };
@@ -63,6 +64,14 @@ export const MODULES: Module[] = [
     icon: "DollarSign",
     path: "/financial",
     permissions: ["financial.read", "financial.*"],
+  },
+  {
+    id: "reports",
+    name: "reports",
+    label: "Relatórios",
+    icon: "BarChart",
+    path: "/reports",
+    permissions: ["reports.*", "reports.read", "reports.department"],
   },
   {
     id: "departments",

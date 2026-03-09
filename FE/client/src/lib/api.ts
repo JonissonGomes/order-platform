@@ -591,4 +591,259 @@ export const api = {
       body: JSON.stringify(data),
     });
   },
+
+  // ── Reports endpoints ─────────────────────────────────────────────────────
+
+  async getServiceOrderReport(params?: {
+    startDate?: string;
+    endDate?: string;
+    departmentId?: string;
+    status?: string;
+    employeeId?: string;
+  }): Promise<{ report: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append("startDate", params.startDate);
+    if (params?.endDate) queryParams.append("endDate", params.endDate);
+    if (params?.departmentId) queryParams.append("departmentId", params.departmentId);
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.employeeId) queryParams.append("employeeId", params.employeeId);
+    const query = queryParams.toString();
+    return fetchAPI<{ report: any }>(`/api/reports/service-orders${query ? `?${query}` : ""}`);
+  },
+
+  async getFinancialReport(params?: {
+    startDate?: string;
+    endDate?: string;
+    category?: string;
+    type?: string;
+  }): Promise<{ report: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append("startDate", params.startDate);
+    if (params?.endDate) queryParams.append("endDate", params.endDate);
+    if (params?.category) queryParams.append("category", params.category);
+    if (params?.type) queryParams.append("type", params.type);
+    const query = queryParams.toString();
+    return fetchAPI<{ report: any }>(`/api/reports/financial${query ? `?${query}` : ""}`);
+  },
+
+  async getStockReport(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{ report: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append("startDate", params.startDate);
+    if (params?.endDate) queryParams.append("endDate", params.endDate);
+    const query = queryParams.toString();
+    return fetchAPI<{ report: any }>(`/api/reports/stock${query ? `?${query}` : ""}`);
+  },
+
+  async getCustomerReport(params?: {
+    startDate?: string;
+    endDate?: string;
+    customerId?: string;
+  }): Promise<{ report: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append("startDate", params.startDate);
+    if (params?.endDate) queryParams.append("endDate", params.endDate);
+    if (params?.customerId) queryParams.append("customerId", params.customerId);
+    const query = queryParams.toString();
+    return fetchAPI<{ report: any }>(`/api/reports/customers${query ? `?${query}` : ""}`);
+  },
+
+  async getDashboardReport(params?: {
+    startDate?: string;
+    endDate?: string;
+    departmentId?: string;
+  }): Promise<{ report: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append("startDate", params.startDate);
+    if (params?.endDate) queryParams.append("endDate", params.endDate);
+    if (params?.departmentId) queryParams.append("departmentId", params.departmentId);
+    const query = queryParams.toString();
+    return fetchAPI<{ report: any }>(`/api/reports/dashboard${query ? `?${query}` : ""}`);
+  },
+
+  async exportReport(report: string, type: "pdf" | "excel" | "csv"): Promise<Blob> {
+    return fetchAPI<Blob>(`/api/reports/export?report=${report}&type=${type}`);
+  },
+
+  // ── Quotations endpoints ─────────────────────────────────────────────────────
+
+  async listQuotations(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    customerId?: string;
+  }): Promise<{ quotations: any[]; pagination: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.customerId) queryParams.append("customerId", params.customerId);
+    const query = queryParams.toString();
+    return fetchAPI<{ quotations: any[]; pagination: any }>(`/api/quotations${query ? `?${query}` : ""}`);
+  },
+
+  async createQuotation(data: {
+    customerId: string;
+    departmentId: string;
+    items: any[];
+    discount?: number;
+    validUntil?: string;
+    notes?: string;
+  }): Promise<{ quotation: any }> {
+    return fetchAPI<{ quotation: any }>("/api/quotations", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getQuotation(id: string): Promise<{ quotation: any }> {
+    return fetchAPI<{ quotation: any }>(`/api/quotations/${id}`);
+  },
+
+  async updateQuotation(id: string, data: Partial<any>): Promise<{ quotation: any }> {
+    return fetchAPI<{ quotation: any }>(`/api/quotations/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async convertQuotationToServiceOrder(id: string): Promise<{ message: string; serviceOrderId: string; quotation: any }> {
+    return fetchAPI<{ message: string; serviceOrderId: string; quotation: any }>(`/api/quotations/${id}/convert`, {
+      method: "POST",
+    });
+  },
+
+  async deleteQuotation(id: string): Promise<{ message: string }> {
+    return fetchAPI<{ message: string }>(`/api/quotations/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // ── Suppliers endpoints ─────────────────────────────────────────────────────
+
+  async listSuppliers(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{ suppliers: any[]; pagination: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.search) queryParams.append("search", params.search);
+    const query = queryParams.toString();
+    return fetchAPI<{ suppliers: any[]; pagination: any }>(`/api/suppliers${query ? `?${query}` : ""}`);
+  },
+
+  async createSupplier(data: {
+    name: string;
+    cnpj?: string;
+    cpf?: string;
+    email?: string;
+    phone?: string;
+    address?: any;
+    contactName?: string;
+    notes?: string;
+  }): Promise<{ supplier: any }> {
+    return fetchAPI<{ supplier: any }>("/api/suppliers", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getSupplier(id: string): Promise<{ supplier: any }> {
+    return fetchAPI<{ supplier: any }>(`/api/suppliers/${id}`);
+  },
+
+  async updateSupplier(id: string, data: Partial<any>): Promise<{ supplier: any }> {
+    return fetchAPI<{ supplier: any }>(`/api/suppliers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteSupplier(id: string): Promise<{ message: string }> {
+    return fetchAPI<{ message: string }>(`/api/suppliers/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // ── Purchase Orders endpoints ───────────────────────────────────────────────
+
+  async listPurchaseOrders(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    supplierId?: string;
+  }): Promise<{ purchaseOrders: any[]; pagination: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.supplierId) queryParams.append("supplierId", params.supplierId);
+    const query = queryParams.toString();
+    return fetchAPI<{ purchaseOrders: any[]; pagination: any }>(`/api/purchase-orders${query ? `?${query}` : ""}`);
+  },
+
+  async createPurchaseOrder(data: {
+    supplierId: string;
+    items: any[];
+    shippingCost?: number;
+    expectedDelivery?: string;
+    notes?: string;
+  }): Promise<{ purchaseOrder: any }> {
+    return fetchAPI<{ purchaseOrder: any }>("/api/purchase-orders", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getPurchaseOrder(id: string): Promise<{ purchaseOrder: any }> {
+    return fetchAPI<{ purchaseOrder: any }>(`/api/purchase-orders/${id}`);
+  },
+
+  async updatePurchaseOrder(id: string, data: Partial<any>): Promise<{ purchaseOrder: any }> {
+    return fetchAPI<{ purchaseOrder: any }>(`/api/purchase-orders/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deletePurchaseOrder(id: string): Promise<{ message: string }> {
+    return fetchAPI<{ message: string }>(`/api/purchase-orders/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // ── Notifications endpoints ────────────────────────────────────────────────
+
+  async listNotifications(params?: {
+    page?: number;
+    limit?: number;
+    unread?: boolean;
+  }): Promise<{ notifications: any[]; unreadCount: number; pagination: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.unread) queryParams.append("unread", "true");
+    const query = queryParams.toString();
+    return fetchAPI<{ notifications: any[]; unreadCount: number; pagination: any }>(`/api/notifications${query ? `?${query}` : ""}`);
+  },
+
+  async getUnreadCount(): Promise<{ count: number }> {
+    return fetchAPI<{ count: number }>("/api/notifications/unread-count");
+  },
+
+  async markNotificationAsRead(id: string): Promise<{ message: string }> {
+    return fetchAPI<{ message: string }>(`/api/notifications/${id}/read`, {
+      method: "POST",
+    });
+  },
+
+  async markAllNotificationsAsRead(): Promise<{ message: string }> {
+    return fetchAPI<{ message: string }>("/api/notifications/read-all", {
+      method: "POST",
+    });
+  },
 };

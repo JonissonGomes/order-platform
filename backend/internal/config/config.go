@@ -23,6 +23,15 @@ type Config struct {
 	CloudinaryCloudName string
 	CloudinaryAPIKey    string
 	CloudinaryAPISecret string
+	WhatsAppAPIURL      string
+	WhatsAppAPIToken    string
+	WhatsAppPhoneID     string
+	PaymentProvider     string
+	PaymentAPIKey       string
+	PaymentAPIURL       string
+	NFEAPIURL           string
+	NFEAPIToken         string
+	NFEAPIKey           string
 }
 
 var cfg *Config
@@ -123,6 +132,15 @@ func Load() error {
 		CloudinaryCloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
 		CloudinaryAPIKey:    getEnv("CLOUDINARY_API_KEY", ""),
 		CloudinaryAPISecret: getEnv("CLOUDINARY_API_SECRET", ""),
+		WhatsAppAPIURL:      getEnv("WHATSAPP_API_URL", ""),
+		WhatsAppAPIToken:    getEnv("WHATSAPP_API_TOKEN", ""),
+		WhatsAppPhoneID:     getEnv("WHATSAPP_PHONE_ID", ""),
+		PaymentProvider:     getEnv("PAYMENT_PROVIDER", ""), // mercadopago, pagseguro, stripe
+		PaymentAPIKey:       getEnv("PAYMENT_API_KEY", ""),
+		PaymentAPIURL:       getEnv("PAYMENT_API_URL", ""),
+		NFEAPIURL:           getEnv("NFE_API_URL", ""),
+		NFEAPIToken:         getEnv("NFE_API_TOKEN", ""),
+		NFEAPIKey:           getEnv("NFE_API_KEY", ""),
 	}
 
 	// Validate required variables

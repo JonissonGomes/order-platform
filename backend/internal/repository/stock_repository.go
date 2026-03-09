@@ -96,8 +96,8 @@ func (r *StockRepository) GetSummary(ctx context.Context) (*models.StockSummary,
 	pipeline := mongo.Pipeline{
 		{{Key: "$match", Value: bson.M{"isActive": true}}},
 		{{Key: "$group", Value: bson.M{
-			"_id":          nil,
-			"totalItems":   bson.M{"$sum": 1},
+			"_id":        nil,
+			"totalItems": bson.M{"$sum": 1},
 			"lowStockItems": bson.M{"$sum": bson.M{"$cond": bson.A{
 				bson.M{"$and": bson.A{
 					bson.M{"$gt": bson.A{"$minQuantity", 0}},
@@ -191,4 +191,14 @@ func (r *StockRepository) ListMovements(ctx context.Context, filter bson.M, page
 		return nil, 0, err
 	}
 	return movs, total, nil
+}
+
+// ItemsCollection returns the items MongoDB collection for aggregation queries
+func (r *StockRepository) ItemsCollection() *mongo.Collection {
+	return r.items
+}
+
+// MovementsCollection returns the movements MongoDB collection for aggregation queries
+func (r *StockRepository) MovementsCollection() *mongo.Collection {
+	return r.movements
 }
