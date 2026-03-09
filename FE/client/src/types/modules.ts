@@ -17,6 +17,8 @@ export const MODULE_NAMES: Record<string, string> = {
   "/customers": "Clientes",
   "/departments": "Departamentos",
   "/employees": "Colaboradores",
+  "/stock": "Estoque",
+  "/financial": "Financeiro",
   "/profiles": "Perfis e Módulos",
 };
 
@@ -46,6 +48,22 @@ export const MODULES: Module[] = [
     permissions: ["customers.read", "customers.*"],
   },
   {
+    id: "stock",
+    name: "stock",
+    label: "Estoque",
+    icon: "Package",
+    path: "/stock",
+    permissions: ["stock.read", "stock.*"],
+  },
+  {
+    id: "financial",
+    name: "financial",
+    label: "Financeiro",
+    icon: "DollarSign",
+    path: "/financial",
+    permissions: ["financial.read", "financial.*"],
+  },
+  {
     id: "departments",
     name: "departments",
     label: "Departamentos",
@@ -72,8 +90,10 @@ export const MODULES: Module[] = [
 ];
 
 // Role to permissions mapping
+// "dono" = novo valor; "super_admin" mantido por retrocompatibilidade
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  super_admin: ["*"], // All permissions
+  dono: ["*"],        // Novo valor do perfil Dono
+  super_admin: ["*"], // Retrocompatibilidade com registros antigos
   admin: [
     "dashboard.read",
     "users.*",
@@ -81,6 +101,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "departments.*",
     "customers.*",
     "service_orders.*",
+    "stock.*",
+    "financial.*",
     "reports.*",
     "profiles.read",
   ],
@@ -90,6 +112,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "employees.update",
     "departments.read",
     "service_orders.*",
+    "stock.read",
+    "financial.read",
     "reports.department",
   ],
   attendant: [
@@ -101,6 +125,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "service_orders.status.pending",
     "service_orders.status.evaluating",
     "service_orders.status.approved",
+    "stock.read",
   ],
   technician: [
     "dashboard.read",
@@ -111,6 +136,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "service_orders.status.testing",
     "service_orders.status.ready",
     "service_orders.notes.create",
+    "stock.read",
   ],
 };
 

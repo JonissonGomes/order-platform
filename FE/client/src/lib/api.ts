@@ -30,16 +30,23 @@ import type {
   CreateDepartmentRequest,
   StatusHistory,
   Profile,
+  StockItem,
+  StockMovement,
+  StockSummary,
+  Transaction,
+  FinancialSummary,
+  CashFlowEntry,
 } from "@/types";
 
-// VITE_API_URL é obrigatório para garantir segurança e consistência
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+// Em desenvolvimento sem VITE_API_URL, usa string vazia (Vite proxy cuida do /api/*)
+// Em produção, VITE_API_URL deve apontar para a URL da API (ex: https://api.seusite.com)
+const API_BASE_URL: string = import.meta.env.VITE_API_URL || "";
 
-if (!API_BASE_URL) {
+if (!import.meta.env.VITE_API_URL && import.meta.env.PROD) {
   console.error(
     "⚠️ VITE_API_URL não está configurado! " +
     "Configure no arquivo .env do frontend. " +
-    "Exemplo: VITE_API_URL=http://localhost:8080 (dev) ou https://api.seusite.com (prod)"
+    "Exemplo: VITE_API_URL=https://api.seusite.com (prod)"
   );
 }
 
@@ -47,7 +54,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: "user" | "admin" | "super_admin";
+  // "dono" = novo valor; "super_admin" mantido por retrocompatibilidade
+  role: "user" | "admin" | "dono" | "super_admin";
   createdAt?: string;
   updatedAt?: string;
   lastSignedIn?: string;
@@ -386,6 +394,170 @@ export const api = {
         editPermissions,
         deletePermissions,
       }),
+    });
+  },
+
+  // ── Stock endpoints ──────────────────────────────────────────────────────
+
+  async getStockSummary(): Promise<{ summary: StockSummary }> {
+    return fetchAPI<{ summary: StockSummary }>("/api/stock/summary");
+  },
+
+  async listStockItems(params?: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    name?: string;
+    lowStock?: boolean;
+  }): Promise<{ items: StockItem[]; pagination: { page: number; limit: number; total: number } }> {
+    const q = new URLSearchParams();
+    if (params?.page) q.append("page", params.page.toString());
+    if (params?.limit) q.append("limit", params.limit.toString());
+    if (params?.category) q.append("category", params.category);
+    if (params?.name) q.append("name", params.name);
+    if (params?.lowStock) q.append("lowStock", "true");
+    const qs = q.toString();
+    return fetchAPI(`/api/stock${qs ? `?${qs}` : ""}`);
+  },
+
+  async getStockItem(id: string): Promise<{ item: StockItem }> {
+    return fetchAPI<{ item: StockItem }>(`/api/stock/${id}`);
+  },
+
+  async createStockItem(data: {
+    name: string;
+    sku?: string;
+    category: string;
+    description?: string;
+    quantity?: number;
+    minQuantity?: number;
+    costPrice?: number;
+    sellingPrice?: number;
+    supplier?: string;
+    location?: string;
+  }): Promise<{ item: StockItem }> {
+    return fetchAPI<{ item: StockItem }>("/api/stock", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateStockItem(id: string, data: Partial<StockItem>): Promise<{ item: StockItem }> {
+    return fetchAPI<{ item: StockItem }>(`/api/stock/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async createStockMovement(
+    itemId: string,
+    data: {
+      type: string;
+      reason: string;
+      quantity: number;
+      unitCost?: number;
+      serviceOrderId?: string;
+      notes?: string;
+      newQuantity?: number;
+    }
+  ): Promise<{ movement: StockMovement; item: StockItem }> {
+    return fetchAPI<{ movement: StockMovement; item: StockItem }>(`/api/stock/${itemId}/movements`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async listStockMovements(params?: {
+    itemId?: string;
+    page?: number;
+    limit?: number;
+    type?: string;
+  }): Promise<{ movements: StockMovement[]; pagination: { page: number; limit: number; total: number } }> {
+    const q = new URLSearchParams();
+    if (params?.page) q.append("page", params.page.toString());
+    if (params?.limit) q.append("limit", params.limit.toString());
+    if (params?.type) q.append("type", params.type);
+    const qs = q.toString();
+
+    const base = params?.itemId
+      ? `/api/stock/${params.itemId}/movements`
+      : "/api/stock/movements";
+    return fetchAPI(`${base}${qs ? `?${qs}` : ""}`);
+  },
+
+  // ── Financial endpoints ──────────────────────────────────────────────────
+
+  async getFinancialSummary(month?: string): Promise<{ summary: FinancialSummary }> {
+    const q = month ? `?month=${month}` : "";
+    return fetchAPI<{ summary: FinancialSummary }>(`/api/financial/summary${q}`);
+  },
+
+  async getFinancialCashFlow(months?: number): Promise<{ cashFlow: CashFlowEntry[] }> {
+    const q = months ? `?months=${months}` : "";
+    return fetchAPI<{ cashFlow: CashFlowEntry[] }>(`/api/financial/cash-flow${q}`);
+  },
+
+  async listTransactions(params?: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    category?: string;
+    isPaid?: boolean;
+    month?: string;
+    from?: string;
+    to?: string;
+  }): Promise<{ transactions: Transaction[]; pagination: { page: number; limit: number; total: number } }> {
+    const q = new URLSearchParams();
+    if (params?.page) q.append("page", params.page.toString());
+    if (params?.limit) q.append("limit", params.limit.toString());
+    if (params?.type) q.append("type", params.type);
+    if (params?.category) q.append("category", params.category);
+    if (params?.isPaid !== undefined) q.append("isPaid", params.isPaid.toString());
+    if (params?.month) q.append("month", params.month);
+    if (params?.from) q.append("from", params.from);
+    if (params?.to) q.append("to", params.to);
+    const qs = q.toString();
+    return fetchAPI(`/api/financial/transactions${qs ? `?${qs}` : ""}`);
+  },
+
+  async createTransaction(data: {
+    type: string;
+    category: string;
+    description: string;
+    amount: number;
+    paymentMethod: string;
+    serviceOrderId?: string;
+    stockItemId?: string;
+    referenceDate?: string;
+    dueDate?: string;
+    isPaid?: boolean;
+    notes?: string;
+  }): Promise<{ transaction: Transaction }> {
+    return fetchAPI<{ transaction: Transaction }>("/api/financial/transactions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateTransaction(
+    id: string,
+    data: Partial<{ description: string; amount: number; paymentMethod: string; isPaid: boolean; notes: string; dueDate: string }>
+  ): Promise<{ transaction: Transaction }> {
+    return fetchAPI<{ transaction: Transaction }>(`/api/financial/transactions/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async markTransactionAsPaid(id: string): Promise<{ transaction: Transaction }> {
+    return fetchAPI<{ transaction: Transaction }>(`/api/financial/transactions/${id}/pay`, {
+      method: "PATCH",
+    });
+  },
+
+  async deleteTransaction(id: string): Promise<{ success: boolean }> {
+    return fetchAPI<{ success: boolean }>(`/api/financial/transactions/${id}`, {
+      method: "DELETE",
     });
   },
 };

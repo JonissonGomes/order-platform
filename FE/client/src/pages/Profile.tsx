@@ -9,7 +9,8 @@ export default function Profile() {
 
   const getRoleLabel = (role?: string) => {
     switch (role) {
-      case "super_admin":
+      case "dono":        // novo valor
+      case "super_admin": // retrocompatibilidade
         return "Dono";
       case "admin":
         return "Administrador";

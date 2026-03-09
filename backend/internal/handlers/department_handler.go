@@ -61,15 +61,14 @@ func (h *DepartmentHandler) CreateDepartment(c *gin.Context) {
 	}
 
 	// Get current employee
-	// Super admin can create departments even without an Employee record
+	// Admin and Super Admin can create departments even without an Employee record
 	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
 	if err != nil || currentEmployee == nil {
-		// If user is super admin, allow creation without Employee record
-		if !currentUser.IsSuperAdmin() {
+		if !currentUser.IsAdmin() {
 			utils.RespondWithForbidden(c, "")
 			return
 		}
-		// For super admin without Employee, we'll use User ID for createdBy
+		// For admin/super admin without Employee, we'll use User ID for createdBy
 	}
 
 	// Parse manager ID if provided
@@ -194,11 +193,10 @@ func (h *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 	}
 
 	// Get current employee
-	// Super admin can update departments even without an Employee record
+	// Admin and Super Admin can update departments even without an Employee record
 	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
 	if err != nil || currentEmployee == nil {
-		// If user is super admin, allow update without Employee record
-		if !currentUser.IsSuperAdmin() {
+		if !currentUser.IsAdmin() {
 			utils.RespondWithForbidden(c, "")
 			return
 		}

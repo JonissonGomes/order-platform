@@ -43,7 +43,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { api } from "@/lib/api";
 import { formatPhone } from "@/lib/formatters";
-import { fetchCEP } from "@/lib/cep";
 import { ImageUpload } from "@/components/ImageUpload";
 import type { ServiceOrder, ServiceOrderStatus, Customer, Department, Image, ServiceItem, PaymentInfo } from "@/types";
 import { Plus, Search, FileText, Check, ChevronsUpDown, UserPlus, Filter, Trash2, Printer, X } from "lucide-react";

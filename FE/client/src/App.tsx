@@ -16,6 +16,8 @@ import Departments from "./pages/Departments";
 import Employees from "./pages/Employees";
 import PublicOrderTracking from "./pages/PublicOrderTracking";
 import PrintServiceOrder from "./pages/PrintServiceOrder";
+import Stock from "./pages/Stock";
+import Financial from "./pages/Financial";
 
 /**
  * Router da Aplicação
@@ -42,6 +44,8 @@ function Router() {
       <Route path={"/customers"} component={Customers} />
       <Route path={"/departments"} component={Departments} />
       <Route path={"/employees"} component={Employees} />
+      <Route path={"/stock"} component={Stock} />
+      <Route path={"/financial"} component={Financial} />
       <Route path={"/track"} component={PublicOrderTracking} />
       <Route path={"/print/order/:id"} component={PrintServiceOrder} />
       <Route path={"/404"} component={NotFound} />

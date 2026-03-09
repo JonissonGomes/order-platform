@@ -1,6 +1,7 @@
 // Backend Models - TypeScript Types
 
-export type UserRole = "user" | "admin" | "super_admin";
+// "dono" = novo valor; "super_admin" mantido por retrocompatibilidade com dados existentes
+export type UserRole = "user" | "admin" | "dono" | "super_admin";
 
 export interface User {
   id: string;
@@ -233,6 +234,115 @@ export interface AuditLog {
   userAgent?: string;
   timestamp: string;
 }
+
+// ── Estoque ──────────────────────────────────────────────────────────────────
+
+export type StockMovementType = "in" | "out" | "adjustment" | "return" | "damaged";
+export type StockMovementReason =
+  | "purchase"
+  | "used_in_order"
+  | "returned"
+  | "damaged"
+  | "adjustment"
+  | "initial";
+
+export interface StockItem {
+  id: string;
+  name: string;
+  sku?: string;
+  category: string;
+  description?: string;
+  quantity: number;
+  minQuantity: number;
+  costPrice: number;
+  sellingPrice?: number;
+  supplier?: string;
+  location?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+}
+
+export interface StockMovement {
+  id: string;
+  stockItemId: string;
+  stockItem?: StockItem;
+  type: StockMovementType;
+  reason: StockMovementReason;
+  quantity: number;
+  unitCost?: number;
+  totalCost?: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  serviceOrderId?: string;
+  notes?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface StockSummary {
+  totalItems: number;
+  activeItems: number;
+  lowStockItems: number;
+  outOfStock: number;
+  totalValue: number;
+}
+
+// ── Financeiro ────────────────────────────────────────────────────────────────
+
+export type TransactionType = "income" | "expense";
+export type TransactionCategory =
+  | "service_order"
+  | "other_income"
+  | "parts_purchase"
+  | "salary"
+  | "rent"
+  | "utilities"
+  | "equipment"
+  | "marketing"
+  | "other_expense";
+
+export interface Transaction {
+  id: string;
+  type: TransactionType;
+  category: TransactionCategory;
+  description: string;
+  amount: number;
+  paymentMethod: string;
+  serviceOrderId?: string;
+  serviceOrder?: ServiceOrder;
+  stockItemId?: string;
+  referenceDate: string;
+  dueDate?: string;
+  paidAt?: string;
+  isPaid: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+}
+
+export interface FinancialSummary {
+  period: string;
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+  pendingIncome: number;
+  pendingExpense: number;
+  transactionCount: number;
+}
+
+export interface CashFlowEntry {
+  month: string;
+  income: number;
+  expense: number;
+  balance: number;
+}
+
+// ── Requests ─────────────────────────────────────────────────────────────────
 
 // Request/Response Types
 

@@ -31,6 +31,8 @@ func New(db *database.MongoDB) *gin.Engine {
 	departmentRepo := repository.NewDepartmentRepository(db.Database)
 	statusHistoryRepo := repository.NewStatusHistoryRepository(db.Database)
 	auditLogRepo := repository.NewAuditLogRepository(db.Database)
+	stockRepo := repository.NewStockRepository(db.Database)
+	financialRepo := repository.NewFinancialRepository(db.Database)
 
 	// Initialize Cloudinary service (optional, won't fail if not configured)
 	var uploadHandler *handlers.UploadHandler
@@ -55,6 +57,8 @@ func New(db *database.MongoDB) *gin.Engine {
 	serviceOrderHandler := handlers.NewServiceOrderHandler(serviceOrderRepo, customerRepo, departmentRepo, employeeRepo, statusHistoryRepo)
 	departmentHandler := handlers.NewDepartmentHandler(departmentRepo, employeeRepo, serviceOrderRepo)
 	publicHandler := handlers.NewPublicHandler(customerRepo, serviceOrderRepo)
+	stockHandler := handlers.NewStockHandler(stockRepo, employeeRepo)
+	financialHandler := handlers.NewFinancialHandler(financialRepo, employeeRepo)
 
 	// Auth middleware (optional authentication)
 	authMiddleware := middleware.AuthMiddleware(userRepo)
@@ -169,6 +173,34 @@ func New(db *database.MongoDB) *gin.Engine {
 		{
 			public.GET("/service-orders/:orderNumber", serviceOrderHandler.GetServiceOrderByOrderNumber)
 			public.POST("/service-orders/search", publicHandler.SearchServiceOrder)
+		}
+
+		// Stock routes (requires auth)
+		stock := api.Group("/stock")
+		stock.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+		{
+			stock.GET("/summary", stockHandler.GetSummary)
+			stock.GET("/movements", stockHandler.ListMovements)
+			stock.POST("", middleware.RequireAdminOrSuperAdmin(), stockHandler.CreateItem)
+			stock.GET("", stockHandler.ListItems)
+			stock.GET("/:id", stockHandler.GetItem)
+			stock.PUT("/:id", middleware.RequireAdminOrSuperAdmin(), stockHandler.UpdateItem)
+			stock.POST("/:id/movements", stockHandler.CreateMovement)
+			stock.GET("/:id/movements", stockHandler.ListMovements)
+		}
+
+		// Financial routes (requires auth)
+		financial := api.Group("/financial")
+		financial.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+		{
+			financial.GET("/summary", financialHandler.GetSummary)
+			financial.GET("/cash-flow", financialHandler.GetCashFlow)
+			financial.POST("/transactions", financialHandler.CreateTransaction)
+			financial.GET("/transactions", financialHandler.ListTransactions)
+			financial.GET("/transactions/:id", financialHandler.GetTransaction)
+			financial.PUT("/transactions/:id", financialHandler.UpdateTransaction)
+			financial.PATCH("/transactions/:id/pay", financialHandler.MarkAsPaid)
+			financial.DELETE("/transactions/:id", middleware.RequireAdminOrSuperAdmin(), financialHandler.DeleteTransaction)
 		}
 
 		// Admin routes

@@ -103,10 +103,23 @@ func (r *UserRepository) ListUsers(ctx context.Context, skip, limit int64, filte
 	return users, nil
 }
 
-// CountSuperAdmins counts the number of super admin users
+// CountSuperAdmins conta usuários com perfil Dono ("dono" ou "super_admin" legado)
 func (r *UserRepository) CountSuperAdmins(ctx context.Context) (int64, error) {
-	filter := bson.M{"role": models.RoleSuperAdmin}
+	filter := bson.M{"role": bson.M{"$in": []string{string(models.RoleSuperAdmin), "super_admin"}}}
 	return r.collection.CountDocuments(ctx, filter)
+}
+
+// MigrateSuperAdminRole migra registros legados com role "super_admin" para "dono"
+// Seguro chamar sempre — só atualiza registros que ainda têm o valor antigo.
+func (r *UserRepository) MigrateSuperAdminRole(ctx context.Context) (int64, error) {
+	result, err := r.collection.UpdateMany(ctx,
+		bson.M{"role": "super_admin"},
+		bson.M{"$set": bson.M{"role": string(models.RoleSuperAdmin), "updatedAt": time.Now()}},
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.ModifiedCount, nil
 }
 
 // UpdateUserRole updates a user's role

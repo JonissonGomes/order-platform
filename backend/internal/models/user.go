@@ -11,7 +11,7 @@ type UserRole string
 const (
 	RoleUser       UserRole = "user"
 	RoleAdmin      UserRole = "admin"
-	RoleSuperAdmin UserRole = "super_admin"
+	RoleSuperAdmin UserRole = "dono" // "dono" é o novo valor; "super_admin" é mantido por retrocompatibilidade
 )
 
 type User struct {
@@ -25,22 +25,22 @@ type User struct {
 	LastSignedIn time.Time          `bson:"lastSignedIn" json:"lastSignedIn"`
 }
 
-// IsAdmin checks if the user has admin role
+// IsAdmin checks if the user has admin or super admin role
 func (u *User) IsAdmin() bool {
 	if u == nil {
 		return false
 	}
-	// Convert to string for comparison to handle BSON decoding edge cases
 	roleStr := string(u.Role)
-	return roleStr == string(RoleAdmin) || roleStr == string(RoleSuperAdmin)
+	// "admin" → administrador, "dono" → novo valor, "super_admin" → retrocompatibilidade
+	return roleStr == string(RoleAdmin) || roleStr == string(RoleSuperAdmin) || roleStr == "super_admin"
 }
 
-// IsSuperAdmin checks if the user has super admin role
+// IsSuperAdmin checks if the user has super admin (Dono) role
 func (u *User) IsSuperAdmin() bool {
 	if u == nil {
 		return false
 	}
-	// Convert to string for comparison to handle BSON decoding edge cases
 	roleStr := string(u.Role)
-	return roleStr == string(RoleSuperAdmin)
+	// Aceita "dono" (novo) e "super_admin" (legado) para retrocompatibilidade
+	return roleStr == string(RoleSuperAdmin) || roleStr == "super_admin"
 }

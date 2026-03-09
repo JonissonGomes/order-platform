@@ -269,6 +269,7 @@ function CustomerCard({ customer, onEdit, onDelete }: { customer: Customer; onEd
 
 function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     cpf: "",
@@ -284,6 +285,24 @@ function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
       zipCode: "",
     } as any,
   });
+
+  // Auto-busca de CEP ao completar 8 dígitos
+  useEffect(() => {
+    const cep = formData.address.zipCode.replace(/\D/g, "");
+    if (cep.length === 8) {
+      setCepLoading(true);
+      fetchCEP(cep).then((address) => {
+        if (address) {
+          setFormData((prev) => ({
+            ...prev,
+            address: { ...prev.address, ...address },
+          }));
+        } else {
+          toast.error("CEP não encontrado");
+        }
+      }).finally(() => setCepLoading(false));
+    }
+  }, [formData.address.zipCode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -363,7 +382,7 @@ function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
           <div className="flex gap-2">
             <div className="space-y-2 flex-1">
               <Label htmlFor="zipCode" className="text-xs">CEP</Label>
-              <div className="flex gap-2">
+              <div className="relative">
                 <Input
                   id="zipCode"
                   value={formatCEP(formData.address.zipCode)}
@@ -379,29 +398,9 @@ function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
                   placeholder="00000-000"
                   maxLength={9}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={async () => {
-                    const cep = formData.address.zipCode.replace(/\D/g, "");
-                    if (cep.length === 8) {
-                      const address = await fetchCEP(cep);
-                      if (address) {
-                        setFormData({
-                          ...formData,
-                          address: { ...formData.address, ...address }
-                        });
-                        toast.success("CEP encontrado!");
-                      } else {
-                        toast.error("CEP não encontrado");
-                      }
-                    } else {
-                      toast.error("CEP deve ter 8 dígitos");
-                    }
-                  }}
-                >
-                  <Search className="h-4 w-4" />
-                </Button>
+                {cepLoading && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
               </div>
             </div>
           </div>
@@ -489,6 +488,7 @@ function CreateCustomerForm({ onSuccess }: { onSuccess: () => void }) {
 
 function EditCustomerForm({ customer, onSuccess, onCancel }: { customer: Customer; onSuccess: () => void; onCancel: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: customer.name,
     phone: customer.phone,
@@ -505,6 +505,24 @@ function EditCustomerForm({ customer, onSuccess, onCancel }: { customer: Custome
       zipCode: "",
     } as any,
   });
+
+  // Auto-busca de CEP ao completar 8 dígitos
+  useEffect(() => {
+    const cep = formData.address.zipCode?.replace(/\D/g, "") || "";
+    if (cep.length === 8) {
+      setCepLoading(true);
+      fetchCEP(cep).then((address) => {
+        if (address) {
+          setFormData((prev) => ({
+            ...prev,
+            address: { ...prev.address, ...address },
+          }));
+        } else {
+          toast.error("CEP não encontrado");
+        }
+      }).finally(() => setCepLoading(false));
+    }
+  }, [formData.address.zipCode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -561,7 +579,7 @@ function EditCustomerForm({ customer, onSuccess, onCancel }: { customer: Custome
           <div className="flex gap-2">
             <div className="space-y-2 flex-1">
               <Label htmlFor="edit-zipCode" className="text-xs">CEP</Label>
-              <div className="flex gap-2">
+              <div className="relative">
                 <Input
                   id="edit-zipCode"
                   value={formatCEP(formData.address.zipCode)}
@@ -577,29 +595,9 @@ function EditCustomerForm({ customer, onSuccess, onCancel }: { customer: Custome
                   placeholder="00000-000"
                   maxLength={9}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={async () => {
-                    const cep = formData.address.zipCode.replace(/\D/g, "");
-                    if (cep.length === 8) {
-                      const address = await fetchCEP(cep);
-                      if (address) {
-                        setFormData({
-                          ...formData,
-                          address: { ...formData.address, ...address }
-                        });
-                        toast.success("CEP encontrado!");
-                      } else {
-                        toast.error("CEP não encontrado");
-                      }
-                    } else {
-                      toast.error("CEP deve ter 8 dígitos");
-                    }
-                  }}
-                >
-                  <Search className="h-4 w-4" />
-                </Button>
+                {cepLoading && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
               </div>
             </div>
           </div>
