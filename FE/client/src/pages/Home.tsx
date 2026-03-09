@@ -4,6 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ArrowRight,
   CheckCircle2,
   Phone,
@@ -25,10 +32,12 @@ import {
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { MapView } from "@/components/Map";
+import { formatPhone } from "@/lib/formatters";
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", message: "" });
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   const services = [
     {
@@ -86,7 +95,7 @@ export default function Home() {
     e.preventDefault();
     // Aqui você pode implementar o envio do formulário
     console.log("Formulário enviado:", contactForm);
-    alert("Mensagem enviada com sucesso! Entraremos em contato em breve.");
+    setShowSuccessDialog(true);
     setContactForm({ name: "", email: "", phone: "", message: "" });
   };
 
@@ -297,8 +306,13 @@ export default function Home() {
                       <Input
                         id="phone"
                         type="tel"
-                        value={contactForm.phone}
-                        onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                        value={formatPhone(contactForm.phone)}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, "");
+                          if (raw.length <= 11) {
+                            setContactForm({ ...contactForm, phone: raw });
+                          }
+                        }}
                         required
                         placeholder="(81) 98676-3169"
                         className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-purple-500"
@@ -418,6 +432,26 @@ export default function Home() {
           </CardContent>
         </Card>
       </section>
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mx-auto mb-4">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+            </div>
+            <DialogTitle className="text-center">Mensagem Enviada!</DialogTitle>
+            <DialogDescription className="text-center">
+              Sua mensagem foi enviada com sucesso. Entraremos em contato em breve.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center mt-4">
+            <Button onClick={() => setShowSuccessDialog(false)}>
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

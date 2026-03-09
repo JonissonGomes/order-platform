@@ -101,5 +101,15 @@ func DefaultProfiles() []*Profile {
 			IsDefault: true,
 			IsActive:  true,
 		},
+		{
+			Name:        "User",
+			Description: "Usuário básico do sistema (clientes)",
+			Permissions: []string{
+				"service_orders.read.own",
+				"customers.read.own",
+			},
+			IsDefault: true,
+			IsActive:  true,
+		},
 	}
 }
