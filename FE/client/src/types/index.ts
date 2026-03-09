@@ -49,6 +49,12 @@ export interface Customer {
   email?: string;
   address?: Address;
   isTemporary?: boolean;
+  notes?: string;
+  // Fidelização e manutenção periódica
+  maintenanceIntervalMonths?: number; // 0 = sem alerta
+  lastMaintenanceDate?: string;
+  nextMaintenanceDate?: string;
+  maintenanceAlertSent?: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -85,27 +91,83 @@ export interface Image {
   uploadedBy: string;
 }
 
+export type DeliveryType = "none" | "own" | "third";
+
+export interface ServiceItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  imageUrl?: string;
+}
+
+export interface PaymentInfo {
+  method?: "pix" | "cartao" | "dinheiro" | "boleto" | "";
+  dueDate?: string;
+  observation?: string;
+  paid?: boolean;
+}
+
+export interface DeliveryInfo {
+  type: DeliveryType;
+  address?: Address;
+  distanceKm?: number;
+  cost?: number;
+  scheduledAt?: string;
+  deliveredAt?: string;
+  observations?: string;
+}
+
 export interface ServiceOrder {
   id: string;
   orderNumber: string;
   customerId: string;
   customer?: Customer;
+
+  // Equipamento
   productType: string;
   productBrand: string;
   productModel: string;
+  serialNumber?: string;
+
+  // Diagnóstico e laudo
+  aestheticConditions?: string;
   problemDescription: string;
   initialEvaluation?: string;
+  technicalReport?: string;
+  solution?: string;
+
+  // Status e fluxo
   status: ServiceOrderStatus;
   departmentId: string;
   department?: Department;
   assignedTo?: string;
   assignedEmployee?: Employee;
+
+  // Datas
+  entryDate?: string;
+  exitDate?: string;
+  estimatedDelivery?: string;
+
+  // Arquivos
   images?: Image[];
+
+  // Serviços
+  serviceItems?: ServiceItem[];
+
+  // Custos
   estimatedCost?: number;
   finalCost?: number;
-  estimatedDelivery?: string; // Data estimada de entrega
-  priority?: "low" | "normal" | "high" | "urgent"; // Prioridade (não mostrada para clientes)
+
+  // Pagamento e entrega
+  payment?: PaymentInfo;
+  delivery?: DeliveryInfo;
+
+  // Metadados
+  priority?: "low" | "normal" | "high" | "urgent";
+  warrantyTerms?: string;
+  observations?: string;
   notes?: Note[];
+
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -197,6 +259,9 @@ export interface CreateCustomerRequest {
   phone: string;
   email?: string;
   address?: Address;
+  notes?: string;
+  maintenanceIntervalMonths?: number;
+  isTemporary?: boolean;
 }
 
 export interface CreateServiceOrderRequest {

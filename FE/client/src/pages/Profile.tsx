@@ -10,7 +10,7 @@ export default function Profile() {
   const getRoleLabel = (role?: string) => {
     switch (role) {
       case "super_admin":
-        return "Super Administrador";
+        return "Dono";
       case "admin":
         return "Administrador";
       case "user":

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"order-platform/backend/internal/models"
@@ -33,33 +34,44 @@ func NewProfileRepository(db *mongo.Database) *ProfileRepository {
 	return repo
 }
 
-// InitializeDefaultProfiles inicializa os perfis padrão se a collection estiver vazia
+// InitializeDefaultProfiles garante que todos os perfis padrão existam no banco.
+// Verifica cada perfil individualmente pelo nome (upsert seguro).
+// É chamado automaticamente no startup — seguro chamar múltiplas vezes.
 func (r *ProfileRepository) InitializeDefaultProfiles(ctx context.Context) error {
-	// Verificar se já existem perfis
-	count, err := r.collection.CountDocuments(ctx, bson.M{})
-	if err != nil {
-		return err
-	}
-
-	// Se já existem perfis, não inicializar
-	if count > 0 {
-		return nil
-	}
-
-	// Obter perfis padrão
 	defaultProfiles := models.DefaultProfiles()
 
-	// Preparar documentos para inserção
-	docs := make([]interface{}, len(defaultProfiles))
-	for i, profile := range defaultProfiles {
-		profile.CreatedAt = time.Now()
-		profile.UpdatedAt = time.Now()
-		docs[i] = profile
+	log.Printf("[Profiles] Verificando %d perfis padrão...", len(defaultProfiles))
+
+	created := 0
+	for _, profile := range defaultProfiles {
+		existing, err := r.GetProfileByName(ctx, profile.Name)
+		if err != nil {
+			log.Printf("[Profiles] Erro ao verificar perfil '%s': %v", profile.Name, err)
+			return err
+		}
+
+		if existing == nil {
+			now := time.Now()
+			profile.CreatedAt = now
+			profile.UpdatedAt = now
+			if _, err := r.collection.InsertOne(ctx, profile); err != nil {
+				log.Printf("[Profiles] Erro ao criar perfil '%s': %v", profile.Name, err)
+				return err
+			}
+			log.Printf("[Profiles] ✓ Perfil criado: '%s'", profile.Name)
+			created++
+		} else {
+			log.Printf("[Profiles] ✓ Perfil já existe: '%s'", profile.Name)
+		}
 	}
 
-	// Inserir todos os perfis padrão
-	_, err = r.collection.InsertMany(ctx, docs)
-	return err
+	if created > 0 {
+		log.Printf("[Profiles] %d perfil(is) padrão criado(s) com sucesso", created)
+	} else {
+		log.Printf("[Profiles] Todos os perfis padrão já estão presentes no banco")
+	}
+
+	return nil
 }
 
 // GetProfileByID retrieves a profile by ID

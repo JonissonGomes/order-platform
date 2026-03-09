@@ -34,20 +34,24 @@ func NewCustomerHandler(
 }
 
 type CreateCustomerRequest struct {
-	Name        string          `json:"name" binding:"required"`
-	CPF         string          `json:"cpf"` // Opcional para clientes avulsos
-	Phone       string          `json:"phone" binding:"required"`
-	Email       string          `json:"email,omitempty"`
-	Address     *models.Address `json:"address,omitempty"`
-	IsTemporary bool            `json:"isTemporary,omitempty"` // Indica se é cliente avulso
+	Name                      string          `json:"name" binding:"required"`
+	CPF                       string          `json:"cpf"` // Opcional para clientes avulsos
+	Phone                     string          `json:"phone" binding:"required"`
+	Email                     string          `json:"email,omitempty"`
+	Address                   *models.Address `json:"address,omitempty"`
+	IsTemporary               bool            `json:"isTemporary,omitempty"`
+	Notes                     string          `json:"notes,omitempty"`
+	MaintenanceIntervalMonths int             `json:"maintenanceIntervalMonths,omitempty"` // 0 = sem alerta
 }
 
 type UpdateCustomerRequest struct {
-	Name    string          `json:"name,omitempty"`
-	CPF     string          `json:"cpf,omitempty"`
-	Phone   string          `json:"phone,omitempty"`
-	Email   string          `json:"email,omitempty"`
-	Address *models.Address `json:"address,omitempty"`
+	Name                      string          `json:"name,omitempty"`
+	CPF                       string          `json:"cpf,omitempty"`
+	Phone                     string          `json:"phone,omitempty"`
+	Email                     string          `json:"email,omitempty"`
+	Address                   *models.Address `json:"address,omitempty"`
+	Notes                     string          `json:"notes,omitempty"`
+	MaintenanceIntervalMonths *int            `json:"maintenanceIntervalMonths,omitempty"` // ponteiro para distinguir 0 explícito
 }
 
 // CreateCustomer creates a new customer
@@ -104,16 +108,18 @@ func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
 
 	// Create customer
 	customer := &models.Customer{
-		Name:        req.Name,
-		CPF:         req.CPF, // Pode ser vazio para clientes avulsos
-		Phone:       req.Phone,
-		Email:       req.Email,
-		Address:     req.Address,
-		IsTemporary: req.IsTemporary, // Indica se é cliente avulso
-		CreatedBy:   createdBy,
-		UpdatedBy:   updatedBy,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		Name:                      req.Name,
+		CPF:                       req.CPF,
+		Phone:                     req.Phone,
+		Email:                     req.Email,
+		Address:                   req.Address,
+		IsTemporary:               req.IsTemporary,
+		Notes:                     req.Notes,
+		MaintenanceIntervalMonths: req.MaintenanceIntervalMonths,
+		CreatedBy:                 createdBy,
+		UpdatedBy:                 updatedBy,
+		CreatedAt:                 time.Now(),
+		UpdatedAt:                 time.Now(),
 	}
 
 	if err := h.customerRepo.CreateCustomer(ctx, customer); err != nil {
@@ -297,6 +303,20 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	}
 	if req.Address != nil {
 		customer.Address = req.Address
+	}
+	if req.Notes != "" {
+		customer.Notes = req.Notes
+	}
+	if req.MaintenanceIntervalMonths != nil {
+		customer.MaintenanceIntervalMonths = *req.MaintenanceIntervalMonths
+		// Recalcular próxima data de manutenção se houver data de última manutenção
+		if customer.LastMaintenanceDate != nil && *req.MaintenanceIntervalMonths > 0 {
+			next := customer.LastMaintenanceDate.AddDate(0, *req.MaintenanceIntervalMonths, 0)
+			customer.NextMaintenanceDate = &next
+		} else {
+			customer.NextMaintenanceDate = nil
+		}
+		customer.MaintenanceAlertSent = false // Resetar flag ao alterar intervalo
 	}
 	// CPF não pode ser alterado (dado único)
 

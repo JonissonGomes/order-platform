@@ -45,8 +45,10 @@ import { api } from "@/lib/api";
 import { formatPhone } from "@/lib/formatters";
 import { fetchCEP } from "@/lib/cep";
 import { ImageUpload } from "@/components/ImageUpload";
-import type { ServiceOrder, ServiceOrderStatus, Customer, Department, Image } from "@/types";
-import { Plus, Search, FileText, Check, ChevronsUpDown, UserPlus, Filter, Trash2 } from "lucide-react";
+import type { ServiceOrder, ServiceOrderStatus, Customer, Department, Image, ServiceItem, PaymentInfo } from "@/types";
+import { Plus, Search, FileText, Check, ChevronsUpDown, UserPlus, Filter, Trash2, Printer, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -214,6 +216,7 @@ export default function ServiceOrders() {
 
 function OrderCard({ order, onUpdate }: { order: ServiceOrder; onUpdate: () => void }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const handleDelete = async () => {
     try {
@@ -226,6 +229,16 @@ function OrderCard({ order, onUpdate }: { order: ServiceOrder; onUpdate: () => v
     }
   };
 
+  const handlePrint = () => {
+    const url = `/print/order/${order.id}`;
+    window.open(url, "_blank");
+  };
+
+  const totalServiceItems = order.serviceItems?.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0
+  ) ?? 0;
+
   return (
     <>
       <Card className="hover:shadow-md transition-shadow w-full">
@@ -235,6 +248,7 @@ function OrderCard({ order, onUpdate }: { order: ServiceOrder; onUpdate: () => v
               <CardTitle className="text-base sm:text-lg truncate">#{order.orderNumber}</CardTitle>
               <CardDescription className="text-xs sm:text-sm break-words">
                 {order.productType} - {order.productBrand} {order.productModel}
+                {order.serialNumber && ` • Série: ${order.serialNumber}`}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -246,6 +260,12 @@ function OrderCard({ order, onUpdate }: { order: ServiceOrder; onUpdate: () => v
               }`}>
                 {statusLabels[order.status]}
               </span>
+              <Button variant="ghost" size="icon" onClick={handlePrint} className="h-8 w-8" title="Imprimir OS">
+                <Printer className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setShowEditDialog(true)} className="h-8 w-8" title="Editar OS">
+                <FileText className="h-4 w-4" />
+              </Button>
               {(order.status === "pending" || order.status === "cancelled") && (
                 <Button
                   variant="ghost"
@@ -261,20 +281,56 @@ function OrderCard({ order, onUpdate }: { order: ServiceOrder; onUpdate: () => v
         </CardHeader>
         <CardContent>
           <div className="space-y-2 text-sm">
+            {order.customer && (
+              <p className="text-muted-foreground">
+                <strong>Cliente:</strong> {order.customer.name} {order.customer.phone && `• ${order.customer.phone}`}
+              </p>
+            )}
             <p className="text-muted-foreground break-words">
               <strong>Problema:</strong> {order.problemDescription}
             </p>
-            {order.estimatedCost && (
-              <p className="text-muted-foreground">
-                <strong>Valor estimado:</strong> R$ {order.estimatedCost.toFixed(2)}
-              </p>
+            <div className="flex flex-wrap gap-4">
+              {order.estimatedCost != null && order.estimatedCost > 0 && (
+                <p className="text-muted-foreground">
+                  <strong>Estimado:</strong> R$ {order.estimatedCost.toFixed(2)}
+                </p>
+              )}
+              {totalServiceItems > 0 && (
+                <p className="text-muted-foreground">
+                  <strong>Total serviços:</strong> R$ {totalServiceItems.toFixed(2)}
+                </p>
+              )}
+              {order.finalCost != null && order.finalCost > 0 && (
+                <p className="text-muted-foreground">
+                  <strong>Total final:</strong> R$ {order.finalCost.toFixed(2)}
+                </p>
+              )}
+            </div>
+            {order.payment?.paid && (
+              <span className="inline-block px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
+                Pago {order.payment.method && `• ${order.payment.method.toUpperCase()}`}
+              </span>
             )}
             <p className="text-muted-foreground text-xs">
-              Criado em {new Date(order.createdAt).toLocaleDateString("pt-BR")}
+              Entrada: {new Date(order.entryDate ?? order.createdAt).toLocaleDateString("pt-BR")}
+              {order.exitDate && ` • Saída: ${new Date(order.exitDate).toLocaleDateString("pt-BR")}`}
             </p>
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog de edição */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b">
+            <DialogTitle>Editar OS #{order.orderNumber}</DialogTitle>
+            <DialogDescription>Atualize as informações da ordem de serviço</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+            <EditOrderForm order={order} onSuccess={() => { setShowEditDialog(false); onUpdate(); }} />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
@@ -312,6 +368,8 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
     productType: "",
     productBrand: "",
     productModel: "",
+    serialNumber: "",
+    aestheticConditions: "",
     problemDescription: "",
     departmentId: "",
     images: [] as Image[],
@@ -354,6 +412,8 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
         productType: formData.productType,
         productBrand: formData.productBrand,
         productModel: formData.productModel,
+        serialNumber: formData.serialNumber || undefined,
+        aestheticConditions: formData.aestheticConditions || undefined,
         problemDescription: formData.problemDescription,
         departmentId: formData.departmentId,
         images: formData.images.map((img) => img.url),
@@ -537,6 +597,7 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
           <Label htmlFor="productType">Tipo de Produto *</Label>
           <Input
             id="productType"
+            placeholder="Ex: Console, Notebook..."
             value={formData.productType}
             onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
             required
@@ -546,29 +607,53 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
           <Label htmlFor="productBrand">Marca *</Label>
           <Input
             id="productBrand"
+            placeholder="Ex: Sony, Samsung..."
             value={formData.productBrand}
             onChange={(e) => setFormData({ ...formData, productBrand: e.target.value })}
             required
           />
         </div>
       </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="productModel">Modelo *</Label>
+          <Input
+            id="productModel"
+            placeholder="Ex: PS5 CFI-114A"
+            value={formData.productModel}
+            onChange={(e) => setFormData({ ...formData, productModel: e.target.value })}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="serialNumber">Número de Série</Label>
+          <Input
+            id="serialNumber"
+            placeholder="Ex: AK914195243"
+            value={formData.serialNumber}
+            onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
+          />
+        </div>
+      </div>
       <div className="space-y-2">
-        <Label htmlFor="productModel">Modelo *</Label>
-        <Input
-          id="productModel"
-          value={formData.productModel}
-          onChange={(e) => setFormData({ ...formData, productModel: e.target.value })}
-          required
+        <Label htmlFor="aestheticConditions">Condições Estéticas</Label>
+        <Textarea
+          id="aestheticConditions"
+          placeholder="Ex: Carenagem suja, lacre de fábrica, entradas USB oxidadas..."
+          value={formData.aestheticConditions}
+          onChange={(e) => setFormData({ ...formData, aestheticConditions: e.target.value })}
+          rows={2}
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="problemDescription">Descrição do Problema *</Label>
-        <textarea
+        <Label htmlFor="problemDescription">Defeitos Relatados *</Label>
+        <Textarea
           id="problemDescription"
-          className="w-full min-h-[100px] px-3 py-2 border rounded-md"
+          placeholder="Descreva os defeitos relatados pelo cliente..."
           value={formData.problemDescription}
           onChange={(e) => setFormData({ ...formData, problemDescription: e.target.value })}
           required
+          rows={3}
         />
       </div>
       <div className="space-y-2">
@@ -628,6 +713,325 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={loading}>
           {loading ? "Criando..." : "Criar Ordem"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function EditOrderForm({ order, onSuccess }: { order: ServiceOrder; onSuccess: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [serviceItems, setServiceItems] = useState<ServiceItem[]>(order.serviceItems ?? []);
+  const [formData, setFormData] = useState({
+    technicalReport: order.technicalReport ?? "",
+    solution: order.solution ?? "",
+    warrantyTerms: order.warrantyTerms ?? "",
+    observations: order.observations ?? "",
+    serialNumber: order.serialNumber ?? "",
+    aestheticConditions: order.aestheticConditions ?? "",
+    finalCost: order.finalCost?.toString() ?? "",
+    paymentMethod: order.payment?.method ?? "",
+    paymentObservation: order.payment?.observation ?? "",
+    paymentPaid: order.payment?.paid ?? false,
+    exitDate: order.exitDate ? new Date(order.exitDate).toISOString().split("T")[0] : "",
+    deliveryType: order.delivery?.type ?? "none",
+    deliveryCost: order.delivery?.cost?.toString() ?? "",
+    deliveryDistanceKm: order.delivery?.distanceKm?.toString() ?? "",
+    deliveryObservations: order.delivery?.observations ?? "",
+  });
+
+  const addServiceItem = () => {
+    setServiceItems([...serviceItems, { name: "", quantity: 1, unitPrice: 0 }]);
+  };
+
+  const removeServiceItem = (index: number) => {
+    setServiceItems(serviceItems.filter((_, i) => i !== index));
+  };
+
+  const updateServiceItem = (index: number, field: keyof ServiceItem, value: string | number) => {
+    const updated = serviceItems.map((item, i) =>
+      i === index ? { ...item, [field]: value } : item
+    );
+    setServiceItems(updated);
+  };
+
+  const totalServiceItems = serviceItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const payload: any = {
+        technicalReport: formData.technicalReport || undefined,
+        solution: formData.solution || undefined,
+        warrantyTerms: formData.warrantyTerms || undefined,
+        observations: formData.observations || undefined,
+        serialNumber: formData.serialNumber || undefined,
+        aestheticConditions: formData.aestheticConditions || undefined,
+        finalCost: formData.finalCost ? parseFloat(formData.finalCost) : undefined,
+        serviceItems: serviceItems.filter((i) => i.name),
+        payment: {
+          method: formData.paymentMethod || undefined,
+          observation: formData.paymentObservation || undefined,
+          paid: formData.paymentPaid,
+        },
+        delivery: formData.deliveryType !== "none" ? {
+          type: formData.deliveryType,
+          cost: formData.deliveryCost ? parseFloat(formData.deliveryCost) : 0,
+          distanceKm: formData.deliveryDistanceKm ? parseFloat(formData.deliveryDistanceKm) : 0,
+          observations: formData.deliveryObservations || undefined,
+        } : undefined,
+        exitDate: formData.exitDate ? new Date(formData.exitDate).toISOString() : undefined,
+      };
+      await api.updateServiceOrder(order.id, payload);
+      toast.success("Ordem de serviço atualizada!");
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar ordem de serviço");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Dados do equipamento */}
+      <div className="space-y-1">
+        <h3 className="font-semibold text-sm">Equipamento</h3>
+        <Separator />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Número de Série</Label>
+          <Input
+            placeholder="Ex: AK914195243"
+            value={formData.serialNumber}
+            onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Condições Estéticas</Label>
+        <Textarea
+          placeholder="Descreva as condições estéticas do equipamento..."
+          value={formData.aestheticConditions}
+          onChange={(e) => setFormData({ ...formData, aestheticConditions: e.target.value })}
+          rows={2}
+        />
+      </div>
+
+      {/* Diagnóstico */}
+      <div className="space-y-1 pt-2">
+        <h3 className="font-semibold text-sm">Diagnóstico Técnico</h3>
+        <Separator />
+      </div>
+      <div className="space-y-2">
+        <Label>Laudo Técnico</Label>
+        <Textarea
+          placeholder="Descreva o laudo técnico detalhado..."
+          value={formData.technicalReport}
+          onChange={(e) => setFormData({ ...formData, technicalReport: e.target.value })}
+          rows={4}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Solução Proposta / Executada</Label>
+        <Textarea
+          placeholder="Descreva a solução que será ou foi executada..."
+          value={formData.solution}
+          onChange={(e) => setFormData({ ...formData, solution: e.target.value })}
+          rows={3}
+        />
+      </div>
+
+      {/* Serviços */}
+      <div className="space-y-1 pt-2">
+        <h3 className="font-semibold text-sm">Serviços Executados</h3>
+        <Separator />
+      </div>
+      <div className="space-y-3">
+        {serviceItems.map((item, index) => (
+          <div key={index} className="flex gap-2 items-end">
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs">Serviço</Label>
+              <Input
+                placeholder="Nome do serviço"
+                value={item.name}
+                onChange={(e) => updateServiceItem(index, "name", e.target.value)}
+              />
+            </div>
+            <div className="w-20 space-y-1">
+              <Label className="text-xs">Qtd</Label>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={item.quantity}
+                onChange={(e) => updateServiceItem(index, "quantity", parseFloat(e.target.value) || 1)}
+              />
+            </div>
+            <div className="w-28 space-y-1">
+              <Label className="text-xs">Valor Unit. (R$)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={item.unitPrice}
+                onChange={(e) => updateServiceItem(index, "unitPrice", parseFloat(e.target.value) || 0)}
+              />
+            </div>
+            <Button type="button" variant="ghost" size="icon" onClick={() => removeServiceItem(index)}>
+              <X className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={addServiceItem}>
+          <Plus className="mr-2 h-4 w-4" /> Adicionar Serviço
+        </Button>
+        {totalServiceItems > 0 && (
+          <p className="text-sm font-medium text-right">Total: R$ {totalServiceItems.toFixed(2)}</p>
+        )}
+      </div>
+
+      {/* Pagamento */}
+      <div className="space-y-1 pt-2">
+        <h3 className="font-semibold text-sm">Pagamento</h3>
+        <Separator />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Forma de Pagamento</Label>
+          <Select value={formData.paymentMethod} onValueChange={(v) => setFormData({ ...formData, paymentMethod: v })}>
+            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pix">PIX</SelectItem>
+              <SelectItem value="cartao">Cartão</SelectItem>
+              <SelectItem value="dinheiro">Dinheiro</SelectItem>
+              <SelectItem value="boleto">Boleto</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Valor Final (R$)</Label>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0,00"
+            value={formData.finalCost}
+            onChange={(e) => setFormData({ ...formData, finalCost: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Observação do Pagamento</Label>
+          <Input
+            placeholder="Ex: PAGO ASS DIEGO"
+            value={formData.paymentObservation}
+            onChange={(e) => setFormData({ ...formData, paymentObservation: e.target.value })}
+          />
+        </div>
+        <div className="flex items-center gap-2 pt-6">
+          <input
+            type="checkbox"
+            id="paymentPaid"
+            checked={formData.paymentPaid}
+            onChange={(e) => setFormData({ ...formData, paymentPaid: e.target.checked })}
+            className="h-4 w-4"
+          />
+          <Label htmlFor="paymentPaid">Pagamento confirmado</Label>
+        </div>
+      </div>
+
+      {/* Entrega */}
+      <div className="space-y-1 pt-2">
+        <h3 className="font-semibold text-sm">Entrega</h3>
+        <Separator />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Tipo de Entrega</Label>
+          <Select value={formData.deliveryType} onValueChange={(v) => setFormData({ ...formData, deliveryType: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Retirada pelo cliente</SelectItem>
+              <SelectItem value="own">Entrega própria</SelectItem>
+              <SelectItem value="third">Serviço terceirizado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {formData.deliveryType !== "none" && (
+          <>
+            <div className="space-y-2">
+              <Label>Distância (km)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="0"
+                value={formData.deliveryDistanceKm}
+                onChange={(e) => setFormData({ ...formData, deliveryDistanceKm: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Custo da Entrega (R$)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0,00"
+                value={formData.deliveryCost}
+                onChange={(e) => setFormData({ ...formData, deliveryCost: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Obs. de Entrega</Label>
+              <Input
+                placeholder="Instruções de entrega..."
+                value={formData.deliveryObservations}
+                onChange={(e) => setFormData({ ...formData, deliveryObservations: e.target.value })}
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Finalização */}
+      <div className="space-y-1 pt-2">
+        <h3 className="font-semibold text-sm">Finalização</h3>
+        <Separator />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Data de Saída</Label>
+          <Input
+            type="date"
+            value={formData.exitDate}
+            onChange={(e) => setFormData({ ...formData, exitDate: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Termos de Garantia</Label>
+        <Textarea
+          placeholder="Termos e condições de garantia do serviço..."
+          value={formData.warrantyTerms}
+          onChange={(e) => setFormData({ ...formData, warrantyTerms: e.target.value })}
+          rows={3}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Observações Finais</Label>
+        <Textarea
+          placeholder="Observações gerais..."
+          value={formData.observations}
+          onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+          rows={2}
+        />
+      </div>
+
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="submit" disabled={loading}>
+          {loading ? "Salvando..." : "Salvar Alterações"}
         </Button>
       </div>
     </form>

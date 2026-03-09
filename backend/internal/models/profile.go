@@ -23,7 +23,7 @@ type Profile struct {
 func DefaultProfiles() []*Profile {
 	return []*Profile{
 		{
-			Name:        "Super Admin",
+			Name:        "Dono",
 			Description: "Acesso total ao sistema",
 			Permissions: []string{
 				"*", // Todas as permissões
@@ -32,15 +32,28 @@ func DefaultProfiles() []*Profile {
 			IsActive:  true,
 		},
 		{
-			Name:        "Admin",
-			Description: "Administrador do sistema",
+			Name:        "Administrador",
+			Description: "Acesso completo ao seu departamento (colaboradores, ordens de serviço, clientes e relatórios do departamento). Não gerencia perfis nem configurações globais do sistema.",
 			Permissions: []string{
-				"users.*",
-				"employees.*",
-				"departments.*",
+				"employees.read",
+				"employees.create",
+				"employees.update",
+				"employees.delete",
+				"departments.read",
+				"departments.update",
 				"customers.*",
 				"service_orders.*",
-				"reports.*",
+				"reports.department",
+			},
+			EditPermissions: []string{
+				"employees",
+				"departments",
+				"customers",
+				"service_orders",
+			},
+			DeletePermissions: []string{
+				"employees",
+				"service_orders",
 			},
 			IsDefault: true,
 			IsActive:  true,

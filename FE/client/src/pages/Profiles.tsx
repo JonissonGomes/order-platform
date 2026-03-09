@@ -320,25 +320,27 @@ export default function Profiles() {
                     <SelectValue placeholder="Selecione um perfil" />
                   </SelectTrigger>
                   <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.name}>
-                        <div className="flex items-center gap-2">
-                          <span>{role.name}</span>
-                          {(role.name === "Admin" || role.name === "Super Admin") && (
-                            <Badge variant="default">Acesso Total</Badge>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {roles
+                      .filter((role) => role.name !== "Dono")
+                      .map((role) => (
+                        <SelectItem key={role.id} value={role.name}>
+                          <div className="flex items-center gap-2">
+                            <span>{role.name}</span>
+                            {role.name === "Administrador" && (
+                              <Badge variant="secondary">Departamento</Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {(selectedRole === "Admin" || selectedRole === "Super Admin") && (
-                <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-900 dark:text-blue-100">
-                    <strong>Nota:</strong> O perfil "{selectedRole}" tem acesso total a todos os módulos do sistema.
-                    As permissões não podem ser modificadas para este perfil.
+              {selectedRole === "Administrador" && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-sm text-amber-900 dark:text-amber-100">
+                    <strong>Nota:</strong> O perfil "Administrador" tem acesso completo apenas ao seu departamento correspondente.
+                    Não possui acesso a configurações globais do sistema (perfis, usuários, outros departamentos).
                   </p>
                 </div>
               )}
@@ -346,7 +348,7 @@ export default function Profiles() {
           </CardContent>
         </Card>
 
-        {selectedRole && selectedRole !== "Admin" && selectedRole !== "Super Admin" && (
+        {selectedRole && (
           <Card>
             <CardHeader>
               <CardTitle>Resumo das Permissões</CardTitle>
@@ -399,7 +401,7 @@ export default function Profiles() {
           </Card>
         )}
 
-        {selectedRole && selectedRole !== "Admin" && selectedRole !== "Super Admin" && (
+        {selectedRole && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">

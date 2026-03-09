@@ -27,13 +27,12 @@ func main() {
 	}
 	defer db.Disconnect()
 
-	// Initialize default profiles (CCD-Connect pattern)
+	// Garantir que todos os perfis padrão existam no banco (upsert por nome)
+	// Seguro chamar sempre — não sobrescreve perfis já customizados
 	profileRepo := repository.NewProfileRepository(db.Database)
 	ctx := context.Background()
 	if err := profileRepo.InitializeDefaultProfiles(ctx); err != nil {
-		log.Printf("Warning: Failed to initialize default profiles: %v", err)
-	} else {
-		log.Println("Default profiles initialized successfully")
+		log.Fatalf("Falha ao inicializar perfis padrão: %v", err)
 	}
 
 	// Initialize router

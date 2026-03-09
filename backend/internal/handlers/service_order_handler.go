@@ -49,35 +49,77 @@ type CreateCustomerForOrderRequest struct {
 	Address *models.Address `json:"address,omitempty"`
 }
 
+type ServiceItemRequest struct {
+	Name      string  `json:"name" binding:"required"`
+	Quantity  float64 `json:"quantity" binding:"required"`
+	UnitPrice float64 `json:"unitPrice"`
+	ImageURL  string  `json:"imageUrl,omitempty"`
+}
+
+type PaymentInfoRequest struct {
+	Method      string  `json:"method,omitempty"`
+	DueDate     *string `json:"dueDate,omitempty"`
+	Observation string  `json:"observation,omitempty"`
+	Paid        bool    `json:"paid,omitempty"`
+}
+
+type DeliveryInfoRequest struct {
+	Type         string          `json:"type"` // none, own, third
+	Address      *models.Address `json:"address,omitempty"`
+	DistanceKm   float64         `json:"distanceKm,omitempty"`
+	Cost         float64         `json:"cost,omitempty"`
+	ScheduledAt  *string         `json:"scheduledAt,omitempty"`
+	Observations string          `json:"observations,omitempty"`
+}
+
 type CreateServiceOrderRequest struct {
-	CustomerID         string                         `json:"customerId,omitempty"` // Opcional se criar cliente avulso
-	Customer           *CreateCustomerForOrderRequest `json:"customer,omitempty"`   // Dados do cliente avulso
-	ProductType        string                         `json:"productType" binding:"required"`
-	ProductBrand       string                         `json:"productBrand" binding:"required"`
-	ProductModel       string                         `json:"productModel" binding:"required"`
-	ProblemDescription string                         `json:"problemDescription" binding:"required"`
-	InitialEvaluation  string                         `json:"initialEvaluation,omitempty"`
-	DepartmentID       string                         `json:"departmentId" binding:"required"`
-	AssignedTo         string                         `json:"assignedTo,omitempty"`
-	Images             []string                       `json:"images,omitempty"` // URLs das imagens
-	EstimatedCost      float64                        `json:"estimatedCost,omitempty"`
-	EstimatedDelivery  *string                        `json:"estimatedDelivery,omitempty"` // Data estimada de entrega (ISO 8601)
-	Priority           string                         `json:"priority,omitempty"`          // low, normal, high, urgent
+	CustomerID          string                         `json:"customerId,omitempty"` // Opcional se criar cliente avulso
+	Customer            *CreateCustomerForOrderRequest `json:"customer,omitempty"`   // Dados do cliente avulso
+	ProductType         string                         `json:"productType" binding:"required"`
+	ProductBrand        string                         `json:"productBrand" binding:"required"`
+	ProductModel        string                         `json:"productModel" binding:"required"`
+	SerialNumber        string                         `json:"serialNumber,omitempty"`
+	AestheticConditions string                         `json:"aestheticConditions,omitempty"`
+	ProblemDescription  string                         `json:"problemDescription" binding:"required"`
+	InitialEvaluation   string                         `json:"initialEvaluation,omitempty"`
+	TechnicalReport     string                         `json:"technicalReport,omitempty"`
+	Solution            string                         `json:"solution,omitempty"`
+	DepartmentID        string                         `json:"departmentId" binding:"required"`
+	AssignedTo          string                         `json:"assignedTo,omitempty"`
+	Images              []string                       `json:"images,omitempty"`
+	ServiceItems        []ServiceItemRequest           `json:"serviceItems,omitempty"`
+	EstimatedCost       float64                        `json:"estimatedCost,omitempty"`
+	EstimatedDelivery   *string                        `json:"estimatedDelivery,omitempty"` // ISO 8601
+	Priority            string                         `json:"priority,omitempty"`          // low, normal, high, urgent
+	Payment             *PaymentInfoRequest            `json:"payment,omitempty"`
+	Delivery            *DeliveryInfoRequest           `json:"delivery,omitempty"`
+	WarrantyTerms       string                         `json:"warrantyTerms,omitempty"`
+	Observations        string                         `json:"observations,omitempty"`
 }
 
 type UpdateServiceOrderRequest struct {
-	ProductType        string   `json:"productType,omitempty"`
-	ProductBrand       string   `json:"productBrand,omitempty"`
-	ProductModel       string   `json:"productModel,omitempty"`
-	ProblemDescription string   `json:"problemDescription,omitempty"`
-	InitialEvaluation  string   `json:"initialEvaluation,omitempty"`
-	DepartmentID       string   `json:"departmentId,omitempty"`
-	AssignedTo         string   `json:"assignedTo,omitempty"`
-	Images             []string `json:"images,omitempty"`
-	EstimatedCost      *float64 `json:"estimatedCost,omitempty"`
-	FinalCost          *float64 `json:"finalCost,omitempty"`
-	EstimatedDelivery  *string  `json:"estimatedDelivery,omitempty"` // Data estimada de entrega (ISO 8601)
-	Priority           string   `json:"priority,omitempty"`          // low, normal, high, urgent
+	ProductType         string               `json:"productType,omitempty"`
+	ProductBrand        string               `json:"productBrand,omitempty"`
+	ProductModel        string               `json:"productModel,omitempty"`
+	SerialNumber        string               `json:"serialNumber,omitempty"`
+	AestheticConditions string               `json:"aestheticConditions,omitempty"`
+	ProblemDescription  string               `json:"problemDescription,omitempty"`
+	InitialEvaluation   string               `json:"initialEvaluation,omitempty"`
+	TechnicalReport     string               `json:"technicalReport,omitempty"`
+	Solution            string               `json:"solution,omitempty"`
+	DepartmentID        string               `json:"departmentId,omitempty"`
+	AssignedTo          string               `json:"assignedTo,omitempty"`
+	Images              []string             `json:"images,omitempty"`
+	ServiceItems        []ServiceItemRequest `json:"serviceItems,omitempty"`
+	EstimatedCost       *float64             `json:"estimatedCost,omitempty"`
+	FinalCost           *float64             `json:"finalCost,omitempty"`
+	EstimatedDelivery   *string              `json:"estimatedDelivery,omitempty"` // ISO 8601
+	ExitDate            *string              `json:"exitDate,omitempty"`          // Data de saída real (ISO 8601)
+	Priority            string               `json:"priority,omitempty"`          // low, normal, high, urgent
+	Payment             *PaymentInfoRequest  `json:"payment,omitempty"`
+	Delivery            *DeliveryInfoRequest `json:"delivery,omitempty"`
+	WarrantyTerms       string               `json:"warrantyTerms,omitempty"`
+	Observations        string               `json:"observations,omitempty"`
 }
 
 type UpdateStatusRequest struct {
@@ -311,27 +353,80 @@ func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 		priority = "normal"
 	}
 
+	// Convert service items
+	serviceItems := make([]models.ServiceItem, 0, len(req.ServiceItems))
+	for _, item := range req.ServiceItems {
+		serviceItems = append(serviceItems, models.ServiceItem{
+			Name:      item.Name,
+			Quantity:  item.Quantity,
+			UnitPrice: item.UnitPrice,
+			ImageURL:  item.ImageURL,
+		})
+	}
+
+	// Parse payment info
+	payment := models.PaymentInfo{}
+	if req.Payment != nil {
+		payment.Method = req.Payment.Method
+		payment.Observation = req.Payment.Observation
+		payment.Paid = req.Payment.Paid
+		if req.Payment.DueDate != nil && *req.Payment.DueDate != "" {
+			if parsed, err := time.Parse(time.RFC3339, *req.Payment.DueDate); err == nil {
+				payment.DueDate = &parsed
+			}
+		}
+	}
+
+	// Parse delivery info
+	var delivery *models.DeliveryInfo
+	if req.Delivery != nil {
+		delivery = &models.DeliveryInfo{
+			Type:         models.DeliveryType(req.Delivery.Type),
+			Address:      req.Delivery.Address,
+			DistanceKm:   req.Delivery.DistanceKm,
+			Cost:         req.Delivery.Cost,
+			Observations: req.Delivery.Observations,
+		}
+		if req.Delivery.ScheduledAt != nil && *req.Delivery.ScheduledAt != "" {
+			if parsed, err := time.Parse(time.RFC3339, *req.Delivery.ScheduledAt); err == nil {
+				delivery.ScheduledAt = &parsed
+			}
+		}
+	}
+
+	now := time.Now()
+
 	// Create service order
 	order := &models.ServiceOrder{
-		OrderNumber:        orderNumber,
-		CustomerID:         customerID,
-		ProductType:        req.ProductType,
-		ProductBrand:       req.ProductBrand,
-		ProductModel:       req.ProductModel,
-		ProblemDescription: req.ProblemDescription,
-		InitialEvaluation:  req.InitialEvaluation,
-		Status:             models.StatusPending,
-		DepartmentID:       departmentID,
-		AssignedTo:         assignedTo,
-		Images:             images,
-		EstimatedCost:      req.EstimatedCost,
-		EstimatedDelivery:  estimatedDelivery,
-		Priority:           priority,
-		Notes:              []models.Note{},
-		CreatedBy:          createdBy,
-		UpdatedBy:          createdBy,
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
+		OrderNumber:         orderNumber,
+		CustomerID:          customerID,
+		ProductType:         req.ProductType,
+		ProductBrand:        req.ProductBrand,
+		ProductModel:        req.ProductModel,
+		SerialNumber:        req.SerialNumber,
+		AestheticConditions: req.AestheticConditions,
+		ProblemDescription:  req.ProblemDescription,
+		InitialEvaluation:   req.InitialEvaluation,
+		TechnicalReport:     req.TechnicalReport,
+		Solution:            req.Solution,
+		Status:              models.StatusPending,
+		DepartmentID:        departmentID,
+		AssignedTo:          assignedTo,
+		EntryDate:           &now,
+		Images:              images,
+		ServiceItems:        serviceItems,
+		EstimatedCost:       req.EstimatedCost,
+		EstimatedDelivery:   estimatedDelivery,
+		Priority:            priority,
+		Payment:             payment,
+		Delivery:            delivery,
+		WarrantyTerms:       req.WarrantyTerms,
+		Observations:        req.Observations,
+		Notes:               []models.Note{},
+		CreatedBy:           createdBy,
+		UpdatedBy:           createdBy,
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	}
 
 	if err := h.serviceOrderRepo.CreateServiceOrder(ctx, order); err != nil {
@@ -516,11 +611,23 @@ func (h *ServiceOrderHandler) UpdateServiceOrder(c *gin.Context) {
 	if req.ProductModel != "" {
 		order.ProductModel = req.ProductModel
 	}
+	if req.SerialNumber != "" {
+		order.SerialNumber = req.SerialNumber
+	}
+	if req.AestheticConditions != "" {
+		order.AestheticConditions = req.AestheticConditions
+	}
 	if req.ProblemDescription != "" {
 		order.ProblemDescription = req.ProblemDescription
 	}
 	if req.InitialEvaluation != "" {
 		order.InitialEvaluation = req.InitialEvaluation
+	}
+	if req.TechnicalReport != "" {
+		order.TechnicalReport = req.TechnicalReport
+	}
+	if req.Solution != "" {
+		order.Solution = req.Solution
 	}
 	if req.DepartmentID != "" {
 		departmentID, err := primitive.ObjectIDFromHex(req.DepartmentID)
@@ -543,6 +650,59 @@ func (h *ServiceOrderHandler) UpdateServiceOrder(c *gin.Context) {
 	}
 	if req.FinalCost != nil {
 		order.FinalCost = *req.FinalCost
+	}
+	if req.WarrantyTerms != "" {
+		order.WarrantyTerms = req.WarrantyTerms
+	}
+	if req.Observations != "" {
+		order.Observations = req.Observations
+	}
+	if len(req.ServiceItems) > 0 {
+		serviceItems := make([]models.ServiceItem, 0, len(req.ServiceItems))
+		for _, item := range req.ServiceItems {
+			serviceItems = append(serviceItems, models.ServiceItem{
+				Name:      item.Name,
+				Quantity:  item.Quantity,
+				UnitPrice: item.UnitPrice,
+				ImageURL:  item.ImageURL,
+			})
+		}
+		order.ServiceItems = serviceItems
+	}
+	if req.Payment != nil {
+		order.Payment.Method = req.Payment.Method
+		order.Payment.Observation = req.Payment.Observation
+		order.Payment.Paid = req.Payment.Paid
+		if req.Payment.DueDate != nil && *req.Payment.DueDate != "" {
+			if parsed, err := time.Parse(time.RFC3339, *req.Payment.DueDate); err == nil {
+				order.Payment.DueDate = &parsed
+			}
+		}
+	}
+	if req.Delivery != nil {
+		if order.Delivery == nil {
+			order.Delivery = &models.DeliveryInfo{}
+		}
+		order.Delivery.Type = models.DeliveryType(req.Delivery.Type)
+		order.Delivery.Address = req.Delivery.Address
+		order.Delivery.DistanceKm = req.Delivery.DistanceKm
+		order.Delivery.Cost = req.Delivery.Cost
+		order.Delivery.Observations = req.Delivery.Observations
+		if req.Delivery.ScheduledAt != nil && *req.Delivery.ScheduledAt != "" {
+			if parsed, err := time.Parse(time.RFC3339, *req.Delivery.ScheduledAt); err == nil {
+				order.Delivery.ScheduledAt = &parsed
+			}
+		}
+	}
+	if req.ExitDate != nil && *req.ExitDate != "" {
+		if parsed, err := time.Parse(time.RFC3339, *req.ExitDate); err == nil {
+			order.ExitDate = &parsed
+		}
+	}
+	if req.EstimatedDelivery != nil && *req.EstimatedDelivery != "" {
+		if parsed, err := time.Parse(time.RFC3339, *req.EstimatedDelivery); err == nil {
+			order.EstimatedDelivery = &parsed
+		}
 	}
 
 	order.UpdatedBy = updatedBy

@@ -1,7 +1,6 @@
 package router
 
 import (
-	"context"
 	"log"
 
 	"order-platform/backend/internal/config"
@@ -32,15 +31,6 @@ func New(db *database.MongoDB) *gin.Engine {
 	departmentRepo := repository.NewDepartmentRepository(db.Database)
 	statusHistoryRepo := repository.NewStatusHistoryRepository(db.Database)
 	auditLogRepo := repository.NewAuditLogRepository(db.Database)
-
-	// Initialize default profiles (CCD-Connect pattern)
-	// Verifica se a collection existe e cria perfis padrão se estiver vazia
-	ctx := context.Background()
-	if err := profileRepo.InitializeDefaultProfiles(ctx); err != nil {
-		log.Printf("Warning: Failed to initialize default profiles: %v", err)
-	} else {
-		log.Println("Default profiles initialized/verified successfully")
-	}
 
 	// Initialize Cloudinary service (optional, won't fail if not configured)
 	var uploadHandler *handlers.UploadHandler
@@ -109,6 +99,8 @@ func New(db *database.MongoDB) *gin.Engine {
 		profiles.GET("/modules/available", profileHandler.GetAvailableModules)
 		profiles.GET("/:id", profileHandler.GetProfile)
 		profiles.PUT("/:name/permissions", authMiddleware, middleware.RequireAuth(), auditMiddleware, middleware.RequireAdminOrSuperAdmin(), profileHandler.UpdateProfilePermissions)
+		// Sync default profiles (Super Admin only) — garante que todos os perfis padrão existam
+		profiles.POST("/sync-defaults", authMiddleware, middleware.RequireAuth(), middleware.RequireSuperAdmin(), profileHandler.SyncDefaultProfiles)
 
 		// Employee routes (requires auth)
 		employees := api.Group("/employees")

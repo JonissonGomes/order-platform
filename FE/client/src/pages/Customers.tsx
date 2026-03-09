@@ -25,7 +25,8 @@ import { api } from "@/lib/api";
 import { formatCPF, formatPhone, formatCEP, validateCPF } from "@/lib/formatters";
 import { fetchCEP } from "@/lib/cep";
 import type { Customer } from "@/types";
-import { Plus, Search, User, Loader2, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, User, Loader2, Edit, Trash2, Bell } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -237,6 +238,25 @@ function CustomerCard({ customer, onEdit, onDelete }: { customer: Customer; onEd
             <p className="text-muted-foreground break-words text-xs">
               <strong>Endereço:</strong> {customer.address.street}, {customer.address.number} - {customer.address.city}/{customer.address.state}
             </p>
+          )}
+          {customer.notes && (
+            <p className="text-muted-foreground break-words text-xs">
+              <strong>Obs:</strong> {customer.notes}
+            </p>
+          )}
+          {/* Alerta de manutenção periódica */}
+          {customer.maintenanceIntervalMonths != null && customer.maintenanceIntervalMonths > 0 && (
+            <div className={`flex items-center gap-1 text-xs rounded px-2 py-1 w-fit ${
+              customer.nextMaintenanceDate && new Date(customer.nextMaintenanceDate) <= new Date()
+                ? "bg-orange-100 text-orange-700"
+                : "bg-blue-50 text-blue-600"
+            }`}>
+              <Bell className="h-3 w-3" />
+              {customer.nextMaintenanceDate && new Date(customer.nextMaintenanceDate) <= new Date()
+                ? `⚠ Manutenção atrasada (${new Date(customer.nextMaintenanceDate).toLocaleDateString("pt-BR")})`
+                : `Próx. manutenção: ${customer.nextMaintenanceDate ? new Date(customer.nextMaintenanceDate).toLocaleDateString("pt-BR") : `${customer.maintenanceIntervalMonths}m`}`
+              }
+            </div>
           )}
           <p className="text-muted-foreground text-xs">
             Cadastrado em {new Date(customer.createdAt).toLocaleDateString("pt-BR")}
@@ -473,6 +493,8 @@ function EditCustomerForm({ customer, onSuccess, onCancel }: { customer: Custome
     name: customer.name,
     phone: customer.phone,
     email: customer.email || "",
+    notes: customer.notes || "",
+    maintenanceIntervalMonths: customer.maintenanceIntervalMonths ?? 0,
     address: customer.address || {
       street: "",
       number: "",
@@ -488,7 +510,7 @@ function EditCustomerForm({ customer, onSuccess, onCancel }: { customer: Custome
     e.preventDefault();
     try {
       setLoading(true);
-      await api.updateCustomer(customer.id, formData);
+      await api.updateCustomer(customer.id, formData as any);
       toast.success("Cliente atualizado com sucesso!");
       onSuccess();
     } catch (error: any) {
@@ -642,6 +664,52 @@ function EditCustomerForm({ customer, onSuccess, onCancel }: { customer: Custome
             </div>
           </div>
         </div>
+      </div>
+      {/* Fidelização e Manutenção */}
+      <div className="space-y-1 pt-2">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <Bell className="h-4 w-4 text-blue-500" />
+          Fidelização e Manutenção Periódica
+        </h3>
+        <Separator />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-maintenanceInterval">
+          Intervalo de Manutenção (meses)
+          <span className="ml-1 text-xs text-muted-foreground">(0 = sem alertas)</span>
+        </Label>
+        <Input
+          id="edit-maintenanceInterval"
+          type="number"
+          min="0"
+          max="36"
+          value={formData.maintenanceIntervalMonths}
+          onChange={(e) => setFormData({ ...formData, maintenanceIntervalMonths: parseInt(e.target.value) || 0 })}
+          placeholder="Ex: 12 para limpeza anual"
+        />
+        {formData.maintenanceIntervalMonths > 0 && (
+          <p className="text-xs text-muted-foreground">
+            O sistema alertará quando a manutenção estiver próxima a cada {formData.maintenanceIntervalMonths} meses
+          </p>
+        )}
+      </div>
+      {customer.lastMaintenanceDate && (
+        <div className="p-3 bg-blue-50 rounded-md text-xs text-blue-800 space-y-1">
+          <p><strong>Última manutenção:</strong> {new Date(customer.lastMaintenanceDate).toLocaleDateString("pt-BR")}</p>
+          {customer.nextMaintenanceDate && (
+            <p><strong>Próxima manutenção:</strong> {new Date(customer.nextMaintenanceDate).toLocaleDateString("pt-BR")}</p>
+          )}
+        </div>
+      )}
+      <div className="space-y-2">
+        <Label htmlFor="edit-notes">Observações</Label>
+        <textarea
+          id="edit-notes"
+          className="w-full min-h-[80px] px-3 py-2 border rounded-md text-sm resize-none"
+          placeholder="Notas sobre o cliente, preferências, histórico..."
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+        />
       </div>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>

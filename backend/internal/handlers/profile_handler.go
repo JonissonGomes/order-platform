@@ -122,9 +122,10 @@ func (h *ProfileHandler) UpdateProfilePermissions(c *gin.Context) {
 		return
 	}
 
-	// Check if it's a default profile (Super Admin or Admin) - these shouldn't be modified
-	if profile.IsDefault && (name == "Super Admin" || name == "Admin") {
-		utils.RespondWithForbidden(c, "Não é possível modificar permissões de perfis padrão do sistema")
+	// Apenas o perfil "Dono" é protegido contra modificações
+	// O "Administrador" pode ter suas permissões ajustadas conforme necessário
+	if profile.IsDefault && name == "Dono" {
+		utils.RespondWithForbidden(c, "Não é possível modificar as permissões do perfil Dono")
 		return
 	}
 
@@ -148,6 +149,22 @@ func (h *ProfileHandler) UpdateProfilePermissions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"profile": profile})
+}
+
+// SyncDefaultProfiles força a criação dos perfis padrão faltantes (Super Admin only)
+func (h *ProfileHandler) SyncDefaultProfiles(c *gin.Context) {
+	ctx := c.Request.Context()
+	if err := h.profileRepo.InitializeDefaultProfiles(ctx); err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	// Retornar a lista atualizada
+	profiles, err := h.profileRepo.ListProfiles(ctx, bson.M{})
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Perfis sincronizados com sucesso", "profiles": profiles})
 }
 
 // GetAvailableModules returns list of available modules

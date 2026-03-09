@@ -199,7 +199,7 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 func mapRoleToProfileName(role models.EmployeeRole) string {
 	switch role {
 	case models.EmployeeRoleAdmin:
-		return "Admin"
+		return "Administrador"
 	case models.EmployeeRoleDepartmentManager:
 		return "Gerente"
 	case models.EmployeeRoleAttendant:
@@ -294,8 +294,8 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 
 	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
 	if err != nil || currentEmployee == nil {
-		// If user is super admin, allow update without Employee record
-		if !currentUser.IsSuperAdmin() {
+		// Admin and Super Admin can update employees even without an Employee record
+		if !currentUser.IsAdmin() {
 			utils.RespondWithForbidden(c, "")
 			return
 		}

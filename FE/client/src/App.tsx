@@ -15,6 +15,7 @@ import Customers from "./pages/Customers";
 import Departments from "./pages/Departments";
 import Employees from "./pages/Employees";
 import PublicOrderTracking from "./pages/PublicOrderTracking";
+import PrintServiceOrder from "./pages/PrintServiceOrder";
 
 /**
  * Router da Aplicação
@@ -42,6 +43,7 @@ function Router() {
       <Route path={"/departments"} component={Departments} />
       <Route path={"/employees"} component={Employees} />
       <Route path={"/track"} component={PublicOrderTracking} />
+      <Route path={"/print/order/:id"} component={PrintServiceOrder} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
