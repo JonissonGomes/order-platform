@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -62,15 +63,27 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 	ctx := c.Request.Context()
 	currentUser := middleware.GetUserFromContext(c)
 	if currentUser == nil {
+		log.Printf("[CreateEmployee] No user in context")
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
+	log.Printf("[CreateEmployee] Current user: %s, Role: %s, IsAdmin: %v, IsSuperAdmin: %v",
+		currentUser.Email, currentUser.Role, currentUser.IsAdmin(), currentUser.IsSuperAdmin())
+
 	// Get current employee to use as createdBy
+	// Super admin can create employees even without an Employee record
 	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
 	if err != nil || currentEmployee == nil {
-		utils.RespondWithForbidden(c, "")
-		return
+		// If user is super admin or admin, allow creation without Employee record
+		// This is needed because super_admin users may not have an Employee record
+		if !currentUser.IsAdmin() {
+			log.Printf("[CreateEmployee] Access denied - User is not admin or super admin")
+			utils.RespondWithForbidden(c, "É necessário ser administrador ou super administrador para criar colaboradores")
+			return
+		}
+		// For super admin/admin without Employee, we'll use User ID for createdBy
+		// This is acceptable as they have full permissions
 	}
 
 	// Check if user already exists
@@ -130,8 +143,20 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 		return
 	}
 	if profile == nil {
-		utils.RespondWithBadRequest(c, "")
+		utils.RespondWithBadRequest(c, "Perfil não encontrado: "+profileName+". Verifique se os perfis padrão foram inicializados.")
 		return
+	}
+
+	// Determine createdBy - use Employee ID if available, otherwise use User ID for super admin
+	var createdBy primitive.ObjectID
+	var updatedBy primitive.ObjectID
+	if currentEmployee != nil {
+		createdBy = currentEmployee.ID
+		updatedBy = currentEmployee.ID
+	} else {
+		// For super admin without Employee, use User ID
+		createdBy = currentUser.ID
+		updatedBy = currentUser.ID
 	}
 
 	// Create Employee linked to User and Profile
@@ -144,8 +169,8 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 		ProfileID:    profile.ID,
 		DepartmentID: departmentID,
 		IsActive:     true,
-		CreatedBy:    currentEmployee.ID,
-		UpdatedBy:    currentEmployee.ID,
+		CreatedBy:    createdBy,
+		UpdatedBy:    updatedBy,
 	}
 
 	if err := h.employeeRepo.CreateEmployee(ctx, employee); err != nil {
@@ -176,7 +201,7 @@ func mapRoleToProfileName(role models.EmployeeRole) string {
 	case models.EmployeeRoleAdmin:
 		return "Admin"
 	case models.EmployeeRoleDepartmentManager:
-		return "Gerente de Departamento"
+		return "Gerente"
 	case models.EmployeeRoleAttendant:
 		return "Atendente"
 	case models.EmployeeRoleTechnician:
@@ -269,8 +294,11 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 
 	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
 	if err != nil || currentEmployee == nil {
-		utils.RespondWithForbidden(c, "")
-		return
+		// If user is super admin, allow update without Employee record
+		if !currentUser.IsSuperAdmin() {
+			utils.RespondWithForbidden(c, "")
+			return
+		}
 	}
 
 	// Get existing employee
@@ -306,7 +334,12 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 		employee.IsActive = *req.IsActive
 	}
 
-	employee.UpdatedBy = currentEmployee.ID
+	// Determine updatedBy - use Employee ID if available, otherwise use User ID for super admin
+	if currentEmployee != nil {
+		employee.UpdatedBy = currentEmployee.ID
+	} else {
+		employee.UpdatedBy = currentUser.ID
+	}
 	employee.UpdatedAt = time.Now()
 
 	if err := h.employeeRepo.UpdateEmployee(ctx, employeeID, employee); err != nil {

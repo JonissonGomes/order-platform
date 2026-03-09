@@ -27,10 +27,20 @@ type User struct {
 
 // IsAdmin checks if the user has admin role
 func (u *User) IsAdmin() bool {
-	return u.Role == RoleAdmin || u.Role == RoleSuperAdmin
+	if u == nil {
+		return false
+	}
+	// Convert to string for comparison to handle BSON decoding edge cases
+	roleStr := string(u.Role)
+	return roleStr == string(RoleAdmin) || roleStr == string(RoleSuperAdmin)
 }
 
 // IsSuperAdmin checks if the user has super admin role
 func (u *User) IsSuperAdmin() bool {
-	return u.Role == RoleSuperAdmin
+	if u == nil {
+		return false
+	}
+	// Convert to string for comparison to handle BSON decoding edge cases
+	roleStr := string(u.Role)
+	return roleStr == string(RoleSuperAdmin)
 }

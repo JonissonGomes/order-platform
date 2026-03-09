@@ -11,6 +11,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+  } from "@/components/ui/alert-dialog";
 import { api } from "@/lib/api";
 import type { Department, Employee } from "@/types";
 import {
@@ -26,7 +36,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Plus, Building2, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Building2, Check, ChevronsUpDown, Edit, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -46,9 +56,17 @@ export default function Departments() {
     try {
       setLoading(true);
       const response = await api.listDepartments({ isActive: true });
-      setDepartments(response.departments);
+      setDepartments(response.departments || []);
     } catch (error: any) {
-      toast.error(error.message || "Erro ao carregar departamentos");
+      // Se for 404 (não encontrado), apenas definir array vazio sem mostrar erro
+      if (error.message === "status: 404" || error.message?.includes("404")) {
+        setDepartments([]);
+        return;
+      }
+      // Apenas mostrar erro se não for 404
+      if (error.message && error.message.trim() !== "" && !error.message.includes("status: 404")) {
+        toast.error(error.message || "Erro ao carregar departamentos");
+      }
     } finally {
       setLoading(false);
     }
@@ -233,7 +251,11 @@ function CreateDepartmentForm({ onSuccess }: { onSuccess: () => void }) {
   const loadEmployees = async () => {
     try {
       const response = await api.listEmployees();
-      setEmployees(response.employees || []);
+      // Filtrar apenas colaboradores que podem ser gerentes (admin ou department_manager)
+      const managers = (response.employees || []).filter(
+        (emp) => emp.role === "admin" || emp.role === "department_manager"
+      );
+      setEmployees(managers);
     } catch (error) {
       // Silently fail
     }
@@ -293,41 +315,50 @@ function CreateDepartmentForm({ onSuccess }: { onSuccess: () => void }) {
               className="w-full justify-between"
             >
               {selectedManager
-                ? `${selectedManager.name} - ${selectedManager.role}`
+                ? `${selectedManager.name} - ${selectedManager.role === "admin" ? "Administrador" : selectedManager.role === "department_manager" ? "Gerente" : selectedManager.role}`
                 : "Selecione um gerente..."}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Buscar colaborador..." className="h-9" />
+            <Command shouldFilter={true}>
+              <CommandInput 
+                placeholder="Digite para buscar por nome, email ou perfil..." 
+                className="h-9" 
+              />
               <CommandList className="max-h-[200px] overflow-y-auto">
                 <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
                 <CommandGroup>
-                  {employees.map((employee) => (
-                    <CommandItem
-                      key={employee.id}
-                      value={`${employee.name} ${employee.role}`}
-                      onSelect={() => {
-                        setFormData({ ...formData, managerId: employee.id });
-                        setManagerOpen(false);
-                      }}
-                      className="cursor-pointer"
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4 flex-shrink-0",
-                          formData.managerId === employee.id ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className="truncate">{employee.name}</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {employee.role} {employee.email}
-                        </span>
-                      </div>
-                    </CommandItem>
-                  ))}
+                  {employees.map((employee) => {
+                    const roleLabel = employee.role === "admin" ? "Administrador" :
+                                     employee.role === "department_manager" ? "Gerente" :
+                                     employee.role === "attendant" ? "Atendente" :
+                                     employee.role === "technician" ? "Técnico" : employee.role;
+                    return (
+                      <CommandItem
+                        key={employee.id}
+                        value={`${employee.name} ${employee.email} ${roleLabel}`}
+                        onSelect={() => {
+                          setFormData({ ...formData, managerId: employee.id });
+                          setManagerOpen(false);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4 flex-shrink-0",
+                            formData.managerId === employee.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="truncate font-medium">{employee.name}</span>
+                          <span className="text-xs text-muted-foreground truncate">
+                            {roleLabel} • {employee.email}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
                 </CommandGroup>
               </CommandList>
             </Command>
@@ -337,6 +368,157 @@ function CreateDepartmentForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={loading}>
           {loading ? "Criando..." : "Criar Departamento"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function EditDepartmentForm({ 
+  department, 
+  onSuccess, 
+  onCancel 
+}: { 
+  department: Department; 
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [managerOpen, setManagerOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: department.name || "",
+    description: department.description || "",
+    managerId: department.managerId || "",
+  });
+
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const loadEmployees = async () => {
+    try {
+      const response = await api.listEmployees();
+      // Filtrar apenas colaboradores que podem ser gerentes (admin ou department_manager)
+      const managers = (response.employees || []).filter(
+        (emp) => emp.role === "admin" || emp.role === "department_manager"
+      );
+      setEmployees(managers);
+    } catch (error) {
+      // Silently fail
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const payload: any = {
+        name: formData.name,
+        description: formData.description,
+      };
+      if (formData.managerId) {
+        payload.managerId = formData.managerId;
+      }
+      await api.updateDepartment(department.id, payload);
+      toast.success("Departamento atualizado com sucesso!");
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar departamento");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedManager = employees.find((e) => e.id === formData.managerId);
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="edit-name">Nome *</Label>
+        <Input
+          id="edit-name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="edit-description">Descrição</Label>
+        <textarea
+          id="edit-description"
+          className="w-full min-h-[80px] px-3 py-2 border rounded-md"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Gerente (opcional)</Label>
+        <Popover open={managerOpen} onOpenChange={setManagerOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={managerOpen}
+              className="w-full justify-between"
+            >
+              {selectedManager
+                ? `${selectedManager.name} - ${selectedManager.role}`
+                : "Selecione um gerente..."}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0" align="start">
+            <Command shouldFilter={true}>
+              <CommandInput 
+                placeholder="Digite para buscar por nome, email ou perfil..." 
+                className="h-9" 
+              />
+              <CommandList className="max-h-[200px] overflow-y-auto">
+                <CommandEmpty>Nenhum colaborador encontrado.</CommandEmpty>
+                <CommandGroup>
+                  {employees.map((employee) => {
+                    const roleLabel = employee.role === "admin" ? "Administrador" :
+                                     employee.role === "department_manager" ? "Gerente" :
+                                     employee.role === "attendant" ? "Atendente" :
+                                     employee.role === "technician" ? "Técnico" : employee.role;
+                    return (
+                      <CommandItem
+                        key={employee.id}
+                        value={`${employee.name} ${employee.email} ${roleLabel}`}
+                        onSelect={() => {
+                          setFormData({ ...formData, managerId: employee.id });
+                          setManagerOpen(false);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4 flex-shrink-0",
+                            formData.managerId === employee.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="truncate font-medium">{employee.name}</span>
+                          <span className="text-xs text-muted-foreground truncate">
+                            {roleLabel} • {employee.email}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? "Atualizando..." : "Atualizar Departamento"}
         </Button>
       </div>
     </form>

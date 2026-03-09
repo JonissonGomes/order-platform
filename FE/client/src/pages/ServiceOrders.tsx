@@ -31,12 +31,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { api } from "@/lib/api";
 import { formatPhone } from "@/lib/formatters";
 import { fetchCEP } from "@/lib/cep";
 import { ImageUpload } from "@/components/ImageUpload";
 import type { ServiceOrder, ServiceOrderStatus, Customer, Department, Image } from "@/types";
-import { Plus, Search, FileText, Check, ChevronsUpDown, UserPlus, Filter } from "lucide-react";
+import { Plus, Search, FileText, Check, ChevronsUpDown, UserPlus, Filter, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -76,9 +86,17 @@ export default function ServiceOrders() {
         params.priority = priorityFilter;
       }
       const response = await api.listServiceOrders(params);
-      setOrders(response.orders);
+      setOrders(response.orders || []);
     } catch (error: any) {
-      toast.error(error.message || "Erro ao carregar ordens de serviço");
+      // Se for 404 (não encontrado), apenas definir array vazio sem mostrar erro
+      if (error.message === "status: 404" || error.message?.includes("404")) {
+        setOrders([]);
+        return;
+      }
+      // Apenas mostrar erro se não for 404
+      if (error.message && error.message.trim() !== "" && !error.message.includes("status: 404")) {
+        toast.error(error.message || "Erro ao carregar ordens de serviço");
+      }
     } finally {
       setLoading(false);
     }
@@ -296,6 +314,7 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
     productModel: "",
     problemDescription: "",
     departmentId: "",
+    images: [] as Image[],
     newCustomer: {
       name: "",
       cpf: "",
@@ -474,15 +493,18 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Buscar cliente..." className="h-9" />
+            <Command shouldFilter={true}>
+                <CommandInput 
+                  placeholder="Digite para buscar por nome, telefone ou CPF..." 
+                  className="h-9" 
+                />
                 <CommandList className="max-h-[200px] overflow-y-auto">
-                  <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                  <CommandGroup>
-                    {customers.map((customer) => (
+                <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                <CommandGroup>
+                  {customers.map((customer) => (
                       <CommandItem
                         key={customer.id}
-                        value={`${customer.name} ${customer.phone} ${customer.cpf}`}
+                        value={`${customer.name} ${customer.phone} ${customer.cpf || ""} ${customer.email || ""}`}
                         onSelect={() => {
                           setFormData({ ...formData, customerId: customer.id });
                           setCustomerOpen(false);
@@ -496,16 +518,16 @@ function CreateOrderForm({ onSuccess }: { onSuccess: () => void }) {
                           )}
                         />
                         <div className="flex flex-col min-w-0 flex-1">
-                          <span className="truncate">{customer.name}</span>
+                          <span className="truncate font-medium">{customer.name}</span>
                           <span className="text-xs text-muted-foreground truncate">
-                            {customer.phone} {customer.cpf && `- ${customer.cpf}`}
+                            {customer.phone} {customer.cpf && `• ${customer.cpf}`} {customer.email && `• ${customer.email}`}
                           </span>
                         </div>
                       </CommandItem>
                     ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+                </CommandGroup>
+              </CommandList>
+            </Command>
             </PopoverContent>
           </Popover>
         )}

@@ -102,18 +102,22 @@ func New(db *database.MongoDB) *gin.Engine {
 		}
 
 		// Profile routes (public read, protected write)
+		// IMPORTANT: static routes must be registered BEFORE dynamic routes to avoid conflicts
 		profiles := api.Group("/profiles")
 		profiles.GET("", profileHandler.ListProfiles)
+		profiles.GET("/name/:name", profileHandler.GetProfileByName)
+		profiles.GET("/modules/available", profileHandler.GetAvailableModules)
 		profiles.GET("/:id", profileHandler.GetProfile)
+		profiles.PUT("/:name/permissions", authMiddleware, middleware.RequireAuth(), auditMiddleware, middleware.RequireAdminOrSuperAdmin(), profileHandler.UpdateProfilePermissions)
 
 		// Employee routes (requires auth)
 		employees := api.Group("/employees")
 		employees.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
 		{
-			employees.POST("", employeeHandler.CreateEmployee) // Admin only
+			employees.POST("", middleware.RequireAdminOrSuperAdmin(), employeeHandler.CreateEmployee) // Admin or Super Admin only
 			employees.GET("", employeeHandler.ListEmployees)
 			employees.GET("/:id", employeeHandler.GetEmployee)
-			employees.PUT("/:id", employeeHandler.UpdateEmployee)
+			employees.PUT("/:id", middleware.RequireAdminOrSuperAdmin(), employeeHandler.UpdateEmployee)
 		}
 
 		// Customer routes (requires auth)
@@ -149,13 +153,13 @@ func New(db *database.MongoDB) *gin.Engine {
 		departments := api.Group("/departments")
 		departments.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
 		{
-			departments.POST("", departmentHandler.CreateDepartment)
+			departments.POST("", middleware.RequireAdminOrSuperAdmin(), departmentHandler.CreateDepartment)
 			departments.GET("", departmentHandler.ListDepartments)
 			departments.GET("/:id", departmentHandler.GetDepartment)
 			departments.GET("/:id/employees", departmentHandler.GetDepartmentEmployees)
 			departments.GET("/:id/orders", departmentHandler.GetDepartmentServiceOrders)
-			departments.PUT("/:id", departmentHandler.UpdateDepartment)
-			departments.DELETE("/:id", departmentHandler.DeleteDepartment)
+			departments.PUT("/:id", middleware.RequireAdminOrSuperAdmin(), departmentHandler.UpdateDepartment)
+			departments.DELETE("/:id", middleware.RequireAdminOrSuperAdmin(), departmentHandler.DeleteDepartment)
 		}
 
 		// Upload routes (requires auth)

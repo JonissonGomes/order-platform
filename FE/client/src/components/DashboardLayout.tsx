@@ -25,19 +25,13 @@ import {
 } from "@/components/ui/sidebar";
 import { LOGIN_PATH } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, FileText, Building2, UserCircle } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { LogOut, PanelLeft } from "lucide-react";
+import { CSSProperties, useEffect, useRef, useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
-
-const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-  { icon: FileText, label: "Ordens de Serviço", path: "/service-orders" },
-  { icon: UserCircle, label: "Clientes", path: "/customers" },
-  { icon: Building2, label: "Departamentos", path: "/departments" },
-  { icon: Users, label: "Colaboradores", path: "/employees" },
-];
+import { getVisibleModules } from "@/types/modules";
+import * as Icons from "lucide-react";
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;
@@ -54,6 +48,12 @@ export default function DashboardLayout({
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
   const { loading, user } = useAuth();
+  
+  // Get visible modules based on user role
+  const visibleModules = useMemo(() => {
+    if (!user?.role) return [];
+    return getVisibleModules(user.role);
+  }, [user?.role]);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -120,8 +120,15 @@ function DashboardLayoutContent({
   const [isResizing, setIsResizing] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+
+  // Get visible modules based on user role
+  const visibleModules = useMemo(() => {
+    if (!user?.role) return [];
+    return getVisibleModules(user.role);
+  }, [user?.role]);
+
+  const activeMenuItem = visibleModules.find(module => module.path === location);
 
   const handleLogout = async () => {
     setShowLogoutDialog(false);
@@ -194,20 +201,21 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0">
             <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
-                const isActive = location === item.path;
+              {visibleModules.map(module => {
+                const isActive = location === module.path;
+                const IconComponent = (Icons as any)[module.icon] || Icons.LayoutDashboard;
                 return (
-                  <SidebarMenuItem key={item.path}>
+                  <SidebarMenuItem key={module.path}>
                     <SidebarMenuButton
                       isActive={isActive}
-                      onClick={() => setLocation(item.path)}
-                      tooltip={item.label}
+                      onClick={() => setLocation(module.path)}
+                      tooltip={module.label}
                       className={`h-10 transition-all font-normal`}
                     >
-                      <item.icon
+                      <IconComponent
                         className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
                       />
-                      <span>{item.label}</span>
+                      <span>{module.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );

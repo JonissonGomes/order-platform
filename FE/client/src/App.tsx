@@ -9,9 +9,11 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import Profiles from "./pages/Profiles";
 import ServiceOrders from "./pages/ServiceOrders";
 import Customers from "./pages/Customers";
 import Departments from "./pages/Departments";
+import Employees from "./pages/Employees";
 import PublicOrderTracking from "./pages/PublicOrderTracking";
 
 /**
@@ -34,9 +36,11 @@ function Router() {
       <Route path={"/register"} component={Register} />
       <Route path={"/dashboard"} component={Dashboard} />
       <Route path={"/profile"} component={Profile} />
+      <Route path={"/profiles"} component={Profiles} />
       <Route path={"/service-orders"} component={ServiceOrders} />
       <Route path={"/customers"} component={Customers} />
       <Route path={"/departments"} component={Departments} />
+      <Route path={"/employees"} component={Employees} />
       <Route path={"/track"} component={PublicOrderTracking} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

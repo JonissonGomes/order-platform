@@ -20,6 +20,11 @@ export default function Profile() {
     }
   };
 
+  const getProfileLabel = (role?: string) => {
+    // Retorna o mesmo que getRoleLabel, mas usando terminologia de "perfil"
+    return getRoleLabel(role);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6 w-full min-w-0">

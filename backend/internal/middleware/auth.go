@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 
 	"order-platform/backend/internal/auth"
@@ -19,6 +20,7 @@ func AuthMiddleware(userRepo *repository.UserRepository) gin.HandlerFunc {
 		// Get session cookie
 		cookie, err := c.Cookie("app_session_id")
 		if err != nil || cookie == "" {
+			log.Printf("[AuthMiddleware] No session cookie found for path: %s", c.Request.URL.Path)
 			c.Set(UserContextKey, nil)
 			c.Next()
 			return
@@ -27,6 +29,7 @@ func AuthMiddleware(userRepo *repository.UserRepository) gin.HandlerFunc {
 		// Verify session token
 		session, err := auth.VerifySessionToken(cookie)
 		if err != nil {
+			log.Printf("[AuthMiddleware] Session token verification failed: %v", err)
 			c.Set(UserContextKey, nil)
 			c.Next()
 			return
@@ -37,6 +40,7 @@ func AuthMiddleware(userRepo *repository.UserRepository) gin.HandlerFunc {
 		// Get user from database
 		userID, err := primitive.ObjectIDFromHex(session.UserID)
 		if err != nil {
+			log.Printf("[AuthMiddleware] Invalid user ID: %s", session.UserID)
 			c.Set(UserContextKey, nil)
 			c.Next()
 			return
@@ -44,10 +48,13 @@ func AuthMiddleware(userRepo *repository.UserRepository) gin.HandlerFunc {
 
 		user, err := userRepo.GetUserByID(ctx, userID)
 		if err != nil || user == nil {
+			log.Printf("[AuthMiddleware] User not found: %s, error: %v", userID.Hex(), err)
 			c.Set(UserContextKey, nil)
 			c.Next()
 			return
 		}
+
+		log.Printf("[AuthMiddleware] User authenticated: %s, Role: %s", user.Email, user.Role)
 
 		// Update last signed in
 		_ = userRepo.UpdateLastSignedIn(ctx, user.ID)

@@ -7,14 +7,16 @@ import (
 )
 
 type Profile struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name        string             `bson:"name" json:"name"`
-	Description string             `bson:"description,omitempty" json:"description,omitempty"`
-	Permissions []string           `bson:"permissions" json:"permissions"` // Lista de permissões (ex: "orders.create", "orders.update", etc.)
-	IsDefault   bool               `bson:"isDefault" json:"isDefault"`     // Indica se é um perfil padrão do sistema
-	IsActive    bool               `bson:"isActive" json:"isActive"`
-	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
-	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+	ID                primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name              string             `bson:"name" json:"name"`
+	Description       string             `bson:"description,omitempty" json:"description,omitempty"`
+	Permissions       []string           `bson:"permissions" json:"permissions"`                                 // Permissões de visualização (view)
+	EditPermissions   []string           `bson:"editPermissions,omitempty" json:"editPermissions,omitempty"`     // Permissões de edição
+	DeletePermissions []string           `bson:"deletePermissions,omitempty" json:"deletePermissions,omitempty"` // Permissões de exclusão
+	IsDefault         bool               `bson:"isDefault" json:"isDefault"`                                     // Indica se é um perfil padrão do sistema
+	IsActive          bool               `bson:"isActive" json:"isActive"`
+	CreatedAt         time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt         time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
 // DefaultProfiles retorna os perfis padrão do sistema
@@ -44,7 +46,7 @@ func DefaultProfiles() []*Profile {
 			IsActive:  true,
 		},
 		{
-			Name:        "Gerente de Departamento",
+			Name:        "Gerente",
 			Description: "Gerencia um departamento específico",
 			Permissions: []string{
 				"employees.read",

@@ -34,11 +34,12 @@ func NewCustomerHandler(
 }
 
 type CreateCustomerRequest struct {
-	Name    string          `json:"name" binding:"required"`
-	CPF     string          `json:"cpf" binding:"required"`
-	Phone   string          `json:"phone" binding:"required"`
-	Email   string          `json:"email,omitempty"`
-	Address *models.Address `json:"address,omitempty"`
+	Name        string          `json:"name" binding:"required"`
+	CPF         string          `json:"cpf"` // Opcional para clientes avulsos
+	Phone       string          `json:"phone" binding:"required"`
+	Email       string          `json:"email,omitempty"`
+	Address     *models.Address `json:"address,omitempty"`
+	IsTemporary bool            `json:"isTemporary,omitempty"` // Indica se é cliente avulso
 }
 
 type UpdateCustomerRequest struct {
@@ -65,34 +66,54 @@ func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
 	}
 
 	// Get current employee
+	// Admin and Super Admin can create customers even without an Employee record
 	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
 	if err != nil || currentEmployee == nil {
-		utils.RespondWithForbidden(c, "")
-		return
+		// If user is admin or super admin, allow creation without Employee record
+		if !currentUser.IsAdmin() {
+			utils.RespondWithForbidden(c, "")
+			return
+		}
+		// For admin/super admin without Employee, we'll use User ID for createdBy
 	}
 
-	// Check if customer with CPF already exists
-	existingCustomer, err := h.customerRepo.GetCustomerByCPF(ctx, req.CPF)
-	if err != nil {
-		utils.RespondWithInternalError(c)
-		return
+	// Check if customer with CPF already exists (only if CPF is provided)
+	if req.CPF != "" {
+		existingCustomer, err := h.customerRepo.GetCustomerByCPF(ctx, req.CPF)
+		if err != nil {
+			utils.RespondWithInternalError(c)
+			return
+		}
+		if existingCustomer != nil {
+			utils.RespondWithConflict(c, "Cliente com este CPF já existe")
+			return
+		}
 	}
-	if existingCustomer != nil {
-		utils.RespondWithConflict(c, "Cliente com este CPF já existe")
-		return
+
+	// Determine createdBy - use Employee ID if available, otherwise use User ID for super admin
+	var createdBy primitive.ObjectID
+	var updatedBy primitive.ObjectID
+	if currentEmployee != nil {
+		createdBy = currentEmployee.ID
+		updatedBy = currentEmployee.ID
+	} else {
+		// For super admin without Employee, use User ID
+		createdBy = currentUser.ID
+		updatedBy = currentUser.ID
 	}
 
 	// Create customer
 	customer := &models.Customer{
-		Name:      req.Name,
-		CPF:       req.CPF,
-		Phone:     req.Phone,
-		Email:     req.Email,
-		Address:   req.Address,
-		CreatedBy: currentEmployee.ID,
-		UpdatedBy: currentEmployee.ID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Name:        req.Name,
+		CPF:         req.CPF, // Pode ser vazio para clientes avulsos
+		Phone:       req.Phone,
+		Email:       req.Email,
+		Address:     req.Address,
+		IsTemporary: req.IsTemporary, // Indica se é cliente avulso
+		CreatedBy:   createdBy,
+		UpdatedBy:   updatedBy,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	if err := h.customerRepo.CreateCustomer(ctx, customer); err != nil {
@@ -243,10 +264,14 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	}
 
 	// Get current employee
+	// Admin and Super Admin can update customers even without an Employee record
 	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
 	if err != nil || currentEmployee == nil {
-		utils.RespondWithForbidden(c, "")
-		return
+		// If user is admin or super admin, allow update without Employee record
+		if !currentUser.IsAdmin() {
+			utils.RespondWithForbidden(c, "")
+			return
+		}
 	}
 
 	// Get existing customer
@@ -275,7 +300,12 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	}
 	// CPF não pode ser alterado (dado único)
 
-	customer.UpdatedBy = currentEmployee.ID
+	// Determine updatedBy - use Employee ID if available, otherwise use User ID for super admin
+	if currentEmployee != nil {
+		customer.UpdatedBy = currentEmployee.ID
+	} else {
+		customer.UpdatedBy = currentUser.ID
+	}
 	customer.UpdatedAt = time.Now()
 
 	if err := h.customerRepo.UpdateCustomer(ctx, customerID, customer); err != nil {

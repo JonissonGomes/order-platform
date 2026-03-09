@@ -23,11 +23,13 @@ import type {
   ServiceOrder,
   Department,
   Employee,
+  EmployeeRole,
   CreateCustomerRequest,
   CreateServiceOrderRequest,
   UpdateServiceOrderStatusRequest,
   CreateDepartmentRequest,
   StatusHistory,
+  Profile,
 } from "@/types";
 
 // VITE_API_URL é obrigatório para garantir segurança e consistência
@@ -45,7 +47,10 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "super_admin";
+  createdAt?: string;
+  updatedAt?: string;
+  lastSignedIn?: string;
 }
 
 export interface LoginRequest {
@@ -128,6 +133,34 @@ export const api = {
   // Employee endpoints
   async listEmployees(): Promise<{ employees: Employee[] }> {
     return fetchAPI<{ employees: Employee[] }>("/api/employees");
+  },
+  async createEmployee(data: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    role: EmployeeRole;
+    departmentId?: string;
+  }): Promise<{ employee: Employee }> {
+    return fetchAPI<{ employee: Employee }>("/api/employees", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  async getEmployee(id: string): Promise<{ employee: Employee }> {
+    return fetchAPI<{ employee: Employee }>(`/api/employees/${id}`);
+  },
+  async updateEmployee(id: string, data: {
+    name?: string;
+    phone?: string;
+    role?: EmployeeRole;
+    departmentId?: string;
+    isActive?: boolean;
+  }): Promise<{ employee: Employee }> {
+    return fetchAPI<{ employee: Employee }>(`/api/employees/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   },
 
   // Customer endpoints
@@ -325,5 +358,34 @@ export const api = {
         body: JSON.stringify(data),
       }
     );
+  },
+
+  // Profile endpoints
+  async listProfiles(): Promise<{ profiles: Profile[] }> {
+    return fetchAPI<{ profiles: Profile[] }>("/api/profiles");
+  },
+  async getProfile(id: string): Promise<{ profile: Profile }> {
+    return fetchAPI<{ profile: Profile }>(`/api/profiles/${id}`);
+  },
+  async getProfileByName(name: string): Promise<{ profile: Profile }> {
+    return fetchAPI<{ profile: Profile }>(`/api/profiles/name/${encodeURIComponent(name)}`);
+  },
+  async getAvailableModules(): Promise<{ modules: string[] }> {
+    return fetchAPI<{ modules: string[] }>("/api/profiles/modules/available");
+  },
+  async updateProfilePermissions(
+    name: string,
+    permissions: string[],
+    editPermissions: string[],
+    deletePermissions: string[]
+  ): Promise<{ profile: Profile }> {
+    return fetchAPI<{ profile: Profile }>(`/api/profiles/${encodeURIComponent(name)}/permissions`, {
+      method: "PUT",
+      body: JSON.stringify({
+        permissions,
+        editPermissions,
+        deletePermissions,
+      }),
+    });
   },
 };

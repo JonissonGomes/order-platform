@@ -61,10 +61,15 @@ func (h *DepartmentHandler) CreateDepartment(c *gin.Context) {
 	}
 
 	// Get current employee
+	// Super admin can create departments even without an Employee record
 	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
 	if err != nil || currentEmployee == nil {
-		utils.RespondWithForbidden(c, "")
-		return
+		// If user is super admin, allow creation without Employee record
+		if !currentUser.IsSuperAdmin() {
+			utils.RespondWithForbidden(c, "")
+			return
+		}
+		// For super admin without Employee, we'll use User ID for createdBy
 	}
 
 	// Parse manager ID if provided
@@ -88,14 +93,26 @@ func (h *DepartmentHandler) CreateDepartment(c *gin.Context) {
 		}
 	}
 
+	// Determine createdBy - use Employee ID if available, otherwise use User ID for super admin
+	var createdBy primitive.ObjectID
+	var updatedBy primitive.ObjectID
+	if currentEmployee != nil {
+		createdBy = currentEmployee.ID
+		updatedBy = currentEmployee.ID
+	} else {
+		// For super admin without Employee, use User ID
+		createdBy = currentUser.ID
+		updatedBy = currentUser.ID
+	}
+
 	// Create department
 	department := &models.Department{
 		Name:        req.Name,
 		Description: req.Description,
 		ManagerID:   managerID,
 		IsActive:    true,
-		CreatedBy:   currentEmployee.ID,
-		UpdatedBy:   currentEmployee.ID,
+		CreatedBy:   createdBy,
+		UpdatedBy:   updatedBy,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -177,10 +194,14 @@ func (h *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 	}
 
 	// Get current employee
+	// Super admin can update departments even without an Employee record
 	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
 	if err != nil || currentEmployee == nil {
-		utils.RespondWithForbidden(c, "")
-		return
+		// If user is super admin, allow update without Employee record
+		if !currentUser.IsSuperAdmin() {
+			utils.RespondWithForbidden(c, "")
+			return
+		}
 	}
 
 	// Get existing department
@@ -213,7 +234,12 @@ func (h *DepartmentHandler) UpdateDepartment(c *gin.Context) {
 		department.IsActive = *req.IsActive
 	}
 
-	department.UpdatedBy = currentEmployee.ID
+	// Determine updatedBy - use Employee ID if available, otherwise use User ID for super admin
+	if currentEmployee != nil {
+		department.UpdatedBy = currentEmployee.ID
+	} else {
+		department.UpdatedBy = currentUser.ID
+	}
 	department.UpdatedAt = time.Now()
 
 	if err := h.departmentRepo.UpdateDepartment(ctx, departmentID, department); err != nil {

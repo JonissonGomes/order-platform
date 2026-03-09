@@ -23,17 +23,17 @@ export default function Dashboard() {
     try {
       setLoading(true);
       const [ordersRes, customersRes, departmentsRes] = await Promise.all([
-        api.serviceOrders.listServiceOrders({ page: 1, limit: 1 }),
-        api.customers.listCustomers({ page: 1, limit: 1 }),
-        api.departments.listDepartments(),
+        api.listServiceOrders({ page: 1, limit: 1 }).catch(() => ({ orders: [], pagination: { total: 0 } })),
+        api.listCustomers({ page: 1, limit: 1 }).catch(() => ({ customers: [], pagination: { total: 0 } })),
+        api.listDepartments().catch(() => ({ departments: [] })),
       ]);
 
       // Buscar ordens pendentes
-      const pendingOrdersRes = await api.serviceOrders.listServiceOrders({ 
+      const pendingOrdersRes = await api.listServiceOrders({ 
         page: 1, 
         limit: 1,
         status: "pending" 
-      });
+      }).catch(() => ({ orders: [], pagination: { total: 0 } }));
 
       setStats({
         totalOrders: ordersRes.pagination?.total || 0,
@@ -42,7 +42,13 @@ export default function Dashboard() {
         pendingOrders: pendingOrdersRes.pagination?.total || 0,
       });
     } catch (error) {
-      console.error("Erro ao carregar estatísticas:", error);
+      // Silenciar erros 404 - apenas definir valores padrão
+      setStats({
+        totalOrders: 0,
+        totalCustomers: 0,
+        totalDepartments: 0,
+        pendingOrders: 0,
+      });
     } finally {
       setLoading(false);
     }

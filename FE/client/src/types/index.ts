@@ -223,3 +223,16 @@ export interface CreateDepartmentRequest {
   description?: string;
   managerId?: string;
 }
+
+export interface Profile {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: string[]; // View permissions
+  editPermissions?: string[]; // Edit permissions
+  deletePermissions?: string[]; // Delete permissions
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

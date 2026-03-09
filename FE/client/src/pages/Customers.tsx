@@ -11,11 +11,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { api } from "@/lib/api";
 import { formatCPF, formatPhone, formatCEP, validateCPF } from "@/lib/formatters";
 import { fetchCEP } from "@/lib/cep";
 import type { Customer } from "@/types";
-import { Plus, Search, User, Loader2 } from "lucide-react";
+import { Plus, Search, User, Loader2, Edit, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -39,9 +49,17 @@ export default function Customers() {
         params.name = searchTerm;
       }
       const response = await api.listCustomers(params);
-      setCustomers(response.customers);
+      setCustomers(response.customers || []);
     } catch (error: any) {
-      toast.error(error.message || "Erro ao carregar clientes");
+      // Se for 404 (não encontrado), apenas definir array vazio sem mostrar erro
+      if (error.message === "status: 404" || error.message?.includes("404")) {
+        setCustomers([]);
+        return;
+      }
+      // Apenas mostrar erro se não for 404
+      if (error.message && error.message.trim() !== "" && !error.message.includes("status: 404")) {
+        toast.error(error.message || "Erro ao carregar clientes");
+      }
     } finally {
       setLoading(false);
     }
