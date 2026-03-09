@@ -15,12 +15,17 @@ import (
 
 func New(db *database.MongoDB) *gin.Engine {
 	// Set Gin mode based on environment
-	gin.SetMode(gin.ReleaseMode)
+	cfg := config.Get()
+	if cfg.Environment == "development" {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	r := gin.Default()
 
 	// CORS middleware
-	r.Use(corsMiddleware(config.Get().CORSOrigins))
+	r.Use(corsMiddleware(cfg.CORSOrigins))
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db.Database)
@@ -36,7 +41,6 @@ func New(db *database.MongoDB) *gin.Engine {
 
 	// Initialize Cloudinary service (optional, won't fail if not configured)
 	var uploadHandler *handlers.UploadHandler
-	cfg := config.Get()
 	if cfg.CloudinaryCloudName != "" && cfg.CloudinaryAPIKey != "" && cfg.CloudinaryAPISecret != "" {
 		cloudinaryService, err := services.NewCloudinaryService()
 		if err != nil {
@@ -96,15 +100,16 @@ func New(db *database.MongoDB) *gin.Engine {
 		}
 
 		// Profile routes (public read, protected write)
-		// IMPORTANT: static routes must be registered BEFORE dynamic routes to avoid conflicts
+		// IMPORTANT: static routes and more specific routes must be registered BEFORE dynamic routes to avoid conflicts
 		profiles := api.Group("/profiles")
 		profiles.GET("", profileHandler.ListProfiles)
 		profiles.GET("/name/:name", profileHandler.GetProfileByName)
 		profiles.GET("/modules/available", profileHandler.GetAvailableModules)
-		profiles.GET("/:id", profileHandler.GetProfile)
-		profiles.PUT("/:name/permissions", authMiddleware, middleware.RequireAuth(), auditMiddleware, middleware.RequireAdminOrSuperAdmin(), profileHandler.UpdateProfilePermissions)
-		// Sync default profiles (Super Admin only) — garante que todos os perfis padrão existam
 		profiles.POST("/sync-defaults", authMiddleware, middleware.RequireAuth(), middleware.RequireSuperAdmin(), profileHandler.SyncDefaultProfiles)
+		// Rotas com mais segmentos devem vir ANTES de rotas com menos segmentos
+		profiles.PUT("/:name/permissions", authMiddleware, middleware.RequireAuth(), auditMiddleware, middleware.RequireAdminOrSuperAdmin(), profileHandler.UpdateProfilePermissions)
+		// Rota genérica por ID deve vir por último
+		profiles.GET("/:id", profileHandler.GetProfile)
 
 		// Employee routes (requires auth)
 		employees := api.Group("/employees")
@@ -117,6 +122,7 @@ func New(db *database.MongoDB) *gin.Engine {
 		}
 
 		// Customer routes (requires auth)
+		// IMPORTANT: Rotas mais específicas (com mais segmentos) devem vir ANTES de rotas genéricas
 		customers := api.Group("/customers")
 		customers.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
 		{
@@ -124,36 +130,44 @@ func New(db *database.MongoDB) *gin.Engine {
 			customers.GET("", customerHandler.ListCustomers)
 			customers.GET("/search/cpf", customerHandler.GetCustomerByCPF)
 			customers.GET("/search/phone", customerHandler.GetCustomerByPhone)
-			customers.GET("/:id", customerHandler.GetCustomer)
+			// Rotas específicas primeiro
 			customers.GET("/:id/orders", customerHandler.GetCustomerServiceOrders)
+			// Rotas genéricas depois
+			customers.GET("/:id", customerHandler.GetCustomer)
 			customers.PUT("/:id", customerHandler.UpdateCustomer)
 			customers.DELETE("/:id", customerHandler.DeleteCustomer)
 		}
 
 		// Service Order routes (requires auth)
+		// IMPORTANT: Rotas mais específicas (com mais segmentos) devem vir ANTES de rotas genéricas
 		serviceOrders := api.Group("/service-orders")
 		serviceOrders.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
 		{
 			serviceOrders.POST("", serviceOrderHandler.CreateServiceOrder)
 			serviceOrders.GET("", serviceOrderHandler.ListServiceOrders)
-			serviceOrders.GET("/:id", serviceOrderHandler.GetServiceOrder)
+			// Rotas específicas primeiro (com mais segmentos)
 			serviceOrders.GET("/:id/history", serviceOrderHandler.GetServiceOrderHistory)
-			serviceOrders.PUT("/:id", serviceOrderHandler.UpdateServiceOrder)
 			serviceOrders.PATCH("/:id/status", serviceOrderHandler.UpdateServiceOrderStatus)
 			serviceOrders.PATCH("/:id/assign", serviceOrderHandler.AssignServiceOrder)
 			serviceOrders.POST("/:id/notes", serviceOrderHandler.AddNote)
+			// Rotas genéricas depois
+			serviceOrders.GET("/:id", serviceOrderHandler.GetServiceOrder)
+			serviceOrders.PUT("/:id", serviceOrderHandler.UpdateServiceOrder)
 			serviceOrders.DELETE("/:id", serviceOrderHandler.DeleteServiceOrder)
 		}
 
 		// Department routes (requires auth)
+		// IMPORTANT: Rotas mais específicas (com mais segmentos) devem vir ANTES de rotas genéricas
 		departments := api.Group("/departments")
 		departments.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
 		{
 			departments.POST("", middleware.RequireAdminOrSuperAdmin(), departmentHandler.CreateDepartment)
 			departments.GET("", departmentHandler.ListDepartments)
-			departments.GET("/:id", departmentHandler.GetDepartment)
+			// Rotas específicas primeiro
 			departments.GET("/:id/employees", departmentHandler.GetDepartmentEmployees)
 			departments.GET("/:id/orders", departmentHandler.GetDepartmentServiceOrders)
+			// Rotas genéricas depois
+			departments.GET("/:id", departmentHandler.GetDepartment)
 			departments.PUT("/:id", middleware.RequireAdminOrSuperAdmin(), departmentHandler.UpdateDepartment)
 			departments.DELETE("/:id", middleware.RequireAdminOrSuperAdmin(), departmentHandler.DeleteDepartment)
 		}
@@ -176,6 +190,7 @@ func New(db *database.MongoDB) *gin.Engine {
 		}
 
 		// Stock routes (requires auth)
+		// IMPORTANT: Rotas mais específicas (com mais segmentos) devem vir ANTES de rotas genéricas
 		stock := api.Group("/stock")
 		stock.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
 		{
@@ -183,13 +198,16 @@ func New(db *database.MongoDB) *gin.Engine {
 			stock.GET("/movements", stockHandler.ListMovements)
 			stock.POST("", middleware.RequireAdminOrSuperAdmin(), stockHandler.CreateItem)
 			stock.GET("", stockHandler.ListItems)
-			stock.GET("/:id", stockHandler.GetItem)
-			stock.PUT("/:id", middleware.RequireAdminOrSuperAdmin(), stockHandler.UpdateItem)
+			// Rotas específicas primeiro
 			stock.POST("/:id/movements", stockHandler.CreateMovement)
 			stock.GET("/:id/movements", stockHandler.ListMovements)
+			// Rotas genéricas depois
+			stock.GET("/:id", stockHandler.GetItem)
+			stock.PUT("/:id", middleware.RequireAdminOrSuperAdmin(), stockHandler.UpdateItem)
 		}
 
 		// Financial routes (requires auth)
+		// IMPORTANT: Rotas mais específicas (com mais segmentos) devem vir ANTES de rotas genéricas
 		financial := api.Group("/financial")
 		financial.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
 		{
@@ -197,9 +215,11 @@ func New(db *database.MongoDB) *gin.Engine {
 			financial.GET("/cash-flow", financialHandler.GetCashFlow)
 			financial.POST("/transactions", financialHandler.CreateTransaction)
 			financial.GET("/transactions", financialHandler.ListTransactions)
+			// Rotas específicas primeiro
+			financial.PATCH("/transactions/:id/pay", financialHandler.MarkAsPaid)
+			// Rotas genéricas depois
 			financial.GET("/transactions/:id", financialHandler.GetTransaction)
 			financial.PUT("/transactions/:id", financialHandler.UpdateTransaction)
-			financial.PATCH("/transactions/:id/pay", financialHandler.MarkAsPaid)
 			financial.DELETE("/transactions/:id", middleware.RequireAdminOrSuperAdmin(), financialHandler.DeleteTransaction)
 		}
 
