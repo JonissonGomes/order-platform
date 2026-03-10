@@ -106,24 +106,106 @@ export default function PrintServiceOrder() {
 
       <div className="max-w-[800px] mx-auto p-6 print:p-0 print:max-w-none font-sans text-sm text-gray-900">
 
-        {/* Cabeçalho da empresa */}
-        <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
-          <h1 className="text-2xl font-bold uppercase tracking-wide">
-            {settings?.companyName || import.meta.env.VITE_COMPANY_NAME || "Sistema de OS"}
-          </h1>
-          {(settings?.companyCNPJ || import.meta.env.VITE_COMPANY_CNPJ) && (
-            <p className="text-xs text-gray-600">CNPJ: {settings?.companyCNPJ || import.meta.env.VITE_COMPANY_CNPJ}</p>
-          )}
-          {(settings?.companyAddress || import.meta.env.VITE_COMPANY_ADDRESS) && (
-            <p className="text-xs text-gray-600">
-              {settings?.companyAddress
-                ? `${settings.companyAddress.street}, ${settings.companyAddress.number} — ${settings.companyAddress.city}/${settings.companyAddress.state}`
-                : import.meta.env.VITE_COMPANY_ADDRESS}
-            </p>
-          )}
-          {(settings?.companyPhone || import.meta.env.VITE_COMPANY_PHONE) && (
-            <p className="text-xs text-gray-600">{settings?.companyPhone || import.meta.env.VITE_COMPANY_PHONE}</p>
-          )}
+        {/* Cabeçalho da empresa com logo */}
+        <div className="mb-6 border-b-2 border-gray-800 pb-4">
+          <div className="flex items-start gap-4">
+            {/* Logo - à esquerda */}
+            <div className="flex-shrink-0">
+              {(settings?.companyLogo || import.meta.env.VITE_COMPANY_LOGO) ? (
+                <div>
+                  <img
+                    src={settings?.companyLogo || import.meta.env.VITE_COMPANY_LOGO}
+                    alt="Logo"
+                    className="h-20 w-20 object-contain print:h-20 print:w-20"
+                  />
+                  {/* Texto DOUTOR GAME abaixo do logo */}
+                  <div className="mt-2 text-center">
+                    <div className="text-[10px] font-bold text-yellow-500 leading-tight" style={{ textShadow: '1px 1px 0px rgba(0,0,0,0.3)' }}>
+                      <div>DOUTOR</div>
+                      <div>GAME</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="h-20 w-20 flex items-center justify-center bg-gradient-to-b from-pink-400 via-pink-500 to-purple-600 rounded-full relative print:h-20 print:w-20" style={{ background: 'linear-gradient(to bottom, #f472b6, #ec4899, #9333ea)' }}>
+                    {/* Decorative stars and plus signs */}
+                    <div className="absolute top-1 right-2 text-yellow-300 text-[8px]">★</div>
+                    <div className="absolute bottom-2 left-1 text-yellow-300 text-[8px]">+</div>
+                    <div className="absolute top-3 left-2 text-pink-200 text-[8px]">+</div>
+                    <div className="absolute bottom-1 right-3 text-pink-200 text-[8px]">★</div>
+                    
+                    {/* D-pad icon - centered */}
+                    <div className="relative w-10 h-10">
+                      {/* Up arrow */}
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-b-[7px] border-b-purple-900"></div>
+                      {/* Down arrow */}
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[7px] border-t-purple-900"></div>
+                      {/* Left arrow */}
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-r-[7px] border-r-purple-900"></div>
+                      {/* Right arrow */}
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-l-[7px] border-l-purple-900"></div>
+                      {/* Center button */}
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-purple-300 rounded-full"></div>
+                    </div>
+                    
+                    {/* Registered trademark */}
+                    <span className="absolute top-0 right-1 text-[7px] text-black font-bold">®</span>
+                  </div>
+                  {/* Texto DOUTOR GAME abaixo do logo */}
+                  <div className="mt-2 text-center">
+                    <div className="text-[10px] font-bold text-yellow-500 leading-tight" style={{ textShadow: '1px 1px 0px rgba(0,0,0,0.3), 0 0 2px rgba(255,215,0,0.5)' }}>
+                      <div>DOUTOR</div>
+                      <div>GAME</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Informações da empresa - à direita */}
+            <div className="flex-1">
+              <h1 className="text-xl font-bold uppercase tracking-wide mb-2">
+                {settings?.companyName || import.meta.env.VITE_COMPANY_NAME || "Doutor Game"}
+              </h1>
+              {(settings?.companyCNPJ || import.meta.env.VITE_COMPANY_CNPJ) && (
+                <p className="text-xs text-gray-600 mb-1">CNPJ: {settings?.companyCNPJ || import.meta.env.VITE_COMPANY_CNPJ}</p>
+              )}
+              {(settings?.companyAddress || import.meta.env.VITE_COMPANY_ADDRESS) && (
+                <p className="text-xs text-gray-600 mb-1">
+                  {settings?.companyAddress
+                    ? `${settings.companyAddress.street}, ${settings.companyAddress.number}${settings.companyAddress.complement ? ` (${settings.companyAddress.complement})` : ""} - ${settings.companyAddress.neighborhood || ""}`
+                    : import.meta.env.VITE_COMPANY_ADDRESS}
+                </p>
+              )}
+              {(settings?.companyAddress || import.meta.env.VITE_COMPANY_ADDRESS) && (
+                <p className="text-xs text-gray-600 mb-1">
+                  {settings?.companyAddress
+                    ? `${settings.companyAddress.city}/${settings.companyAddress.state} - CEP: ${settings.companyAddress.zipCode || ""}`
+                    : ""}
+                </p>
+              )}
+            </div>
+
+            {/* Informações de contato e responsáveis - à direita */}
+            <div className="text-right text-xs text-gray-600 flex-shrink-0">
+              {(settings?.companyPhone || import.meta.env.VITE_COMPANY_PHONE) && (
+                <p className="mb-1">{settings?.companyPhone || import.meta.env.VITE_COMPANY_PHONE}</p>
+              )}
+              {(settings?.companyEmail || import.meta.env.VITE_COMPANY_EMAIL) && (
+                <p className="mb-1">{settings?.companyEmail || import.meta.env.VITE_COMPANY_EMAIL}</p>
+              )}
+              {(settings?.companyWebsite || import.meta.env.VITE_COMPANY_WEBSITE) && (
+                <p className="mb-1">{settings?.companyWebsite || import.meta.env.VITE_COMPANY_WEBSITE}</p>
+              )}
+              {(settings?.responsiblePerson || import.meta.env.VITE_RESPONSIBLE_PERSON) && (
+                <p className="mb-1">Responsável: {settings?.responsiblePerson || import.meta.env.VITE_RESPONSIBLE_PERSON}</p>
+              )}
+              {(settings?.technicalContact || import.meta.env.VITE_TECHNICAL_CONTACT) && (
+                <p>Técnico: {settings?.technicalContact || import.meta.env.VITE_TECHNICAL_CONTACT}</p>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Título e número da OS */}

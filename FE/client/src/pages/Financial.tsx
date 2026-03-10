@@ -580,7 +580,6 @@ export default function Financial() {
                   )}
                 </div>
               </div>
-            </div>
           </DialogContent>
         </Dialog>
       )}

@@ -846,4 +846,24 @@ export const api = {
       method: "POST",
     });
   },
+
+  // ── Payment endpoints ────────────────────────────────────────────────────────
+
+  async createPayment(data: {
+    amount: number;
+    currency: string;
+    description: string;
+    orderId: string;
+    customerId: string;
+    metadata?: Record<string, string>;
+  }): Promise<{ payment: { paymentId: string; paymentLink: string; status: string; amount: number } }> {
+    return fetchAPI<{ payment: { paymentId: string; paymentLink: string; status: string; amount: number } }>("/api/payments/create", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getPaymentStatus(paymentId: string): Promise<{ status: string }> {
+    return fetchAPI<{ status: string }>(`/api/payments/${paymentId}/status`);
+  },
 };

@@ -59,6 +59,7 @@ import type { ServiceOrder, ServiceOrderStatus, Customer, Department, Employee, 
 import {
   Plus, Search, FileText, Check, ChevronsUpDown, UserPlus,
   Filter, Trash2, Printer, X, Loader2, ChevronLeft, ChevronRight, Pencil,
+  Copy, ExternalLink, RefreshCw,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
@@ -708,7 +709,7 @@ function CreateOrderForm({ userId, onSuccess }: { userId?: string; onSuccess: ()
       <div className="space-y-2">
         <Label>Fotos (opcional)</Label>
         <ImageUpload
-          images={formData.images}
+          value={formData.images}
           onChange={(images) => setFormData({ ...formData, images })}
           maxImages={5}
         />
@@ -738,6 +739,8 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [serviceItems, setServiceItems] = useState<ServiceItem[]>(order.serviceItems ?? []);
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
   const [formData, setFormData] = useState({
     serialNumber: order.serialNumber ?? "",
     aestheticConditions: order.aestheticConditions ?? "",
@@ -756,6 +759,7 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
     deliveryObservations: order.delivery?.observations ?? "",
     newStatus: order.status,
     statusNote: "",
+    images: order.images ?? [],
   });
 
   const totalServiceItems = serviceItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
@@ -805,6 +809,51 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
 
   const addItem = () => setServiceItems([...serviceItems, { name: "", quantity: 1, unitPrice: 0 }]);
   const removeItem = (i: number) => setServiceItems(serviceItems.filter((_, idx) => idx !== i));
+
+  const handleGeneratePaymentLink = async () => {
+    if (!order.customerId) {
+      toast.error("Cliente não encontrado na ordem");
+      return;
+    }
+    if (!formData.finalCost || parseFloat(formData.finalCost) <= 0) {
+      toast.error("Informe o valor final para gerar o link de pagamento");
+      return;
+    }
+
+    try {
+      setGeneratingLink(true);
+      const response = await api.createPayment({
+        amount: parseFloat(formData.finalCost),
+        currency: "BRL",
+        description: `Pagamento da Ordem de Serviço #${order.orderNumber}`,
+        orderId: order.id,
+        customerId: order.customerId,
+        metadata: {
+          orderNumber: order.orderNumber,
+        },
+      });
+      setPaymentLink(response.payment.paymentLink);
+      toast.success("Link de pagamento gerado com sucesso!");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao gerar link de pagamento");
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const handleCopyPaymentLink = () => {
+    if (paymentLink) {
+      navigator.clipboard.writeText(paymentLink);
+      toast.success("Link copiado para a área de transferência!");
+    }
+  };
+
+  const handleCheckPaymentStatus = async () => {
+    // This would be called after payment is completed via webhook
+    // For now, we'll just refresh the order data
+    toast.info("Verificando status do pagamento...");
+    onSuccess();
+  };
   const updateItem = (i: number, field: keyof ServiceItem, val: string | number) =>
     setServiceItems(serviceItems.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
 
@@ -915,7 +964,7 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Forma de Pagamento</Label>
-              <Select value={formData.paymentMethod} onValueChange={(v) => setFormData({ ...formData, paymentMethod: v })}>
+              <Select value={formData.paymentMethod} onValueChange={(v) => setFormData({ ...formData, paymentMethod: v as "pix" | "cartao" | "dinheiro" | "boleto" })}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pix">PIX</SelectItem>
@@ -938,10 +987,75 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
             <input type="checkbox" id="paid" checked={formData.paymentPaid} onChange={(e) => setFormData({ ...formData, paymentPaid: e.target.checked })} className="h-4 w-4 rounded" />
             <Label htmlFor="paid">Pagamento confirmado</Label>
           </div>
+          
+          {/* Payment Link Section */}
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Link de Pagamento</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGeneratePaymentLink}
+                  disabled={generatingLink || !formData.finalCost || parseFloat(formData.finalCost) <= 0}
+                >
+                  {generatingLink ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Gerar Link
+                    </>
+                  )}
+                </Button>
+                {paymentLink && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCheckPaymentStatus}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Verificar Status
+                  </Button>
+                )}
+              </div>
+            </div>
+            {paymentLink && (
+              <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+                <Input
+                  value={paymentLink}
+                  readOnly
+                  className="flex-1 font-mono text-xs"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyPaymentLink}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(paymentLink, "_blank")}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
           <Separator />
           <div className="space-y-2">
             <Label>Tipo de Entrega</Label>
-            <Select value={formData.deliveryType} onValueChange={(v) => setFormData({ ...formData, deliveryType: v })}>
+            <Select value={formData.deliveryType} onValueChange={(v) => setFormData({ ...formData, deliveryType: v as "none" | "own" | "third" })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Retirada pelo cliente</SelectItem>
@@ -1028,7 +1142,6 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
       {/* Navigation */}
       <div className="flex justify-between pt-4 border-t">
         <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>Cancelar</Button>
           {step > 0 && (
             <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>
               <ChevronLeft className="mr-1 h-4 w-4" /> Anterior

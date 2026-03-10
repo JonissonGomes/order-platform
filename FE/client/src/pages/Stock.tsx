@@ -171,9 +171,9 @@ function ItemForm({ initial, onSave, onCancel, loading }: ItemFormProps) {
         </div>
       </div>
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={onCancel} disabled={loading}>Cancelar</Button>
+        {!initial && <Button variant="outline" onClick={onCancel} disabled={loading}>Cancelar</Button>}
         <Button onClick={() => onSave(form)} disabled={loading || !form.name || !form.category}>
-          {loading ? "Salvando..." : "Salvar"}
+          {loading ? "Salvando..." : initial ? "Atualizar" : "Salvar"}
         </Button>
       </div>
     </div>
@@ -554,77 +554,78 @@ export default function Stock() {
             )}
           </DialogHeader>
           {selectedItem && (
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Categoria</p>
-                  <p className="mt-1 font-medium">{selectedItem.category}</p>
+            <>
+              <div className="flex-1 overflow-y-auto px-6 py-6">
+                <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Categoria</p>
+                    <p className="mt-1 font-medium">{selectedItem.category}</p>
+                  </div>
+                  {selectedItem.sku && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">SKU</p>
+                      <p className="mt-1 font-medium">{selectedItem.sku}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Quantidade</p>
+                    <p className={`mt-1 font-bold ${stockStatus(selectedItem) === "out" ? "text-red-600" : stockStatus(selectedItem) === "low" ? "text-yellow-600" : ""}`}>
+                      {selectedItem.quantity}
+                      {selectedItem.minQuantity > 0 && <span className="text-muted-foreground font-normal text-xs"> / mín. {selectedItem.minQuantity}</span>}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Preço de Custo</p>
+                    <p className="mt-1">{formatCurrency(selectedItem.costPrice)}</p>
+                  </div>
+                  {selectedItem.sellingPrice > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Preço de Venda</p>
+                      <p className="mt-1">{formatCurrency(selectedItem.sellingPrice)}</p>
+                    </div>
+                  )}
+                  {selectedItem.supplier && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Fornecedor</p>
+                      <p className="mt-1">{selectedItem.supplier}</p>
+                    </div>
+                  )}
+                  {selectedItem.location && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Localização</p>
+                      <p className="mt-1">{selectedItem.location}</p>
+                    </div>
+                  )}
                 </div>
-                {selectedItem.sku && (
+                {selectedItem.description && (
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">SKU</p>
-                    <p className="mt-1 font-medium">{selectedItem.sku}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Descrição</p>
+                    <p className="mt-1 text-muted-foreground">{selectedItem.description}</p>
                   </div>
                 )}
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Quantidade</p>
-                  <p className={`mt-1 font-bold ${stockStatus(selectedItem) === "out" ? "text-red-600" : stockStatus(selectedItem) === "low" ? "text-yellow-600" : ""}`}>
-                    {selectedItem.quantity}
-                    {selectedItem.minQuantity > 0 && <span className="text-muted-foreground font-normal text-xs"> / mín. {selectedItem.minQuantity}</span>}
-                  </p>
+                <Separator />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Preço de Custo</p>
-                  <p className="mt-1">{formatCurrency(selectedItem.costPrice)}</p>
-                </div>
-                {selectedItem.sellingPrice > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Preço de Venda</p>
-                    <p className="mt-1">{formatCurrency(selectedItem.sellingPrice)}</p>
-                  </div>
-                )}
-                {selectedItem.supplier && (
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Fornecedor</p>
-                    <p className="mt-1">{selectedItem.supplier}</p>
-                  </div>
-                )}
-                {selectedItem.location && (
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Localização</p>
-                    <p className="mt-1">{selectedItem.location}</p>
-                  </div>
-                )}
               </div>
-              {selectedItem.description && (
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Descrição</p>
-                  <p className="mt-1 text-muted-foreground">{selectedItem.description}</p>
-                </div>
-              )}
-              <Separator />
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t bg-muted/30 flex justify-between items-center">
-              <div className="flex gap-2">
-                <Button variant="destructive" size="sm" onClick={() => { setDeletingItem(selectedItem); setShowDetailDialog(false); }}>
-                  <Trash2 className="h-4 w-4 mr-1" /> Excluir
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setShowDetailDialog(false); setShowHistoryDialog(true); }}>
-                    Histórico
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => { setShowDetailDialog(false); setShowMovementDialog(true); }}>
-                    <RefreshCw className="h-3 w-3 mr-1" /> Movimentar
-                  </Button>
-                  <Button size="sm" onClick={() => { setShowDetailDialog(false); setShowEditDialog(true); }}>
-                    Editar
+              <div className="px-6 py-4 border-t bg-muted/30 flex justify-between items-center">
+                <div className="flex gap-2">
+                  <Button variant="destructive" size="sm" onClick={() => { setDeletingItem(selectedItem); setShowDetailDialog(false); }}>
+                    <Trash2 className="h-4 w-4 mr-1" /> Excluir
                   </Button>
                 </div>
-              </div>
-            </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setShowDetailDialog(false); setShowHistoryDialog(true); }}>
+                      Histórico
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => { setShowDetailDialog(false); setShowMovementDialog(true); }}>
+                      <RefreshCw className="h-3 w-3 mr-1" /> Movimentar
+                    </Button>
+                    <Button size="sm" onClick={() => { setShowDetailDialog(false); setShowEditDialog(true); }}>
+                      Editar
+                    </Button>
+                  </div>
+                </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

@@ -2,6 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
 import type { Employee } from "@/types";
+import { permissionMatchesModule, moduleInEditOrDeletePermissions } from "./permission-mapper";
 
 /**
  * Hook para verificar permissões do usuário em um módulo específico
@@ -52,10 +53,22 @@ export function usePermissions(modulePath: string) {
     enabled: !isAdmin && !!profileName,
   });
 
-  const canView = isAdmin || (profile?.profile?.permissions?.includes(modulePath) ?? false);
-  const canCreate = isAdmin || (profile?.profile?.editPermissions?.includes(modulePath) ?? false);
-  const canEdit = isAdmin || (profile?.profile?.editPermissions?.includes(modulePath) ?? false);
-  const canDelete = isAdmin || (profile?.profile?.deletePermissions?.includes(modulePath) ?? false);
+  // Verifica permissões usando o mapeamento correto
+  const canView = isAdmin || (profile?.profile?.permissions?.some((perm) => 
+    permissionMatchesModule(perm, modulePath)
+  ) ?? false);
+  
+  const canCreate = isAdmin || (profile?.profile?.editPermissions ? 
+    moduleInEditOrDeletePermissions(modulePath, profile.profile.editPermissions) : false
+  );
+  
+  const canEdit = isAdmin || (profile?.profile?.editPermissions ? 
+    moduleInEditOrDeletePermissions(modulePath, profile.profile.editPermissions) : false
+  );
+  
+  const canDelete = isAdmin || (profile?.profile?.deletePermissions ? 
+    moduleInEditOrDeletePermissions(modulePath, profile.profile.deletePermissions) : false
+  );
 
   return {
     canView,

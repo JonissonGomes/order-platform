@@ -24,10 +24,17 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import {
+  permissionMatchesModule,
+  moduleInEditOrDeletePermissions,
+  modulePathToPermissionPrefix,
+  modulePathToEditDeleteFormat,
+} from "@/lib/permission-mapper";
 
 export default function Profiles() {
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [viewPermissions, setViewPermissions] = useState<Record<string, boolean>>({});
+  const [createPermissions, setCreatePermissions] = useState<Record<string, boolean>>({});
   const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
   const [deletePermissions, setDeletePermissions] = useState<Record<string, boolean>>({});
   const [roles, setRoles] = useState<Profile[]>([]);
@@ -53,31 +60,54 @@ export default function Profiles() {
   useEffect(() => {
     if (roleData) {
       const viewMap: Record<string, boolean> = {};
+      const createMap: Record<string, boolean> = {};
       const editMap: Record<string, boolean> = {};
       const deleteMap: Record<string, boolean> = {};
       
       availableModules.forEach((module) => {
-        viewMap[module] = roleData.permissions?.includes(module) || false;
-        editMap[module] = (roleData.editPermissions || []).includes(module);
-        deleteMap[module] = (roleData.deletePermissions || []).includes(module);
+        // Verifica se alguma permissão do backend corresponde ao módulo
+        const hasViewPermission = roleData.permissions?.some((perm) => 
+          permissionMatchesModule(perm, module)
+        ) || false;
+        
+        viewMap[module] = hasViewPermission;
+        
+        // Verifica se o módulo está nas permissões de edição (que inclui criar)
+        const hasEditPermission = moduleInEditOrDeletePermissions(
+          module,
+          roleData.editPermissions || []
+        );
+        
+        createMap[module] = hasEditPermission;
+        editMap[module] = hasEditPermission;
+        
+        // Verifica se o módulo está nas permissões de exclusão
+        deleteMap[module] = moduleInEditOrDeletePermissions(
+          module,
+          roleData.deletePermissions || []
+        );
       });
       
       setViewPermissions(viewMap);
+      setCreatePermissions(createMap);
       setEditPermissions(editMap);
       setDeletePermissions(deleteMap);
     } else {
       // Initialize all permissions as false
       const viewMap: Record<string, boolean> = {};
+      const createMap: Record<string, boolean> = {};
       const editMap: Record<string, boolean> = {};
       const deleteMap: Record<string, boolean> = {};
       
       availableModules.forEach((module) => {
         viewMap[module] = false;
+        createMap[module] = false;
         editMap[module] = false;
         deleteMap[module] = false;
       });
       
       setViewPermissions(viewMap);
+      setCreatePermissions(createMap);
       setEditPermissions(editMap);
       setDeletePermissions(deleteMap);
     }
@@ -148,11 +178,30 @@ export default function Profiles() {
       ...prev,
       [module]: newViewValue,
     }));
-    // If disabling view, also disable edit and delete
+    // If disabling view, also disable create, edit and delete
     if (!newViewValue) {
+      setCreatePermissions((prev) => ({ ...prev, [module]: false }));
       setEditPermissions((prev) => ({ ...prev, [module]: false }));
       setDeletePermissions((prev) => ({ ...prev, [module]: false }));
     }
+  };
+
+  const handleToggleCreate = (module: string) => {
+    // Can only create if view is enabled
+    if (!viewPermissions[module]) {
+      toast.error("É necessário ter permissão de visualização para habilitar criação");
+      return;
+    }
+    const newValue = !createPermissions[module];
+    setCreatePermissions((prev) => ({
+      ...prev,
+      [module]: newValue,
+    }));
+    // Criar também habilita editar
+    setEditPermissions((prev) => ({
+      ...prev,
+      [module]: newValue,
+    }));
   };
 
   const handleToggleEdit = (module: string) => {
@@ -185,23 +234,63 @@ export default function Profiles() {
       return;
     }
 
-    const enabledViewPermissions = Object.entries(viewPermissions)
-      .filter(([_, enabled]) => enabled)
-      .map(([module]) => module);
+    // Converte módulos para permissões do backend
+    // O backend espera permissões no formato: "employees.read", "service_orders.*", etc.
+    const enabledViewPermissions: string[] = [];
+    Object.entries(viewPermissions).forEach(([module, enabled]) => {
+      if (enabled) {
+        const prefix = modulePathToPermissionPrefix(module);
+        
+        // Se tem criar ou editar, usa wildcard (ex: "service_orders.*")
+        if (createPermissions[module] || editPermissions[module]) {
+          enabledViewPermissions.push(`${prefix}.*`);
+        } else {
+          // Se só tem visualização, adiciona permissões específicas
+          // Para manter compatibilidade, adiciona read
+          enabledViewPermissions.push(`${prefix}.read`);
+        }
+      }
+    });
+
+    // Remove duplicatas mantendo wildcards quando existem
+    const uniqueViewPermissions: string[] = [];
+    const prefixes = new Set<string>();
+    
+    enabledViewPermissions.forEach((perm) => {
+      if (perm.endsWith(".*")) {
+        const prefix = perm.slice(0, -2);
+        // Remove permissões específicas do mesmo prefixo se tem wildcard
+        prefixes.add(prefix);
+        // Remove permissões específicas já adicionadas
+        const index = uniqueViewPermissions.findIndex((p) => p.startsWith(prefix + ".") && !p.endsWith(".*"));
+        if (index > -1) {
+          uniqueViewPermissions.splice(index, 1);
+        }
+        if (!uniqueViewPermissions.includes(perm)) {
+          uniqueViewPermissions.push(perm);
+        }
+      } else {
+        const prefix = perm.split(".")[0];
+        // Só adiciona se não tem wildcard para este prefixo
+        if (!prefixes.has(prefix) && !uniqueViewPermissions.some((p) => p === `${prefix}.*`)) {
+          uniqueViewPermissions.push(perm);
+        }
+      }
+    });
 
     const enabledEditPermissions = Object.entries(editPermissions)
       .filter(([module, enabled]) => enabled && viewPermissions[module])
-      .map(([module]) => module);
+      .map(([module]) => modulePathToEditDeleteFormat(module));
 
     const enabledDeletePermissions = Object.entries(deletePermissions)
       .filter(([module, enabled]) => enabled && viewPermissions[module])
-      .map(([module]) => module);
+      .map(([module]) => modulePathToEditDeleteFormat(module));
 
     try {
       setUpdateLoading(true);
       await api.updateProfilePermissions(
         selectedRole,
-        enabledViewPermissions,
+        uniqueViewPermissions,
         enabledEditPermissions,
         enabledDeletePermissions
       );
@@ -242,8 +331,19 @@ export default function Profiles() {
             </Label>
           </div>
           <div className="flex items-center gap-6">
-            {/* Toggles de Editar e Excluir à esquerda */}
+            {/* Toggles de Criar, Editar e Excluir à esquerda */}
             <div className="flex items-center gap-4">
+              <div className="flex flex-col items-center gap-1">
+                <Label htmlFor={`create-${module}`} className="text-xs text-muted-foreground">
+                  Criar
+                </Label>
+                <Switch
+                  id={`create-${module}`}
+                  checked={createPermissions[module] || false}
+                  onCheckedChange={() => handleToggleCreate(module)}
+                  disabled={!viewPermissions[module]}
+                />
+              </div>
               <div className="flex flex-col items-center gap-1">
                 <Label htmlFor={`edit-${module}`} className="text-xs text-muted-foreground">
                   Editar
@@ -329,6 +429,9 @@ export default function Profiles() {
                             {role.name === "Administrador" && (
                               <Badge variant="secondary">Departamento</Badge>
                             )}
+                            {role.name === "User" && (
+                              <Badge variant="outline">Cliente</Badge>
+                            )}
                           </div>
                         </SelectItem>
                       ))}
@@ -364,6 +467,12 @@ export default function Profiles() {
                     </strong>
                   </p>
                   <p className="text-sm text-muted-foreground">
+                    Módulos com criação:{" "}
+                    <strong>
+                      {Object.values(createPermissions).filter(Boolean).length}
+                    </strong>
+                  </p>
+                  <p className="text-sm text-muted-foreground">
                     Módulos com edição:{" "}
                     <strong>
                       {Object.values(editPermissions).filter(Boolean).length}
@@ -382,6 +491,9 @@ export default function Profiles() {
                     .map(([module]) => (
                       <Badge key={module} variant="default" className="flex items-center gap-1">
                         {MODULE_NAMES[module] || module}
+                        {createPermissions[module] && (
+                          <span className="text-xs">➕</span>
+                        )}
                         {editPermissions[module] && (
                           <span className="text-xs">✏️</span>
                         )}

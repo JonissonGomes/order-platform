@@ -564,7 +564,7 @@ function CustomerForm({
       </div>
 
       <div className="flex justify-end gap-2 pt-2 border-t">
-        {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>Cancelar</Button>}
+        {!isEdit && onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>Cancelar</Button>}
         <Button type="submit" disabled={loading}>
           {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : isEdit ? "Atualizar" : "Cadastrar"}
         </Button>

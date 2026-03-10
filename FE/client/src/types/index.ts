@@ -198,6 +198,11 @@ export interface Settings {
   companyPhone?: string;
   companyEmail?: string;
   companyAddress?: Address;
+  companyCNPJ?: string;
+  companyLogo?: string;
+  companyWebsite?: string;
+  responsiblePerson?: string;
+  technicalContact?: string;
   warrantyTerms?: string;
   updatedAt?: string;
 }
