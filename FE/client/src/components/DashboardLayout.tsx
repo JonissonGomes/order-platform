@@ -58,17 +58,23 @@ export default function DashboardLayout({
   const isAdmin = user?.role === "dono" || user?.role === "super_admin" || user?.role === "admin";
 
   // Get employee data to find profile
-  const { data: employeeData } = useQuery({
+  const { data: employeeData, isLoading: isLoadingEmployee } = useQuery({
     queryKey: ["employee", user?.id],
     queryFn: async () => {
       if (!user?.id || isAdmin) return null;
-      const employees = await api.listEmployees();
-      return employees.employees?.find((e: Employee) => e.userId === user.id);
+      try {
+        const employees = await api.listEmployees();
+        return employees.employees?.find((e: Employee) => e.userId === user.id) || null;
+      } catch (error) {
+        console.error("Error fetching employee data:", error);
+        return null;
+      }
     },
     enabled: !isAdmin && !!user?.id,
+    retry: 1,
   });
 
-  // Map role to profile name
+  // Map role to profile name - works for all roles
   const getProfileName = (): string | null => {
     if (user?.role === "dono" || user?.role === "super_admin") {
       return "Dono";
@@ -76,14 +82,20 @@ export default function DashboardLayout({
     if (user?.role === "admin") {
       return "Administrador";
     }
+    // For non-admin users, try to get role from employeeData
     if (employeeData?.role) {
       const roleMap: Record<string, string> = {
         "admin": "Administrador",
         "department_manager": "Gerente",
         "attendant": "Atendente",
         "technician": "Técnico",
+        "user": "User", // Cliente
       };
       return roleMap[employeeData.role] || null;
+    }
+    // If employeeData is not found but user has role "user", it might be a customer
+    if (user?.role === "user" && !isLoadingEmployee) {
+      return "User";
     }
     return null;
   };
@@ -91,10 +103,19 @@ export default function DashboardLayout({
   const profileName = getProfileName();
 
   // Get profile permissions from database
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
     queryKey: ["profile", profileName],
-    queryFn: () => api.getProfileByName(profileName!),
+    queryFn: async () => {
+      if (!profileName) return null;
+      try {
+        return await api.getProfileByName(profileName);
+      } catch (error) {
+        console.error(`Error fetching profile "${profileName}":`, error);
+        return null;
+      }
+    },
     enabled: !isAdmin && !!profileName,
+    retry: 1,
   });
 
   // Get visible modules based on actual profile permissions
@@ -106,24 +127,66 @@ export default function DashboardLayout({
       return MODULES;
     }
 
-    // If no profile found, return empty
+    // If we're still loading employee data, wait
+    if (isLoadingEmployee && !employeeData) {
+      return []; // Still loading
+    }
+
+    // If we have a profileName but profile is still loading, wait
+    if (profileName && isLoadingProfile) {
+      return []; // Still loading profile
+    }
+
+    // If we have a profileName but no profile was found, return empty (profile doesn't exist)
+    if (profileName && !profile?.profile) {
+      console.warn(`Profile "${profileName}" not found in database`);
+      return []; // Profile not found
+    }
+
+    // If we don't have a profileName yet and we're not loading, user might not have a profile
+    if (!profileName && !isLoadingEmployee) {
+      console.warn(`No profile name found for user role: ${user.role}`);
+      return []; // No profile mapping found
+    }
+
+    // If no profile found and we're not admin, return empty
     if (!profile?.profile) {
-      return [];
+      return []; // Profile not found
     }
 
     // Filter modules based on actual profile permissions
     const userPermissions = profile.profile.permissions || [];
-    return MODULES.filter((module) => {
+    const filtered = MODULES.filter((module) => {
       // Check if user has any of the required permissions for this module
-      return module.permissions.some((perm) => 
-        userPermissions.some((userPerm) => 
-          permissionMatchesModule(userPerm, module.path) || 
-          userPerm === "*" ||
-          (userPerm.endsWith(".*") && perm.startsWith(userPerm.slice(0, -2) + "."))
-        )
-      );
+      // First check if user has wildcard permission
+      if (userPermissions.includes("*")) {
+        return true;
+      }
+      
+      // Check each module permission against user permissions
+      return module.permissions.some((modulePerm) => {
+        // Check if any user permission matches this module permission
+        return userPermissions.some((userPerm) => {
+          // Direct match
+          if (userPerm === modulePerm) return true;
+          
+          // Wildcard match (user has "service_orders.*" and module needs "service_orders.read")
+          if (userPerm.endsWith(".*")) {
+            const userPrefix = userPerm.slice(0, -2);
+            if (modulePerm.startsWith(userPrefix + ".")) return true;
+          }
+          
+          // Module path match (user has "service_orders.read" and module path is "/service-orders")
+          if (permissionMatchesModule(userPerm, module.path)) return true;
+          
+          return false;
+        });
+      });
     });
-  }, [user?.role, isAdmin, profile?.profile]);
+
+    console.log(`[DashboardLayout] User: ${user?.email}, Profile: ${profileName}, Permissions:`, userPermissions, "Visible modules:", filtered.map(m => m.path));
+    return filtered;
+  }, [user?.role, isAdmin, profile?.profile, profileName, profile, employeeData, isLoadingEmployee, isLoadingProfile]);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -227,14 +290,20 @@ function DashboardLayoutContent({
   // Reuse the same permission logic
   const isAdmin = user?.role === "dono" || user?.role === "super_admin" || user?.role === "admin";
 
-  const { data: employeeData } = useQuery({
+  const { data: employeeData, isLoading: isLoadingEmployee } = useQuery({
     queryKey: ["employee", user?.id],
     queryFn: async () => {
       if (!user?.id || isAdmin) return null;
-      const employees = await api.listEmployees();
-      return employees.employees?.find((e: Employee) => e.userId === user.id);
+      try {
+        const employees = await api.listEmployees();
+        return employees.employees?.find((e: Employee) => e.userId === user.id) || null;
+      } catch (error) {
+        console.error("Error fetching employee data:", error);
+        return null;
+      }
     },
     enabled: !isAdmin && !!user?.id,
+    retry: 1,
   });
 
   const getProfileName = (): string | null => {
@@ -246,35 +315,96 @@ function DashboardLayoutContent({
         "department_manager": "Gerente",
         "attendant": "Atendente",
         "technician": "Técnico",
+        "user": "User",
       };
       return roleMap[employeeData.role] || null;
+    }
+    if (user?.role === "user" && !isLoadingEmployee) {
+      return "User";
     }
     return null;
   };
 
   const profileName = getProfileName();
 
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
     queryKey: ["profile", profileName],
-    queryFn: () => api.getProfileByName(profileName!),
+    queryFn: async () => {
+      if (!profileName) return null;
+      try {
+        return await api.getProfileByName(profileName);
+      } catch (error) {
+        console.error(`Error fetching profile "${profileName}":`, error);
+        return null;
+      }
+    },
     enabled: !isAdmin && !!profileName,
+    retry: 1,
   });
 
   const visibleModules = useMemo(() => {
     if (!user?.role) return [];
     if (isAdmin) return MODULES;
-    if (!profile?.profile) return [];
+    
+    // If we're still loading employee data, wait
+    if (isLoadingEmployee && !employeeData) {
+      return []; // Still loading
+    }
+
+    // If we have a profileName but profile is still loading, wait
+    if (profileName && isLoadingProfile) {
+      return []; // Still loading profile
+    }
+
+    // If we have a profileName but no profile was found, return empty
+    if (profileName && !profile?.profile) {
+      console.warn(`Profile "${profileName}" not found in database`);
+      return []; // Profile not found
+    }
+
+    // If we don't have a profileName yet and we're not loading, user might not have a profile
+    if (!profileName && !isLoadingEmployee) {
+      console.warn(`No profile name found for user role: ${user.role}`);
+      return []; // No profile mapping found
+    }
+
+    // If no profile found and we're not admin, return empty
+    if (!profile?.profile) {
+      return []; // Profile not found
+    }
+
     const userPermissions = profile.profile.permissions || [];
-    return MODULES.filter((module) => {
-      return module.permissions.some((perm) => 
-        userPermissions.some((userPerm) => 
-          permissionMatchesModule(userPerm, module.path) || 
-          userPerm === "*" ||
-          (userPerm.endsWith(".*") && perm.startsWith(userPerm.slice(0, -2) + "."))
-        )
-      );
+    const filtered = MODULES.filter((module) => {
+      // Check if user has any of the required permissions for this module
+      // First check if user has wildcard permission
+      if (userPermissions.includes("*")) {
+        return true;
+      }
+      
+      // Check each module permission against user permissions
+      return module.permissions.some((modulePerm) => {
+        // Check if any user permission matches this module permission
+        return userPermissions.some((userPerm) => {
+          // Direct match
+          if (userPerm === modulePerm) return true;
+          
+          // Wildcard match (user has "service_orders.*" and module needs "service_orders.read")
+          if (userPerm.endsWith(".*")) {
+            const userPrefix = userPerm.slice(0, -2);
+            if (modulePerm.startsWith(userPrefix + ".")) return true;
+          }
+          
+          // Module path match (user has "service_orders.read" and module path is "/service-orders")
+          if (permissionMatchesModule(userPerm, module.path)) return true;
+          
+          return false;
+        });
+      });
     });
-  }, [user?.role, isAdmin, profile?.profile]);
+
+    console.log(`[DashboardLayoutContent] User: ${user?.email}, Profile: ${profileName}, Permissions:`, userPermissions, "Visible modules:", filtered.map(m => m.path));
+    return filtered;
+  }, [user?.role, isAdmin, profile?.profile, profileName, profile, employeeData, isLoadingEmployee, isLoadingProfile]);
 
   const activeMenuItem = visibleModules.find(module => module.path === location);
 

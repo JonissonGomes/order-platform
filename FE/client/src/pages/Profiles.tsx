@@ -135,19 +135,43 @@ export default function Profiles() {
     try {
       setModulesLoading(true);
       const response = await api.getAvailableModules();
-      setAvailableModules(response.modules || []);
+      const modules = response.modules || [];
+      console.log("[Profiles] Available modules from API:", modules);
+      setAvailableModules(modules);
+      
+      // If API returns empty or incomplete, use fallback
+      if (modules.length === 0 || modules.length < 8) {
+        console.warn("[Profiles] API returned incomplete modules, using fallback");
+        setAvailableModules([
+          "/dashboard",
+          "/service-orders",
+          "/customers",
+          "/departments",
+          "/employees",
+          "/stock",
+          "/financial",
+          "/reports",
+          "/profiles",
+          "/settings",
+        ]);
+      }
     } catch (error: any) {
+      console.error("[Profiles] Error loading modules:", error);
       if (error.message && error.message.trim() !== "") {
         toast.error(error.message || "Erro ao carregar módulos disponíveis");
       }
-      // Fallback to default modules
+      // Fallback to default modules (includes all modules)
       setAvailableModules([
         "/dashboard",
         "/service-orders",
         "/customers",
         "/departments",
         "/employees",
+        "/stock",
+        "/financial",
+        "/reports",
         "/profiles",
+        "/settings",
       ]);
     } finally {
       setModulesLoading(false);
@@ -387,12 +411,18 @@ export default function Profiles() {
   // Group modules by category
   // Negócio: módulos relacionados ao negócio principal
   const businessModules = availableModules.filter((m) => 
-    m === "/dashboard" || m === "/service-orders" || m === "/customers"
+    m === "/dashboard" || m === "/service-orders" || m === "/customers" || 
+    m === "/stock" || m === "/financial" || m === "/reports"
   );
   // Administração: módulos administrativos
   const adminModules = availableModules.filter((m) => 
-    m === "/departments" || m === "/employees" || m === "/profiles"
+    m === "/departments" || m === "/employees" || m === "/profiles" || m === "/settings"
   );
+
+  // Debug: log available modules
+  console.log("[Profiles] Available modules:", availableModules);
+  console.log("[Profiles] Business modules:", businessModules);
+  console.log("[Profiles] Admin modules:", adminModules);
 
   return (
     <DashboardLayout>

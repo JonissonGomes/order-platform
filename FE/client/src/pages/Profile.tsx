@@ -30,6 +30,9 @@ export default function Profile() {
     enabled: !!employeeData?.departmentId,
   });
 
+  // Get the actual role from employee if available, otherwise use user role
+  const actualRole = employeeData?.role || user?.role;
+
   const getRoleLabel = (role?: string) => {
     switch (role) {
       case "dono":        // novo valor
@@ -37,12 +40,43 @@ export default function Profile() {
         return "Dono";
       case "admin":
         return "Administrador";
+      case "department_manager":
+        return "Gerente";
+      case "attendant":
+        return "Atendente";
+      case "technician":
+        return "Técnico";
       case "user":
-        return "Usuário";
+        return "Cliente";
       default:
         return role || "Usuário";
     }
   };
+
+  // Get profile name for display
+  const getProfileName = (): string | null => {
+    if (actualRole === "dono" || actualRole === "super_admin") {
+      return "Dono";
+    }
+    if (actualRole === "admin") {
+      return "Administrador";
+    }
+    if (actualRole === "department_manager") {
+      return "Gerente";
+    }
+    if (actualRole === "attendant") {
+      return "Atendente";
+    }
+    if (actualRole === "technician") {
+      return "Técnico";
+    }
+    if (actualRole === "user") {
+      return "Cliente";
+    }
+    return null;
+  };
+
+  const profileName = getProfileName();
 
   return (
     <DashboardLayout>
@@ -65,7 +99,7 @@ export default function Profile() {
               <div>
                 <CardTitle className="text-xl">{user?.name || "Usuário"}</CardTitle>
                 <CardDescription className="text-base mt-1">
-                  {getRoleLabel(user?.role)}
+                  {profileName || getRoleLabel(actualRole)}
                 </CardDescription>
                 {departmentData?.department && (
                   <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
@@ -104,7 +138,7 @@ export default function Profile() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-muted-foreground">Perfil de Acesso</p>
-                  <p className="text-sm mt-1 capitalize">{getRoleLabel(user?.role)}</p>
+                  <p className="text-sm mt-1">{profileName || getRoleLabel(actualRole)}</p>
                 </div>
               </div>
 

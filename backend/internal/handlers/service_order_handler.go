@@ -298,12 +298,14 @@ func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 		}
 	}
 
-	// Generate unique order number
+	// Generate unique order number using random alphanumeric format (ODG-XXXXXXXX)
 	orderNumber, err := h.generateUniqueOrderNumber(ctx)
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}
+	// Debug log to verify the new format is being used
+	fmt.Printf("[ServiceOrderHandler] Generated order number: %s\n", orderNumber)
 
 	// Convert image URLs to Image models
 	images := make([]models.Image, 0, len(req.Images))
