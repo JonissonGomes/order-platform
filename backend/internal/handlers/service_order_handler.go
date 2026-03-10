@@ -131,51 +131,29 @@ type AddNoteRequest struct {
 	Content string `json:"content" binding:"required"`
 }
 
-// generateUniqueOrderNumber generates a unique order number
+// generateUniqueOrderNumber generates a unique random alphanumeric order number
 func (h *ServiceOrderHandler) generateUniqueOrderNumber(ctx context.Context) (string, error) {
-	year := utils.GetCurrentYear()
-
-	// Get all orders for this year to find the highest sequence
-	filter := bson.M{
-		"orderNumber": bson.M{
-			"$regex": fmt.Sprintf("^ORD-%d-", year),
-		},
-	}
-
-	// List all orders for this year (sorted by orderNumber descending)
-	orders, err := h.serviceOrderRepo.ListServiceOrders(ctx, 0, 1000, filter)
-	if err != nil {
-		return "", err
-	}
-
-	sequence := 1
-	if len(orders) > 0 {
-		// Find the highest sequence number
-		for _, order := range orders {
-			var lastYear, lastSeq int
-			if _, err := fmt.Sscanf(order.OrderNumber, "ORD-%d-%d", &lastYear, &lastSeq); err == nil {
-				if lastSeq >= sequence {
-					sequence = lastSeq + 1
-				}
-			}
+	maxAttempts := 100
+	for i := 0; i < maxAttempts; i++ {
+		// Generate random order number
+		orderNumber, err := utils.GenerateRandomOrderNumber()
+		if err != nil {
+			return "", fmt.Errorf("failed to generate order number: %w", err)
 		}
+
+		// Verify uniqueness
+		existing, err := h.serviceOrderRepo.GetServiceOrderByOrderNumber(ctx, orderNumber)
+		if err != nil {
+			return "", err
+		}
+		if existing == nil {
+			// Number is unique, return it
+			return orderNumber, nil
+		}
+		// If exists, try again
 	}
 
-	// Generate new order number
-	orderNumber := utils.GenerateOrderNumber(year, sequence)
-
-	// Verify uniqueness (shouldn't happen, but safety check)
-	existing, err := h.serviceOrderRepo.GetServiceOrderByOrderNumber(ctx, orderNumber)
-	if err != nil {
-		return "", err
-	}
-	if existing != nil {
-		// If somehow exists, increment and try again
-		sequence++
-		orderNumber = utils.GenerateOrderNumber(year, sequence)
-	}
-
-	return orderNumber, nil
+	return "", fmt.Errorf("failed to generate unique order number after %d attempts", maxAttempts)
 }
 
 // CreateServiceOrder creates a new service order

@@ -30,9 +30,13 @@ import { CSSProperties, useEffect, useRef, useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
-import { getVisibleModules } from "@/types/modules";
+import { MODULES } from "@/types/modules";
 import * as Icons from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import type { Employee } from "@/types";
+import { permissionMatchesModule } from "@/lib/permission-mapper";
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;
@@ -50,11 +54,76 @@ export default function DashboardLayout({
   });
   const { loading, user, isSuspended } = useAuth();
   
-  // Get visible modules based on user role
+  // Check if user is admin/dono
+  const isAdmin = user?.role === "dono" || user?.role === "super_admin" || user?.role === "admin";
+
+  // Get employee data to find profile
+  const { data: employeeData } = useQuery({
+    queryKey: ["employee", user?.id],
+    queryFn: async () => {
+      if (!user?.id || isAdmin) return null;
+      const employees = await api.listEmployees();
+      return employees.employees?.find((e: Employee) => e.userId === user.id);
+    },
+    enabled: !isAdmin && !!user?.id,
+  });
+
+  // Map role to profile name
+  const getProfileName = (): string | null => {
+    if (user?.role === "dono" || user?.role === "super_admin") {
+      return "Dono";
+    }
+    if (user?.role === "admin") {
+      return "Administrador";
+    }
+    if (employeeData?.role) {
+      const roleMap: Record<string, string> = {
+        "admin": "Administrador",
+        "department_manager": "Gerente",
+        "attendant": "Atendente",
+        "technician": "Técnico",
+      };
+      return roleMap[employeeData.role] || null;
+    }
+    return null;
+  };
+
+  const profileName = getProfileName();
+
+  // Get profile permissions from database
+  const { data: profile } = useQuery({
+    queryKey: ["profile", profileName],
+    queryFn: () => api.getProfileByName(profileName!),
+    enabled: !isAdmin && !!profileName,
+  });
+
+  // Get visible modules based on actual profile permissions
   const visibleModules = useMemo(() => {
     if (!user?.role) return [];
-    return getVisibleModules(user.role);
-  }, [user?.role]);
+    
+    // If admin/dono, show all modules
+    if (isAdmin) {
+      return MODULES;
+    }
+
+    // If no profile found, return empty
+    if (!profile?.profile) {
+      return [];
+    }
+
+    // Filter modules based on actual profile permissions
+    const userPermissions = profile.profile.permissions || [];
+    return MODULES.filter((module) => {
+      // Check if user has any of the required permissions for this module
+      return module.permissions.some((perm) => 
+        userPermissions.some((userPerm) => 
+          permissionMatchesModule(userPerm, module.path) || 
+          userPerm === "*" ||
+          (userPerm.endsWith(".*") && perm.startsWith(userPerm.slice(0, -2) + "."))
+        )
+      );
+    });
+  }, [user?.role, isAdmin, profile?.profile]);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -155,11 +224,57 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // Get visible modules based on user role
+  // Reuse the same permission logic
+  const isAdmin = user?.role === "dono" || user?.role === "super_admin" || user?.role === "admin";
+
+  const { data: employeeData } = useQuery({
+    queryKey: ["employee", user?.id],
+    queryFn: async () => {
+      if (!user?.id || isAdmin) return null;
+      const employees = await api.listEmployees();
+      return employees.employees?.find((e: Employee) => e.userId === user.id);
+    },
+    enabled: !isAdmin && !!user?.id,
+  });
+
+  const getProfileName = (): string | null => {
+    if (user?.role === "dono" || user?.role === "super_admin") return "Dono";
+    if (user?.role === "admin") return "Administrador";
+    if (employeeData?.role) {
+      const roleMap: Record<string, string> = {
+        "admin": "Administrador",
+        "department_manager": "Gerente",
+        "attendant": "Atendente",
+        "technician": "Técnico",
+      };
+      return roleMap[employeeData.role] || null;
+    }
+    return null;
+  };
+
+  const profileName = getProfileName();
+
+  const { data: profile } = useQuery({
+    queryKey: ["profile", profileName],
+    queryFn: () => api.getProfileByName(profileName!),
+    enabled: !isAdmin && !!profileName,
+  });
+
   const visibleModules = useMemo(() => {
     if (!user?.role) return [];
-    return getVisibleModules(user.role);
-  }, [user?.role]);
+    if (isAdmin) return MODULES;
+    if (!profile?.profile) return [];
+    const userPermissions = profile.profile.permissions || [];
+    return MODULES.filter((module) => {
+      return module.permissions.some((perm) => 
+        userPermissions.some((userPerm) => 
+          permissionMatchesModule(userPerm, module.path) || 
+          userPerm === "*" ||
+          (userPerm.endsWith(".*") && perm.startsWith(userPerm.slice(0, -2) + "."))
+        )
+      );
+    });
+  }, [user?.role, isAdmin, profile?.profile]);
 
   const activeMenuItem = visibleModules.find(module => module.path === location);
 

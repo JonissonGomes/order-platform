@@ -58,7 +58,7 @@ export default function PrintServiceOrder() {
 
   useEffect(() => {
     if (order) {
-      document.title = `OS #${order.orderNumber}`;
+      document.title = `Ordem #${order.orderNumber}`;
     }
   }, [order]);
 
@@ -84,7 +84,7 @@ export default function PrintServiceOrder() {
   const totalServices = order.serviceItems?.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0) ?? 0;
   const finalTotal = order.finalCost ?? totalServices;
   // Warranty terms: order-specific > global settings > empty
-  const warrantyTerms = order.warrantyTerms || settings?.defaultWarrantyTerms || "";
+  const warrantyTerms = order.warrantyTerms || settings?.warrantyTerms || "";
 
   return (
     <>
@@ -111,10 +111,10 @@ export default function PrintServiceOrder() {
           <div className="flex items-start gap-4">
             {/* Logo - à esquerda */}
             <div className="flex-shrink-0">
-              {(settings?.companyLogo || import.meta.env.VITE_COMPANY_LOGO) ? (
+              {(settings?.companyLogo || (import.meta as any).env?.VITE_COMPANY_LOGO) ? (
                 <div>
                   <img
-                    src={settings?.companyLogo || import.meta.env.VITE_COMPANY_LOGO}
+                    src={settings?.companyLogo || (import.meta as any).env?.VITE_COMPANY_LOGO}
                     alt="Logo"
                     className="h-20 w-20 object-contain print:h-20 print:w-20"
                   />
@@ -166,19 +166,19 @@ export default function PrintServiceOrder() {
             {/* Informações da empresa - à direita */}
             <div className="flex-1">
               <h1 className="text-xl font-bold uppercase tracking-wide mb-2">
-                {settings?.companyName || import.meta.env.VITE_COMPANY_NAME || "Doutor Game"}
+                {settings?.companyName || (import.meta as any).env?.VITE_COMPANY_NAME || "Doutor Game"}
               </h1>
-              {(settings?.companyCNPJ || import.meta.env.VITE_COMPANY_CNPJ) && (
-                <p className="text-xs text-gray-600 mb-1">CNPJ: {settings?.companyCNPJ || import.meta.env.VITE_COMPANY_CNPJ}</p>
+              {(settings?.companyCNPJ || (import.meta as any).env?.VITE_COMPANY_CNPJ) && (
+                <p className="text-xs text-gray-600 mb-1">CNPJ: {settings?.companyCNPJ || (import.meta as any).env?.VITE_COMPANY_CNPJ}</p>
               )}
-              {(settings?.companyAddress || import.meta.env.VITE_COMPANY_ADDRESS) && (
+              {(settings?.companyAddress || (import.meta as any).env?.VITE_COMPANY_ADDRESS) && (
                 <p className="text-xs text-gray-600 mb-1">
                   {settings?.companyAddress
                     ? `${settings.companyAddress.street}, ${settings.companyAddress.number}${settings.companyAddress.complement ? ` (${settings.companyAddress.complement})` : ""} - ${settings.companyAddress.neighborhood || ""}`
-                    : import.meta.env.VITE_COMPANY_ADDRESS}
+                    : (import.meta as any).env?.VITE_COMPANY_ADDRESS}
                 </p>
               )}
-              {(settings?.companyAddress || import.meta.env.VITE_COMPANY_ADDRESS) && (
+              {(settings?.companyAddress || (import.meta as any).env?.VITE_COMPANY_ADDRESS) && (
                 <p className="text-xs text-gray-600 mb-1">
                   {settings?.companyAddress
                     ? `${settings.companyAddress.city}/${settings.companyAddress.state} - CEP: ${settings.companyAddress.zipCode || ""}`
@@ -189,20 +189,20 @@ export default function PrintServiceOrder() {
 
             {/* Informações de contato e responsáveis - à direita */}
             <div className="text-right text-xs text-gray-600 flex-shrink-0">
-              {(settings?.companyPhone || import.meta.env.VITE_COMPANY_PHONE) && (
-                <p className="mb-1">{settings?.companyPhone || import.meta.env.VITE_COMPANY_PHONE}</p>
+              {(settings?.companyPhone || (import.meta as any).env?.VITE_COMPANY_PHONE) && (
+                <p className="mb-1">{settings?.companyPhone || (import.meta as any).env?.VITE_COMPANY_PHONE}</p>
               )}
-              {(settings?.companyEmail || import.meta.env.VITE_COMPANY_EMAIL) && (
-                <p className="mb-1">{settings?.companyEmail || import.meta.env.VITE_COMPANY_EMAIL}</p>
+              {(settings?.companyEmail || (import.meta as any).env?.VITE_COMPANY_EMAIL) && (
+                <p className="mb-1">{settings?.companyEmail || (import.meta as any).env?.VITE_COMPANY_EMAIL}</p>
               )}
-              {(settings?.companyWebsite || import.meta.env.VITE_COMPANY_WEBSITE) && (
-                <p className="mb-1">{settings?.companyWebsite || import.meta.env.VITE_COMPANY_WEBSITE}</p>
+              {(settings?.companyWebsite || (import.meta as any).env?.VITE_COMPANY_WEBSITE) && (
+                <p className="mb-1">{settings?.companyWebsite || (import.meta as any).env?.VITE_COMPANY_WEBSITE}</p>
               )}
-              {(settings?.responsiblePerson || import.meta.env.VITE_RESPONSIBLE_PERSON) && (
-                <p className="mb-1">Responsável: {settings?.responsiblePerson || import.meta.env.VITE_RESPONSIBLE_PERSON}</p>
+              {(settings?.responsiblePerson || (import.meta as any).env?.VITE_RESPONSIBLE_PERSON) && (
+                <p className="mb-1">Responsável: {settings?.responsiblePerson || (import.meta as any).env?.VITE_RESPONSIBLE_PERSON}</p>
               )}
-              {(settings?.technicalContact || import.meta.env.VITE_TECHNICAL_CONTACT) && (
-                <p>Técnico: {settings?.technicalContact || import.meta.env.VITE_TECHNICAL_CONTACT}</p>
+              {(settings?.technicalContact || (import.meta as any).env?.VITE_TECHNICAL_CONTACT) && (
+                <p>Técnico: {settings?.technicalContact || (import.meta as any).env?.VITE_TECHNICAL_CONTACT}</p>
               )}
             </div>
           </div>
@@ -379,7 +379,7 @@ export default function PrintServiceOrder() {
                     {order.delivery.type === "own" ? "Entrega própria" : "Serviço terceirizado"}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 font-medium w-32">Custo:</td>
-                  <td className="border border-gray-300 px-2 py-1">{formatCurrency(order.delivery.cost || 0)}</td>
+                  <td className="border border-gray-300 px-2 py-1">{formatCurrency(order.delivery.cost ?? 0)}</td>
                 </tr>
                 {order.delivery.distanceKm != null && order.delivery.distanceKm > 0 && (
                   <tr>
@@ -474,7 +474,7 @@ export default function PrintServiceOrder() {
 
         {/* Rodapé */}
         <div className="text-center mt-4 text-xs text-gray-400 border-t pt-2 print:mt-4">
-          Ordem de serviço emitida via sistema de OS
+          Ordem de serviço emitida via sistema
         </div>
       </div>
 

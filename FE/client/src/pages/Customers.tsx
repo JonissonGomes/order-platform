@@ -356,9 +356,21 @@ function CustomerForm({
     },
   });
 
+  // Show address fields if customer has address or if CEP is filled
+  useEffect(() => {
+    if (customer?.address?.zipCode && customer.address.zipCode.length >= 8) {
+      setShowAddressFields(true);
+    } else if (formData.address.zipCode && formData.address.zipCode.length >= 8) {
+      setShowAddressFields(true);
+    }
+  }, [customer?.address?.zipCode]);
+
   const handleCEP = async (cep: string) => {
     const raw = cep.replace(/\D/g, "");
-    if (raw.length !== 8) return;
+    if (raw.length !== 8) {
+      setShowAddressFields(false);
+      return;
+    }
     setCepLoading(true);
     try {
       const data = await fetchCEP(raw);
@@ -373,9 +385,12 @@ function CustomerForm({
             state: data.state || prev.address.state,
           },
         }));
+        setShowAddressFields(true);
+      } else {
+        setShowAddressFields(false);
       }
     } catch {
-      // silently fail
+      setShowAddressFields(false);
     } finally {
       setCepLoading(false);
     }
@@ -484,7 +499,11 @@ function CustomerForm({
                   const raw = e.target.value.replace(/\D/g, "");
                   if (raw.length <= 8) {
                     setAddr("zipCode", raw);
-                    if (raw.length === 8) handleCEP(raw);
+                    if (raw.length === 8) {
+                      handleCEP(raw);
+                    } else if (raw.length < 8) {
+                      setShowAddressFields(false);
+                    }
                   }
                 }}
                 placeholder="00000-000"
@@ -497,30 +516,34 @@ function CustomerForm({
             <Input value={formData.address.state} onChange={(e) => setAddr("state", e.target.value.toUpperCase().slice(0,2))} placeholder="PE" maxLength={2} />
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs">Rua / Logradouro</Label>
-            <Input value={formData.address.street} onChange={(e) => setAddr("street", e.target.value)} placeholder="Rua das Flores" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Número</Label>
-            <Input value={formData.address.number} onChange={(e) => setAddr("number", e.target.value)} placeholder="123" />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Bairro</Label>
-            <Input value={formData.address.neighborhood} onChange={(e) => setAddr("neighborhood", e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Cidade</Label>
-            <Input value={formData.address.city} onChange={(e) => setAddr("city", e.target.value)} />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Complemento</Label>
-          <Input value={formData.address.complement} onChange={(e) => setAddr("complement", e.target.value)} placeholder="Apto 10, Bloco A..." />
-        </div>
+        {showAddressFields && (
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">Rua / Logradouro</Label>
+                <Input value={formData.address.street} onChange={(e) => setAddr("street", e.target.value)} placeholder="Rua das Flores" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Número</Label>
+                <Input value={formData.address.number} onChange={(e) => setAddr("number", e.target.value)} placeholder="123" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Bairro</Label>
+                <Input value={formData.address.neighborhood} onChange={(e) => setAddr("neighborhood", e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Cidade</Label>
+                <Input value={formData.address.city} onChange={(e) => setAddr("city", e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Complemento</Label>
+              <Input value={formData.address.complement} onChange={(e) => setAddr("complement", e.target.value)} placeholder="Apto 10, Bloco A..." />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Manutenção */}

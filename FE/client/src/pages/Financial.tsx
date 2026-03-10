@@ -607,13 +607,17 @@ export default function Financial() {
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Novo Lançamento</DialogTitle></DialogHeader>
-          <TransactionForm
-            onSave={(data) => createMutation.mutate(data as Parameters<typeof api.createTransaction>[0])}
-            onCancel={() => setShowCreateDialog(false)}
-            loading={createMutation.isPending}
-          />
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-xl">Novo Lançamento</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <TransactionForm
+              onSave={(data) => createMutation.mutate(data as Parameters<typeof api.createTransaction>[0])}
+              onCancel={() => setShowCreateDialog(false)}
+              loading={createMutation.isPending}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </DashboardLayout>

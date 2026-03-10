@@ -177,7 +177,11 @@ func (h *ProfileHandler) GetAvailableModules(c *gin.Context) {
 		"/customers",
 		"/departments",
 		"/employees",
+		"/stock",
+		"/financial",
+		"/reports",
 		"/profiles",
+		"/settings",
 	}
 
 	c.JSON(http.StatusOK, gin.H{"modules": modules})

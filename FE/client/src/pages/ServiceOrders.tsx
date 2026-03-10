@@ -60,7 +60,7 @@ import type { ServiceOrder, ServiceOrderStatus, Customer, Department, Employee, 
 import {
   Plus, Search, FileText, Check, ChevronsUpDown, UserPlus,
   Filter, Trash2, Printer, X, Loader2, ChevronLeft, ChevronRight, Pencil,
-  Copy, ExternalLink, RefreshCw,
+  Copy, ExternalLink, RefreshCw, Lock,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
@@ -241,7 +241,7 @@ export default function ServiceOrders() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[120px]">OS #</TableHead>
+                  <TableHead className="w-[120px]">Ordem</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead className="hidden sm:table-cell">Tipo</TableHead>
                   <TableHead className="hidden md:table-cell">Produto</TableHead>
@@ -325,7 +325,7 @@ export default function ServiceOrders() {
             <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <div className="flex items-center justify-between">
                 <div>
-                  <DialogTitle className="text-xl font-mono font-semibold">OS #{selectedOrder.orderNumber}</DialogTitle>
+                  <DialogTitle className="text-xl font-mono font-semibold">Ordem #{selectedOrder.orderNumber}</DialogTitle>
                   <DialogDescription className="mt-1.5 text-sm">{selectedOrder.productBrand} {selectedOrder.productModel} • {selectedOrder.productType}</DialogDescription>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[selectedOrder.status]}`}>
@@ -451,7 +451,7 @@ export default function ServiceOrders() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a OS #{deletingOrder?.orderNumber}? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir a Ordem #{deletingOrder?.orderNumber}? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -756,7 +756,7 @@ function EditOrderDialog({ order, onClose, onSuccess }: { order: ServiceOrder; o
           }}
         >
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-xl">Editar OS #{order.orderNumber}</DialogTitle>
+            <DialogTitle className="text-xl">Editar Ordem #{order.orderNumber}</DialogTitle>
             <DialogDescription className="mt-1.5">Atualize as informações da ordem de serviço</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -933,7 +933,7 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
         },
         delivery: formData.deliveryType !== "none" ? {
           type: formData.deliveryType,
-          cost: formData.deliveryCost ? unformatCurrency(formData.deliveryCost) : 0,
+          cost: formData.deliveryCost && formData.deliveryCost !== "" ? unformatCurrency(formData.deliveryCost) : undefined,
           distanceKm: formData.deliveryDistanceKm ? parseFloat(formData.deliveryDistanceKm) : 0,
           address: deliveryAddress.zipCode ? {
             zipCode: deliveryAddress.zipCode,
@@ -1016,34 +1016,80 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
   const updateItem = (i: number, field: keyof ServiceItem, val: string | number) =>
     setServiceItems(serviceItems.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
 
+  // Filter steps based on status - Finalização only shows if status is delivered
+  const visibleSteps = formData.newStatus === "delivered" 
+    ? EDIT_STEPS 
+    : EDIT_STEPS.filter((s) => s.id !== "finalize");
+
   return (
     <div className="space-y-6">
       {/* Step indicator */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1">
-        {EDIT_STEPS.map((s, i) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => setStep(i)}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
-              i === step
-                ? "bg-primary text-primary-foreground"
-                : i < step
-                  ? "bg-muted text-muted-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <span className={cn(
-              "w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold",
-              i === step ? "bg-primary-foreground/20 text-primary-foreground" :
-              i < step ? "bg-green-500 text-white" : "bg-muted-foreground/20"
-            )}>
-              {i < step ? "✓" : i + 1}
-            </span>
-            {s.label}
-          </button>
-        ))}
+      <div className="relative">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 px-1">
+          {EDIT_STEPS.map((s, i) => {
+            const isFinalizeStep = s.id === "finalize";
+            const isHidden = isFinalizeStep && formData.newStatus !== "delivered";
+            const isVisible = !isHidden;
+            const isActive = i === step;
+            const isCompleted = i < step;
+            const isClickable = isVisible && (isCompleted || i === step || (i === step + 1 && validateStep(step)));
+
+            return (
+              <div key={s.id} className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isClickable) {
+                      setStep(i);
+                    }
+                  }}
+                  disabled={!isClickable}
+                  className={cn(
+                    "relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200",
+                    isHidden && "opacity-40 cursor-not-allowed",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-md scale-105"
+                      : isCompleted
+                        ? "bg-green-50 text-green-700 border border-green-200 hover:bg-green-100"
+                        : isClickable
+                          ? "bg-muted text-muted-foreground hover:bg-muted/80 border border-border"
+                          : "bg-muted/50 text-muted-foreground/50 border border-border/50 cursor-not-allowed"
+                  )}
+                  title={isHidden ? "Este step só aparece quando o status for 'Entregue'" : undefined}
+                >
+                  <span className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all",
+                    isActive
+                      ? "bg-primary-foreground text-primary shadow-sm"
+                      : isCompleted
+                        ? "bg-green-500 text-white"
+                        : "bg-muted-foreground/20 text-muted-foreground"
+                  )}>
+                    {isCompleted ? "✓" : i + 1}
+                  </span>
+                  <span className="hidden sm:inline">{s.label}</span>
+                  {isHidden && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-100 border border-orange-300 rounded-full flex items-center justify-center" title="Step oculto - só aparece quando status for 'Entregue'">
+                      <Lock className="w-2.5 h-2.5 text-orange-600" />
+                    </div>
+                  )}
+                </button>
+                {i < EDIT_STEPS.length - 1 && (
+                  <div className={cn(
+                    "w-8 h-0.5 transition-colors",
+                    isCompleted ? "bg-green-500" : "bg-border"
+                  )} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {formData.newStatus !== "delivered" && (
+          <p className="text-xs text-muted-foreground mt-2 px-1 flex items-center gap-1">
+            <span className="w-2 h-2 bg-orange-400 rounded-full" />
+            O step "Finalização" só aparece quando o status for alterado para "Entregue"
+          </p>
+        )}
       </div>
 
       <Separator />
@@ -1063,7 +1109,7 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
           </div>
           <div className="bg-muted/30 rounded-md p-3 text-sm">
             <p className="font-medium">{order.productBrand} {order.productModel}</p>
-            <p className="text-muted-foreground text-xs mt-1">{order.productType} • OS #{order.orderNumber}</p>
+            <p className="text-muted-foreground text-xs mt-1">{order.productType} • Ordem #{order.orderNumber}</p>
             <p className="text-muted-foreground text-xs mt-1"><strong>Defeito:</strong> {order.problemDescription}</p>
           </div>
         </div>
@@ -1324,7 +1370,18 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setFormData({ ...formData, newStatus: value })}
+                  onClick={() => {
+                    const previousStatus = formData.newStatus;
+                    setFormData({ ...formData, newStatus: value });
+                    // Se mudou para delivered e estamos no step de status, avança para finalização
+                    if (value === "delivered" && previousStatus !== "delivered" && step === EDIT_STEPS.findIndex(s => s.id === "status")) {
+                      setTimeout(() => setStep(EDIT_STEPS.findIndex(s => s.id === "finalize")), 100);
+                    }
+                    // Se mudou de delivered para outro status e estamos no step de finalização, volta para status
+                    if (previousStatus === "delivered" && value !== "delivered" && step === EDIT_STEPS.findIndex(s => s.id === "finalize")) {
+                      setTimeout(() => setStep(EDIT_STEPS.findIndex(s => s.id === "status")), 100);
+                    }
+                  }}
                   className={cn(
                     "px-3 py-2 rounded-md text-sm font-medium text-left border transition-colors",
                     formData.newStatus === value
@@ -1374,24 +1431,35 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
       )}
 
       {/* Navigation */}
-      <div className="flex justify-between pt-4 border-t">
+      <div className="flex justify-between items-center pt-6 border-t mt-6">
         <div className="flex gap-2">
           {step > 0 && (
-            <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>
-              <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+            <Button type="button" variant="outline" onClick={() => setStep(step - 1)} size="lg">
+              <ChevronLeft className="mr-2 h-4 w-4" /> Anterior
             </Button>
           )}
         </div>
         <div className="flex gap-2">
           {(() => {
             const maxStep = formData.newStatus === "delivered" ? EDIT_STEPS.length - 1 : EDIT_STEPS.length - 2;
-            return step < maxStep ? (
-              <Button type="button" onClick={handleNextStep}>
-                Próximo <ChevronRight className="ml-1 h-4 w-4" />
+            const isLastStep = step >= maxStep;
+            return !isLastStep ? (
+              <Button type="button" onClick={handleNextStep} size="lg">
+                Próximo <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-            <Button type="button" onClick={handleSubmit} disabled={loading}>
-              {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : "Salvar Alterações"}
+            <Button type="button" onClick={handleSubmit} disabled={loading} size="lg">
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Salvar Alterações
+                </>
+              )}
             </Button>
             );
           })()}

@@ -653,13 +653,17 @@ export default function Stock() {
 
       {/* Dialogs */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Novo Item de Estoque</DialogTitle></DialogHeader>
-          <ItemForm
-            onSave={(data) => createMutation.mutate(data as Parameters<typeof api.createStockItem>[0])}
-            onCancel={() => setShowCreateDialog(false)}
-            loading={createMutation.isPending}
-          />
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-xl">Novo Item de Estoque</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <ItemForm
+              onSave={(data) => createMutation.mutate(data as Parameters<typeof api.createStockItem>[0])}
+              onCancel={() => setShowCreateDialog(false)}
+              loading={createMutation.isPending}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
