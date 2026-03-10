@@ -91,7 +91,7 @@ func New(db *database.MongoDB) *gin.Engine {
 	customerHandler := handlers.NewCustomerHandler(customerRepo, serviceOrderRepo, employeeRepo)
 	serviceOrderHandler := handlers.NewServiceOrderHandler(serviceOrderRepo, customerRepo, departmentRepo, employeeRepo, statusHistoryRepo)
 	departmentHandler := handlers.NewDepartmentHandler(departmentRepo, employeeRepo, serviceOrderRepo)
-	publicHandler := handlers.NewPublicHandler(customerRepo, serviceOrderRepo)
+	publicHandler := handlers.NewPublicHandler(customerRepo, serviceOrderRepo, userRepo)
 	stockHandler := handlers.NewStockHandler(stockRepo, employeeRepo)
 	financialHandler := handlers.NewFinancialHandler(financialRepo, employeeRepo)
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo, employeeRepo)
@@ -241,6 +241,7 @@ func New(db *database.MongoDB) *gin.Engine {
 		{
 			public.GET("/service-orders/:orderNumber", serviceOrderHandler.GetServiceOrderByOrderNumber)
 			public.POST("/service-orders/search", publicHandler.SearchServiceOrder)
+			public.POST("/register", publicHandler.RegisterCustomer)
 		}
 
 		// Stock routes (requires auth)

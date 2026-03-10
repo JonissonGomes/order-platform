@@ -3,40 +3,109 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { UserPlus, Loader2, AlertCircle, LogIn } from "lucide-react";
+import { UserPlus, Loader2, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { formatPhone, formatCPF, formatCEP, validateCPF } from "@/lib/formatters";
+import { fetchCEP } from "@/lib/cep";
 
 export default function Register() {
   const [, setLocation] = useLocation();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAddressFields, setShowAddressFields] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    cpf: "",
+    phone: "",
+    address: {
+      street: "",
+      number: "",
+      complement: "",
+      neighborhood: "",
+      city: "",
+      state: "",
+      zipCode: "",
+    },
+  });
+
+  const handleCEP = async (cep: string) => {
+    const raw = cep.replace(/\D/g, "");
+    if (raw.length !== 8) {
+      setShowAddressFields(false);
+      return;
+    }
+    setCepLoading(true);
+    try {
+      const data = await fetchCEP(raw);
+      if (data) {
+        setFormData((prev) => ({
+          ...prev,
+          address: {
+            ...prev.address,
+            street: data.street || prev.address.street,
+            neighborhood: data.neighborhood || prev.address.neighborhood,
+            city: data.city || prev.address.city,
+            state: data.state || prev.address.state,
+          },
+        }));
+        setShowAddressFields(true);
+      } else {
+        setShowAddressFields(false);
+      }
+    } catch {
+      setShowAddressFields(false);
+    } finally {
+      setCepLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     // Validações
-    if (password.length < 6) {
+    if (formData.password.length < 6) {
       setError("A senha deve ter pelo menos 6 caracteres");
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setError("As senhas não coincidem");
+      return;
+    }
+
+    const cpfRaw = formData.cpf.replace(/\D/g, "");
+    if (cpfRaw.length === 11 && !validateCPF(cpfRaw)) {
+      setError("CPF inválido");
       return;
     }
 
     setLoading(true);
 
     try {
-      await api.register({ name, email, password });
+      await api.registerCustomer({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        cpf: cpfRaw || undefined,
+        phone: formData.phone.replace(/\D/g, ""),
+        address: formData.address.zipCode ? {
+          street: formData.address.street,
+          number: formData.address.number,
+          complement: formData.address.complement,
+          neighborhood: formData.address.neighborhood,
+          city: formData.address.city,
+          state: formData.address.state,
+          zipCode: formData.address.zipCode.replace(/\D/g, ""),
+        } : undefined,
+      });
       toast.success("Conta criada com sucesso! Faça login para continuar.");
       setLocation("/login");
     } catch (err) {
@@ -70,13 +139,13 @@ export default function Register() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="name">Nome Completo</Label>
+              <Label htmlFor="name">Nome Completo *</Label>
               <Input
                 id="name"
                 type="text"
                 placeholder="Seu nome completo"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
                 disabled={loading}
                 autoComplete="name"
@@ -84,13 +153,13 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
                 disabled={loading}
                 autoComplete="email"
@@ -98,13 +167,179 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="cpf">CPF</Label>
+              <Input
+                id="cpf"
+                type="text"
+                placeholder="000.000.000-00"
+                value={formatCPF(formData.cpf)}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, "");
+                  if (raw.length <= 11) setFormData({ ...formData, cpf: raw });
+                }}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone *</Label>
+              <Input
+                id="phone"
+                type="text"
+                placeholder="(00) 00000-0000"
+                value={formatPhone(formData.phone)}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, "");
+                  if (raw.length <= 11) setFormData({ ...formData, phone: raw });
+                }}
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="zipCode">CEP</Label>
+              <div className="relative">
+                <Input
+                  id="zipCode"
+                  type="text"
+                  placeholder="00000-000"
+                  value={formatCEP(formData.address.zipCode)}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    if (raw.length <= 8) {
+                      setFormData({
+                        ...formData,
+                        address: { ...formData.address, zipCode: raw },
+                      });
+                      if (raw.length === 8) {
+                        handleCEP(raw);
+                      } else if (raw.length < 8) {
+                        setShowAddressFields(false);
+                      }
+                    }
+                  }}
+                  disabled={loading}
+                />
+                {cepLoading && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            </div>
+
+            {showAddressFields && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="street">Rua</Label>
+                    <Input
+                      id="street"
+                      type="text"
+                      value={formData.address.street}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          address: { ...formData.address, street: e.target.value },
+                        })
+                      }
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="number">Número</Label>
+                    <Input
+                      id="number"
+                      type="text"
+                      value={formData.address.number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          address: { ...formData.address, number: e.target.value },
+                        })
+                      }
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="neighborhood">Bairro</Label>
+                    <Input
+                      id="neighborhood"
+                      type="text"
+                      value={formData.address.neighborhood}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          address: { ...formData.address, neighborhood: e.target.value },
+                        })
+                      }
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">Cidade</Label>
+                    <Input
+                      id="city"
+                      type="text"
+                      value={formData.address.city}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          address: { ...formData.address, city: e.target.value },
+                        })
+                      }
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="state">Estado</Label>
+                    <Input
+                      id="state"
+                      type="text"
+                      placeholder="PE"
+                      maxLength={2}
+                      value={formData.address.state}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          address: { ...formData.address, state: e.target.value.toUpperCase().slice(0, 2) },
+                        })
+                      }
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="complement">Complemento</Label>
+                    <Input
+                      id="complement"
+                      type="text"
+                      value={formData.address.complement}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          address: { ...formData.address, complement: e.target.value },
+                        })
+                      }
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha *</Label>
               <Input
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
                 disabled={loading}
                 autoComplete="new-password"
@@ -116,13 +351,13 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+              <Label htmlFor="confirmPassword">Confirmar Senha *</Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 required
                 disabled={loading}
                 autoComplete="new-password"
@@ -160,13 +395,15 @@ export default function Register() {
                 Faça login
               </button>
             </p>
-            <button
-              type="button"
-              onClick={() => setLocation("/")}
-              className="text-blue-600 hover:underline mt-2 block"
-            >
-              Voltar para a página inicial
-            </button>
+            <div className="flex justify-center mt-2">
+              <button
+                type="button"
+                onClick={() => setLocation("/")}
+                className="text-blue-600 hover:underline"
+              >
+                Voltar para a página inicial
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>

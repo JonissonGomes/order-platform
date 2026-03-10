@@ -29,6 +29,7 @@ export default function SettingsPage() {
     companyPhone: string;
     companyEmail: string;
     warrantyTerms: string;
+    deliveryCostPerKm: string;
     street: string;
     number: string;
     complement: string;
@@ -41,6 +42,7 @@ export default function SettingsPage() {
     companyPhone: "",
     companyEmail: "",
     warrantyTerms: DEFAULT_WARRANTY_TERMS,
+    deliveryCostPerKm: "0",
     street: "",
     number: "",
     complement: "",
@@ -63,6 +65,7 @@ export default function SettingsPage() {
           companyPhone: settings.companyPhone || "",
           companyEmail: settings.companyEmail || "",
           warrantyTerms: settings.warrantyTerms || DEFAULT_WARRANTY_TERMS,
+          deliveryCostPerKm: settings.deliveryCostPerKm?.toString() || "0",
           street: settings.companyAddress?.street || "",
           number: settings.companyAddress?.number || "",
           complement: settings.companyAddress?.complement || "",
@@ -110,6 +113,7 @@ export default function SettingsPage() {
         companyPhone: form.companyPhone,
         companyEmail: form.companyEmail,
         warrantyTerms: form.warrantyTerms,
+        deliveryCostPerKm: parseFloat(form.deliveryCostPerKm) || 0,
       };
       if (form.street || form.city) {
         payload.companyAddress = {
@@ -294,6 +298,36 @@ export default function SettingsPage() {
                   onChange={(e) => setForm({ ...form, complement: e.target.value })}
                   placeholder="Sala 2, Bloco A..."
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Custo de Entrega */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Custo de Entrega
+              </CardTitle>
+              <CardDescription>
+                Custo por quilômetro para cálculo automático de entrega
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="deliveryCostPerKm">Custo por Km (R$)</Label>
+                <Input
+                  id="deliveryCostPerKm"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.deliveryCostPerKm}
+                  onChange={(e) => setForm({ ...form, deliveryCostPerKm: e.target.value })}
+                  placeholder="0.00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este valor será usado para calcular automaticamente o custo de entrega baseado na distância
+                </p>
               </div>
             </CardContent>
           </Card>

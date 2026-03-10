@@ -129,6 +129,29 @@ export const api = {
     });
   },
 
+  async registerCustomer(data: {
+    name: string;
+    email: string;
+    password: string;
+    cpf?: string;
+    phone: string;
+    address?: {
+      street?: string;
+      number?: string;
+      complement?: string;
+      neighborhood?: string;
+      city?: string;
+      state?: string;
+      zipCode?: string;
+    };
+    notes?: string;
+  }): Promise<{ user: any; customer: any }> {
+    return fetchAPI<{ user: any; customer: any }>("/api/public/register", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
   async getMe(): Promise<{ user: User | null }> {
     return fetchAPI<{ user: User | null }>("/api/auth/me");
   },

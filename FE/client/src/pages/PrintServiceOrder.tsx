@@ -364,12 +364,6 @@ export default function PrintServiceOrder() {
                 </tr>
               </tbody>
             </table>
-            <div className="text-right text-sm font-bold mt-1 pr-1">
-              SERVIÇOS: {formatCurrency(totalServices)}
-            </div>
-            <div className="text-right text-base font-bold pr-1">
-              TOTAL: {formatCurrency(finalTotal)}
-            </div>
           </div>
         )}
 
@@ -385,7 +379,7 @@ export default function PrintServiceOrder() {
                     {order.delivery.type === "own" ? "Entrega própria" : "Serviço terceirizado"}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 font-medium w-32">Custo:</td>
-                  <td className="border border-gray-300 px-2 py-1">{formatCurrency(order.delivery.cost)}</td>
+                  <td className="border border-gray-300 px-2 py-1">{formatCurrency(order.delivery.cost || 0)}</td>
                 </tr>
                 {order.delivery.distanceKm != null && order.delivery.distanceKm > 0 && (
                   <tr>
@@ -433,6 +427,17 @@ export default function PrintServiceOrder() {
                 </tr>
               </tbody>
             </table>
+            {/* Valores de serviços e total abaixo do bloco de pagamento */}
+            {order.serviceItems && order.serviceItems.length > 0 && (
+              <div className="mt-2 text-right">
+                <div className="text-sm font-bold pr-1">
+                  SERVIÇOS: {formatCurrency(totalServices)}
+                </div>
+                <div className="text-base font-bold pr-1">
+                  TOTAL: {formatCurrency(finalTotal)}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

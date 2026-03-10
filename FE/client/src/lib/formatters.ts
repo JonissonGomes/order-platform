@@ -47,3 +47,19 @@ export function formatCEP(value: string): string {
   if (numbers.length <= 5) return numbers;
   return `${numbers.slice(0, 5)}-${numbers.slice(5, 8)}`;
 }
+
+// Formatação monetária (R$)
+export function formatCurrency(value: string | number): string {
+  const numValue = typeof value === "string" ? parseFloat(value.replace(/[^\d,.-]/g, "").replace(",", ".")) : value;
+  if (isNaN(numValue)) return "R$ 0,00";
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(numValue);
+}
+
+// Remove formatação monetária e retorna número
+export function unformatCurrency(value: string): number {
+  const cleaned = value.replace(/[^\d,.-]/g, "").replace(",", ".");
+  return parseFloat(cleaned) || 0;
+}

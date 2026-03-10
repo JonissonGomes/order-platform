@@ -38,11 +38,12 @@ func (h *SettingsHandler) GetSettings(c *gin.Context) {
 }
 
 type UpdateSettingsRequest struct {
-	CompanyName    string          `json:"companyName"`
-	CompanyPhone   string          `json:"companyPhone"`
-	CompanyEmail   string          `json:"companyEmail"`
-	CompanyAddress *models.Address `json:"companyAddress"`
-	WarrantyTerms  string          `json:"warrantyTerms"`
+	CompanyName       string          `json:"companyName"`
+	CompanyPhone      string          `json:"companyPhone"`
+	CompanyEmail      string          `json:"companyEmail"`
+	CompanyAddress    *models.Address `json:"companyAddress"`
+	WarrantyTerms     string          `json:"warrantyTerms"`
+	DeliveryCostPerKm float64         `json:"deliveryCostPerKm"`
 }
 
 // UpdateSettings creates or updates the company settings
@@ -67,11 +68,12 @@ func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 	}
 
 	settings := &models.Settings{
-		CompanyName:    req.CompanyName,
-		CompanyPhone:   req.CompanyPhone,
-		CompanyEmail:   req.CompanyEmail,
-		CompanyAddress: req.CompanyAddress,
-		WarrantyTerms:  req.WarrantyTerms,
+		CompanyName:       req.CompanyName,
+		CompanyPhone:      req.CompanyPhone,
+		CompanyEmail:      req.CompanyEmail,
+		CompanyAddress:    req.CompanyAddress,
+		WarrantyTerms:     req.WarrantyTerms,
+		DeliveryCostPerKm: req.DeliveryCostPerKm,
 	}
 
 	result, err := h.settingsRepo.UpsertSettings(ctx, settings, updatedBy)

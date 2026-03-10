@@ -51,7 +51,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
-import { formatPhone, formatCPF } from "@/lib/formatters";
+import { formatPhone, formatCPF, formatCurrency, unformatCurrency, formatCEP } from "@/lib/formatters";
+import { fetchCEP } from "@/lib/cep";
 import { ImageUpload } from "@/components/ImageUpload";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { usePermissions } from "@/lib/permissions";
@@ -437,21 +438,11 @@ export default function ServiceOrders() {
 
       {/* Edit Dialog (stepped) */}
       {editingOrder && (
-        <Dialog open={!!editingOrder} onOpenChange={(open) => !open && setEditingOrder(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-            <DialogHeader className="px-6 pt-6 pb-4 border-b">
-              <DialogTitle className="text-xl">Editar OS #{editingOrder.orderNumber}</DialogTitle>
-              <DialogDescription className="mt-1.5">Atualize as informações da ordem de serviço</DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              <EditOrderForm
-                order={editingOrder}
-                onSuccess={() => { setEditingOrder(null); loadOrders(); }}
-                onCancel={() => setEditingOrder(null)}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+        <EditOrderDialog
+          order={editingOrder}
+          onClose={() => setEditingOrder(null)}
+          onSuccess={() => { setEditingOrder(null); loadOrders(); }}
+        />
       )}
 
       {/* Delete Confirmation */}
@@ -731,9 +722,71 @@ const EDIT_STEPS = [
   { id: "diagnosis", label: "Diagnóstico" },
   { id: "services", label: "Serviços" },
   { id: "payment", label: "Pagamento" },
+  { id: "delivery", label: "Entrega" },
   { id: "status", label: "Status" },
   { id: "finalize", label: "Finalização" },
 ];
+
+function EditOrderDialog({ order, onClose, onSuccess }: { order: ServiceOrder; onClose: () => void; onSuccess: () => void }) {
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setShowCloseConfirm(true);
+    }
+  };
+
+  const confirmClose = () => {
+    setShowCloseConfirm(false);
+    onClose();
+  };
+
+  return (
+    <>
+      <Dialog open={true} onOpenChange={handleDialogClose}>
+        <DialogContent 
+          className="max-w-3xl max-h-[90vh] flex flex-col"
+          onInteractOutside={(e) => {
+            e.preventDefault();
+            setShowCloseConfirm(true);
+          }}
+          onEscapeKeyDown={(e) => {
+            e.preventDefault();
+            setShowCloseConfirm(true);
+          }}
+        >
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-xl">Editar OS #{order.orderNumber}</DialogTitle>
+            <DialogDescription className="mt-1.5">Atualize as informações da ordem de serviço</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <EditOrderForm
+              order={order}
+              onSuccess={onSuccess}
+              onCancel={onClose}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Fechamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todas as informações preenchidas serão perdidas. Deseja realmente fechar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowCloseConfirm(false)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmClose} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Fechar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
 
 function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; onSuccess: () => void; onCancel: () => void }) {
   const [loading, setLoading] = useState(false);
@@ -741,6 +794,17 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
   const [serviceItems, setServiceItems] = useState<ServiceItem[]>(order.serviceItems ?? []);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
+  const [settings, setSettings] = useState<any>(null);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    zipCode: order.delivery?.address?.zipCode?.replace(/\D/g, "") || "",
+    street: order.delivery?.address?.street || "",
+    number: order.delivery?.address?.number || "",
+    complement: order.delivery?.address?.complement || "",
+    neighborhood: order.delivery?.address?.neighborhood || "",
+    city: order.delivery?.address?.city || "",
+    state: order.delivery?.address?.state || "",
+  });
   const [formData, setFormData] = useState({
     serialNumber: order.serialNumber ?? "",
     aestheticConditions: order.aestheticConditions ?? "",
@@ -764,6 +828,92 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
 
   const totalServiceItems = serviceItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
 
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const { settings: loadedSettings } = await api.getSettings();
+        setSettings(loadedSettings);
+        if (loadedSettings?.warrantyTerms && !formData.warrantyTerms) {
+          setFormData(prev => ({ ...prev, warrantyTerms: loadedSettings.warrantyTerms || "" }));
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    loadSettings();
+  }, []);
+
+
+  const calculateDeliveryCost = async (zipCode: string) => {
+    if (!zipCode || zipCode.replace(/\D/g, "").length !== 8) return;
+    if (!settings?.deliveryCostPerKm) {
+      toast.error("Custo por km não configurado nas configurações");
+      return;
+    }
+    // Aqui você pode implementar cálculo de distância usando API de geolocalização
+    // Por enquanto, vamos usar um valor fixo ou deixar o usuário informar
+    toast.info("Cálculo de distância será implementado com API de geolocalização");
+  };
+
+  const handleCEPSearch = async (cep: string) => {
+    const raw = cep.replace(/\D/g, "");
+    if (raw.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const data = await fetchCEP(raw);
+      if (data) {
+        setDeliveryAddress(prev => ({
+          ...prev,
+          street: data.street || prev.street,
+          neighborhood: data.neighborhood || prev.neighborhood,
+          city: data.city || prev.city,
+          state: data.state || prev.state,
+        }));
+        await calculateDeliveryCost(raw);
+      }
+    } catch {
+      toast.error("CEP não encontrado");
+    } finally {
+      setCepLoading(false);
+    }
+  };
+
+  const validateStep = (currentStep: number): boolean => {
+    switch (currentStep) {
+      case 0: // Equipamento - sempre válido
+        return true;
+      case 1: // Diagnóstico - sempre válido
+        return true;
+      case 2: // Serviços - sempre válido
+        return true;
+      case 3: // Pagamento - sempre válido
+        return true;
+      case 4: // Entrega
+        if (formData.deliveryType !== "none") {
+          if (!deliveryAddress.zipCode || deliveryAddress.zipCode.replace(/\D/g, "").length !== 8) {
+            toast.error("Informe um CEP válido para entrega");
+            return false;
+          }
+        }
+        return true;
+      case 5: // Status - sempre válido
+        return true;
+      case 6: // Finalização - só aparece se status for delivered
+        return formData.newStatus === "delivered";
+      default:
+        return true;
+    }
+  };
+
+  const handleNextStep = () => {
+    if (validateStep(step)) {
+      const maxStep = formData.newStatus === "delivered" ? EDIT_STEPS.length - 1 : EDIT_STEPS.length - 2;
+      if (step < maxStep) {
+        setStep(step + 1);
+      }
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       setLoading(true);
@@ -783,8 +933,17 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
         },
         delivery: formData.deliveryType !== "none" ? {
           type: formData.deliveryType,
-          cost: formData.deliveryCost ? parseFloat(formData.deliveryCost) : 0,
+          cost: formData.deliveryCost ? unformatCurrency(formData.deliveryCost) : 0,
           distanceKm: formData.deliveryDistanceKm ? parseFloat(formData.deliveryDistanceKm) : 0,
+          address: deliveryAddress.zipCode ? {
+            zipCode: deliveryAddress.zipCode,
+            street: deliveryAddress.street,
+            number: deliveryAddress.number,
+            complement: deliveryAddress.complement,
+            neighborhood: deliveryAddress.neighborhood,
+            city: deliveryAddress.city,
+            state: deliveryAddress.state,
+          } : undefined,
           observations: formData.deliveryObservations || undefined,
         } : undefined,
         exitDate: formData.exitDate ? new Date(formData.exitDate).toISOString() : undefined,
@@ -939,7 +1098,14 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
               </div>
               <div className="w-28 space-y-1">
                 <Label className="text-xs">Valor (R$)</Label>
-                <Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => updateItem(i, "unitPrice", parseFloat(e.target.value) || 0)} />
+                <Input 
+                  value={formatCurrency(item.unitPrice)} 
+                  onChange={(e) => {
+                    const numValue = unformatCurrency(e.target.value);
+                    updateItem(i, "unitPrice", numValue);
+                  }}
+                  placeholder="R$ 0,00"
+                />
               </div>
               <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(i)}>
                 <X className="h-4 w-4 text-destructive" />
@@ -1052,7 +1218,12 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
               </div>
             )}
           </div>
-          <Separator />
+        </div>
+      )}
+
+      {/* Step 4: Entrega */}
+      {step === 4 && (
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label>Tipo de Entrega</Label>
             <Select value={formData.deliveryType} onValueChange={(v) => setFormData({ ...formData, deliveryType: v as "none" | "own" | "third" })}>
@@ -1065,16 +1236,70 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
             </Select>
           </div>
           {formData.deliveryType !== "none" && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Distância (km)</Label>
-                <Input type="number" min="0" step="0.1" value={formData.deliveryDistanceKm} onChange={(e) => setFormData({ ...formData, deliveryDistanceKm: e.target.value })} />
+                <Label>CEP de Entrega</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={formatCEP(deliveryAddress.zipCode)} 
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      if (raw.length <= 8) {
+                        setDeliveryAddress(prev => ({ ...prev, zipCode: raw }));
+                        if (raw.length === 8) {
+                          handleCEPSearch(raw);
+                        }
+                      }
+                    }}
+                    placeholder="00000-000"
+                    maxLength={9}
+                  />
+                  {cepLoading && <Loader2 className="h-4 w-4 animate-spin mt-2" />}
+                </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Rua</Label>
+                  <Input value={deliveryAddress.street} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, street: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Número</Label>
+                  <Input value={deliveryAddress.number} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, number: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bairro</Label>
+                  <Input value={deliveryAddress.neighborhood} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, neighborhood: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cidade</Label>
+                  <Input value={deliveryAddress.city} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, city: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Input value={deliveryAddress.state} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, state: e.target.value }))} maxLength={2} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Complemento</Label>
+                  <Input value={deliveryAddress.complement} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, complement: e.target.value }))} />
+                </div>
+              </div>
+              {settings?.deliveryCostPerKm && (
+                <div className="space-y-2">
+                  <Label>Custo da Entrega (R$)</Label>
+                  <Input 
+                    value={formatCurrency(formData.deliveryCost)} 
+                    onChange={(e) => {
+                      const numValue = unformatCurrency(e.target.value);
+                      setFormData({ ...formData, deliveryCost: numValue.toString() });
+                    }}
+                    placeholder="R$ 0,00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Custo por km configurado: R$ {settings.deliveryCostPerKm.toFixed(2).replace(".", ",")}
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
-                <Label>Custo da Entrega (R$)</Label>
-                <Input type="number" min="0" step="0.01" value={formData.deliveryCost} onChange={(e) => setFormData({ ...formData, deliveryCost: e.target.value })} />
-              </div>
-              <div className="col-span-2 space-y-2">
                 <Label>Obs. da Entrega</Label>
                 <Input placeholder="Instruções de entrega..." value={formData.deliveryObservations} onChange={(e) => setFormData({ ...formData, deliveryObservations: e.target.value })} />
               </div>
@@ -1083,9 +1308,15 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
         </div>
       )}
 
-      {/* Step 4: Status */}
-      {step === 4 && (
+      {/* Step 5: Status */}
+      {step === 5 && (
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Status Atual</Label>
+            <div className="bg-muted/30 rounded-md px-3 py-2 text-sm">
+              <span className={`font-medium px-2 py-0.5 rounded-full text-xs ${statusColors[order.status]}`}>{statusLabels[order.status]}</span>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label>Alterar Status</Label>
             <div className="grid grid-cols-2 gap-2">
@@ -1113,16 +1344,11 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
               <Textarea placeholder="Descreva o motivo da alteração do status..." value={formData.statusNote} onChange={(e) => setFormData({ ...formData, statusNote: e.target.value })} rows={3} />
             </div>
           )}
-          {formData.newStatus === order.status && (
-            <div className="bg-muted/30 rounded-md px-3 py-2 text-sm text-muted-foreground">
-              Status atual: <span className={`font-medium px-2 py-0.5 rounded-full text-xs ${statusColors[order.status]}`}>{statusLabels[order.status]}</span>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Step 5: Finalização */}
-      {step === 5 && (
+      {/* Step 6: Finalização - só aparece se status for delivered */}
+      {step === 6 && formData.newStatus === "delivered" && (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Data de Saída</Label>
@@ -1130,7 +1356,15 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
           </div>
           <div className="space-y-2">
             <Label>Termos de Garantia</Label>
-            <Textarea placeholder="Termos e condições de garantia..." value={formData.warrantyTerms} onChange={(e) => setFormData({ ...formData, warrantyTerms: e.target.value })} rows={4} />
+            <Textarea 
+              placeholder="Termos e condições de garantia..." 
+              value={formData.warrantyTerms || settings?.warrantyTerms || ""} 
+              onChange={(e) => setFormData({ ...formData, warrantyTerms: e.target.value })} 
+              rows={4} 
+            />
+            {settings?.warrantyTerms && !formData.warrantyTerms && (
+              <p className="text-xs text-muted-foreground">Termos pré-preenchidos das configurações</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Observações Finais</Label>
@@ -1149,17 +1383,21 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
           )}
         </div>
         <div className="flex gap-2">
-          {step < EDIT_STEPS.length - 1 ? (
-            <Button type="button" onClick={() => setStep(step + 1)}>
-              Próximo <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          ) : (
+          {(() => {
+            const maxStep = formData.newStatus === "delivered" ? EDIT_STEPS.length - 1 : EDIT_STEPS.length - 2;
+            return step < maxStep ? (
+              <Button type="button" onClick={handleNextStep}>
+                Próximo <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            ) : (
             <Button type="button" onClick={handleSubmit} disabled={loading}>
               {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : "Salvar Alterações"}
             </Button>
-          )}
+            );
+          })()}
         </div>
       </div>
+
     </div>
   );
 }

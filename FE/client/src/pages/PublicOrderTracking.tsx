@@ -421,13 +421,6 @@ export default function PublicOrderTracking() {
 
         {orders.length > 0 && (
           <div className="space-y-4 mb-8">
-            {customerName && (
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle>Cliente: {customerName}</CardTitle>
-                </CardHeader>
-              </Card>
-            )}
             {orders.map((ord) => (
               <Card key={ord.orderNumber} className="shadow-lg">
                 <CardContent className="pt-6">

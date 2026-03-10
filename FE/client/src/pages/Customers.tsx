@@ -337,6 +337,7 @@ function CustomerForm({
   const isEdit = !!customer;
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [showAddressFields, setShowAddressFields] = useState(false);
   const [formData, setFormData] = useState({
     name: customer?.name || "",
     cpf: customer?.cpf?.replace(/\D/g, "") || "",

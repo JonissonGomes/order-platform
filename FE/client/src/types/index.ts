@@ -204,6 +204,7 @@ export interface Settings {
   responsiblePerson?: string;
   technicalContact?: string;
   warrantyTerms?: string;
+  deliveryCostPerKm?: number;
   updatedAt?: string;
 }
 
