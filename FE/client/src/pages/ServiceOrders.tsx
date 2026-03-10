@@ -54,6 +54,7 @@ import { api } from "@/lib/api";
 import { formatPhone, formatCPF } from "@/lib/formatters";
 import { ImageUpload } from "@/components/ImageUpload";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { usePermissions } from "@/lib/permissions";
 import type { ServiceOrder, ServiceOrderStatus, Customer, Department, Employee, Image, ServiceItem } from "@/types";
 import {
   Plus, Search, FileText, Check, ChevronsUpDown, UserPlus,
@@ -94,6 +95,7 @@ const priorityLabels: Record<string, string> = {
 
 export default function ServiceOrders() {
   const { user } = useAuth();
+  const permissions = usePermissions("/service-orders");
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -163,15 +165,17 @@ export default function ServiceOrders() {
             <p className="text-muted-foreground">Gerencie todas as ordens de serviço do sistema</p>
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Nova Ordem</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader className="border-b pb-3">
-                <DialogTitle>Nova Ordem de Serviço</DialogTitle>
-                <DialogDescription>Preencha os dados para criar uma nova ordem</DialogDescription>
+            {permissions.canCreate && (
+              <DialogTrigger asChild>
+                <Button><Plus className="mr-2 h-4 w-4" />Nova Ordem</Button>
+              </DialogTrigger>
+            )}
+            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                <DialogTitle className="text-xl">Nova Ordem de Serviço</DialogTitle>
+                <DialogDescription className="mt-1.5">Preencha os dados para criar uma nova ordem</DialogDescription>
               </DialogHeader>
-              <div className="py-4">
+              <div className="flex-1 overflow-y-auto px-6 py-6">
                 <CreateOrderForm
                   userId={user?.id}
                   onSuccess={() => { setIsCreateDialogOpen(false); loadOrders(); }}
@@ -280,16 +284,18 @@ export default function ServiceOrders() {
                         >
                           <Printer className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title="Editar"
-                          onClick={() => { setEditingOrder(order); setSelectedOrder(null); }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        {(order.status === "pending" || order.status === "cancelled") && (
+                        {permissions.canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Editar"
+                            onClick={() => { setEditingOrder(order); setSelectedOrder(null); }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {permissions.canDelete && (order.status === "pending" || order.status === "cancelled") && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -313,75 +319,86 @@ export default function ServiceOrders() {
       {/* Detail Modal */}
       {selectedOrder && !editingOrder && (
         <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader className="border-b pb-3">
+          <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <div className="flex items-center justify-between">
                 <div>
-                  <DialogTitle className="font-mono">OS #{selectedOrder.orderNumber}</DialogTitle>
-                  <DialogDescription>{selectedOrder.productBrand} {selectedOrder.productModel} • {selectedOrder.productType}</DialogDescription>
+                  <DialogTitle className="text-xl font-mono font-semibold">OS #{selectedOrder.orderNumber}</DialogTitle>
+                  <DialogDescription className="mt-1.5 text-sm">{selectedOrder.productBrand} {selectedOrder.productModel} • {selectedOrder.productType}</DialogDescription>
                 </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[selectedOrder.status]}`}>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[selectedOrder.status]}`}>
                   {statusLabels[selectedOrder.status]}
                 </span>
               </div>
             </DialogHeader>
-            <div className="space-y-3 text-sm py-2">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="space-y-4 text-sm">
               {selectedOrder.customer && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Cliente</p>
-                    <p className="mt-1 font-medium">{selectedOrder.customer.name}</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Cliente</p>
+                    <p className="mt-1 font-medium text-base">{selectedOrder.customer.name}</p>
                   </div>
                   {selectedOrder.customer.phone && (
                     <div>
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Telefone</p>
-                      <p className="mt-1">{formatPhone(selectedOrder.customer.phone)}</p>
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Telefone</p>
+                      <p className="mt-1 text-base">{formatPhone(selectedOrder.customer.phone)}</p>
                     </div>
                   )}
                 </div>
               )}
+              <Separator />
               <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Defeito Relatado</p>
-                <p className="mt-1 text-muted-foreground">{selectedOrder.problemDescription}</p>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Defeito Relatado</p>
+                <p className="mt-1 text-muted-foreground text-base">{selectedOrder.problemDescription || "Não informado"}</p>
               </div>
               {selectedOrder.technicalReport && (
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Laudo Técnico</p>
-                  <p className="mt-1 text-muted-foreground">{selectedOrder.technicalReport}</p>
-                </div>
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Laudo Técnico</p>
+                    <p className="mt-1 text-muted-foreground text-base">{selectedOrder.technicalReport}</p>
+                  </div>
+                </>
               )}
               {selectedOrder.serviceItems && selectedOrder.serviceItems.length > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-2">Serviços</p>
-                  <div className="space-y-1">
-                    {selectedOrder.serviceItems.map((item, i) => (
-                      <div key={i} className="flex justify-between text-xs bg-muted rounded px-2 py-1">
-                        <span>{item.name} × {item.quantity}</span>
-                        <span>R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
-                      </div>
-                    ))}
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-2">Serviços</p>
+                    <div className="space-y-2">
+                      {selectedOrder.serviceItems.map((item, i) => (
+                        <div key={i} className="flex justify-between text-sm bg-muted rounded-lg px-3 py-2">
+                          <span className="font-medium">{item.name} × {item.quantity}</span>
+                          <span className="font-semibold">R$ {(item.quantity * item.unitPrice).toFixed(2).replace(".", ",")}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <Separator />
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Entrada</p>
-                  <p className="mt-1">{new Date(selectedOrder.entryDate ?? selectedOrder.createdAt).toLocaleDateString("pt-BR")}</p>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Entrada</p>
+                  <p className="mt-1 text-base">{new Date(selectedOrder.entryDate ?? selectedOrder.createdAt).toLocaleDateString("pt-BR")}</p>
                 </div>
                 {selectedOrder.exitDate && (
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Saída</p>
-                    <p className="mt-1">{new Date(selectedOrder.exitDate).toLocaleDateString("pt-BR")}</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Saída</p>
+                    <p className="mt-1 text-base">{new Date(selectedOrder.exitDate).toLocaleDateString("pt-BR")}</p>
                   </div>
                 )}
               </div>
               {selectedOrder.payment?.paid && (
-                <div className="bg-green-50 border border-green-200 rounded px-3 py-2 text-xs text-green-800 font-medium">
-                  ✓ Pagamento confirmado {selectedOrder.payment.method && `— ${selectedOrder.payment.method.toUpperCase()}`}
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800 font-medium flex items-center gap-2">
+                  <Check className="h-4 w-4" />
+                  <span>Pagamento confirmado {selectedOrder.payment.method && `— ${selectedOrder.payment.method.toUpperCase()}`}</span>
                 </div>
               )}
+              </div>
             </div>
-            <div className="flex justify-between pt-2 border-t">
+            <div className="px-6 py-4 border-t bg-muted/30 flex justify-between items-center">
               <Button
                 variant="ghost"
                 size="sm"
@@ -390,7 +407,7 @@ export default function ServiceOrders() {
                 <Printer className="h-4 w-4 mr-1" /> Imprimir
               </Button>
               <div className="flex gap-1">
-                {(selectedOrder.status === "pending" || selectedOrder.status === "cancelled") && (
+                {permissions.canDelete && (selectedOrder.status === "pending" || selectedOrder.status === "cancelled") && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -401,14 +418,16 @@ export default function ServiceOrders() {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title="Editar"
-                  onClick={() => { setEditingOrder(selectedOrder); setSelectedOrder(null); }}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
+                {permissions.canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Editar"
+                    onClick={() => { setEditingOrder(selectedOrder); setSelectedOrder(null); }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
           </DialogContent>
@@ -418,12 +437,12 @@ export default function ServiceOrders() {
       {/* Edit Dialog (stepped) */}
       {editingOrder && (
         <Dialog open={!!editingOrder} onOpenChange={(open) => !open && setEditingOrder(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-            <DialogHeader className="border-b pb-3 flex-shrink-0">
-              <DialogTitle>Editar OS #{editingOrder.orderNumber}</DialogTitle>
-              <DialogDescription>Atualize as informações da ordem de serviço</DialogDescription>
+          <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
+              <DialogTitle className="text-xl">Editar OS #{editingOrder.orderNumber}</DialogTitle>
+              <DialogDescription className="mt-1.5">Atualize as informações da ordem de serviço</DialogDescription>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto py-4">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
               <EditOrderForm
                 order={editingOrder}
                 onSuccess={() => { setEditingOrder(null); loadOrders(); }}
@@ -767,12 +786,13 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
         exitDate: formData.exitDate ? new Date(formData.exitDate).toISOString() : undefined,
       };
 
-      await api.updateServiceOrder(order.id, payload);
-
-      // Update status if changed
+      // Update status first if changed, then update other fields
       if (formData.newStatus !== order.status) {
         await api.updateServiceOrderStatus(order.id, { status: formData.newStatus, notes: formData.statusNote || undefined });
       }
+      
+      // Then update other fields
+      await api.updateServiceOrder(order.id, payload);
 
       toast.success("Ordem de serviço atualizada!");
       onSuccess();

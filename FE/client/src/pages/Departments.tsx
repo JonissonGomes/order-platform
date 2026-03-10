@@ -107,12 +107,12 @@ export default function Departments() {
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Novo Departamento</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader className="border-b pb-3">
-                <DialogTitle>Novo Departamento</DialogTitle>
-                <DialogDescription>Preencha os dados para criar um novo departamento</DialogDescription>
+            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                <DialogTitle className="text-xl">Novo Departamento</DialogTitle>
+                <DialogDescription className="mt-1.5">Preencha os dados para criar um novo departamento</DialogDescription>
               </DialogHeader>
-              <div className="py-4">
+              <div className="flex-1 overflow-y-auto px-6 py-6">
                 <DepartmentForm onSuccess={() => { setIsCreateDialogOpen(false); loadDepartments(); }} />
               </div>
             </DialogContent>
@@ -217,19 +217,20 @@ export default function Departments() {
       {/* Detail Modal */}
       {selectedDepartment && !editingDepartment && (
         <Dialog open={!!selectedDepartment} onOpenChange={(open) => !open && setSelectedDepartment(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
+          <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-blue-100">
                   <Building2 className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <DialogTitle>{selectedDepartment.name}</DialogTitle>
-                  <DialogDescription>{selectedDepartment.description || "Sem descrição"}</DialogDescription>
+                  <DialogTitle className="text-xl">{selectedDepartment.name}</DialogTitle>
+                  <DialogDescription className="mt-1.5">{selectedDepartment.description || "Sem descrição"}</DialogDescription>
                 </div>
               </div>
             </DialogHeader>
-            <div className="space-y-3 text-sm py-2">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="space-y-4 text-sm">
               {selectedDepartment.manager && (
                 <div>
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Gerente</p>
@@ -257,8 +258,9 @@ export default function Departments() {
                   </Badge>
                 </p>
               </div>
+              </div>
             </div>
-            <div className="flex justify-between pt-2 border-t">
+            <div className="px-6 py-4 border-t bg-muted/30 flex justify-between items-center">
               <Button
                 variant="ghost"
                 size="sm"
@@ -293,12 +295,12 @@ export default function Departments() {
       {/* Edit Dialog */}
       {editingDepartment && (
         <Dialog open={!!editingDepartment} onOpenChange={(open) => !open && setEditingDepartment(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="border-b pb-3">
-              <DialogTitle>Editar Departamento</DialogTitle>
-              <DialogDescription>Atualize as informações do departamento</DialogDescription>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
+              <DialogTitle className="text-xl">Editar Departamento</DialogTitle>
+              <DialogDescription className="mt-1.5">Atualize as informações do departamento</DialogDescription>
             </DialogHeader>
-            <div className="py-4">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
               <DepartmentForm
                 department={editingDepartment}
                 onSuccess={() => { setEditingDepartment(null); loadDepartments(); }}
@@ -409,9 +411,9 @@ function LinkEmployeesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="border-b pb-3">
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <DialogTitle className="text-xl flex items-center gap-2">
             <Users className="h-5 w-5" />
             Colaboradores — {department.name}
           </DialogTitle>

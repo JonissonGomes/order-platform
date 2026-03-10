@@ -500,9 +500,9 @@ export default function Financial() {
       {/* Transaction Detail Modal */}
       {selectedTransaction && (
         <Dialog open={!!selectedTransaction} onOpenChange={(open) => !open && setSelectedTransaction(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader className="border-b pb-3">
-              <DialogTitle className="flex items-center gap-2">
+          <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
+              <DialogTitle className="text-xl flex items-center gap-2">
                 {selectedTransaction.type === "income"
                   ? <ArrowUpCircle className="h-5 w-5 text-green-600" />
                   : <ArrowDownCircle className="h-5 w-5 text-red-500" />
@@ -510,7 +510,8 @@ export default function Financial() {
                 {selectedTransaction.description}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-3 text-sm py-2">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Tipo</p>
@@ -557,10 +558,12 @@ export default function Financial() {
                 </div>
               </div>
               <Separator />
-              <div className="flex justify-between">
-                <Button
-                  variant="destructive"
-                  size="sm"
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t bg-muted/30 flex justify-between items-center">
+              <Button
+                variant="destructive"
+                size="sm"
                   onClick={() => { setDeletingTransaction(selectedTransaction); setSelectedTransaction(null); }}
                 >
                   <Trash2 className="h-4 w-4 mr-1" /> Excluir

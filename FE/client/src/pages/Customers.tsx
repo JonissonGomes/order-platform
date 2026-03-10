@@ -112,12 +112,12 @@ export default function Customers() {
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Novo Cliente</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader className="border-b pb-3">
-                <DialogTitle>Novo Cliente</DialogTitle>
-                <DialogDescription>Preencha os dados para cadastrar um novo cliente</DialogDescription>
+            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                <DialogTitle className="text-xl">Novo Cliente</DialogTitle>
+                <DialogDescription className="mt-1.5">Preencha os dados para cadastrar um novo cliente</DialogDescription>
               </DialogHeader>
-              <div className="py-4">
+              <div className="flex-1 overflow-y-auto px-6 py-6">
                 <CustomerForm onSuccess={() => { setIsCreateDialogOpen(false); loadCustomers(); }} />
               </div>
             </DialogContent>
@@ -199,21 +199,22 @@ export default function Customers() {
       {/* Detail Modal */}
       {selectedCustomer && !editingCustomer && (
         <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader className="border-b pb-3">
+          <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-blue-100">
                   <UserCircle className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <DialogTitle>{selectedCustomer.name}</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-xl">{selectedCustomer.name}</DialogTitle>
+                  <DialogDescription className="mt-1.5">
                     {selectedCustomer.cpf ? formatCPF(selectedCustomer.cpf) : "Sem CPF"}
                   </DialogDescription>
                 </div>
               </div>
             </DialogHeader>
-            <div className="space-y-3 text-sm py-2">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Telefone</p>
@@ -262,8 +263,9 @@ export default function Customers() {
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Cadastrado em</p>
                 <p className="mt-1">{new Date(selectedCustomer.createdAt).toLocaleDateString("pt-BR")}</p>
               </div>
+              </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t">
+            <div className="px-6 py-4 border-t bg-muted/30 flex justify-end gap-2">
               <Button
                 variant="destructive"
                 size="sm"
@@ -285,12 +287,12 @@ export default function Customers() {
       {/* Edit Dialog */}
       {editingCustomer && (
         <Dialog open={!!editingCustomer} onOpenChange={(open) => !open && setEditingCustomer(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="border-b pb-3">
-              <DialogTitle>Editar Cliente</DialogTitle>
-              <DialogDescription>Atualize os dados do cliente</DialogDescription>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
+              <DialogTitle className="text-xl">Editar Cliente</DialogTitle>
+              <DialogDescription className="mt-1.5">Atualize os dados do cliente</DialogDescription>
             </DialogHeader>
-            <div className="py-4">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
               <CustomerForm
                 customer={editingCustomer}
                 onSuccess={() => { setEditingCustomer(null); loadCustomers(); }}

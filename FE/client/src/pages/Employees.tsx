@@ -167,12 +167,12 @@ export default function Employees() {
                 Novo Colaborador
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader className="flex-shrink-0 px-2 pt-2 pb-3 border-b">
-                <DialogTitle>Novo Colaborador</DialogTitle>
-                <DialogDescription>Preencha os dados para cadastrar um novo colaborador</DialogDescription>
+            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                <DialogTitle className="text-xl">Novo Colaborador</DialogTitle>
+                <DialogDescription className="mt-1.5">Preencha os dados para cadastrar um novo colaborador</DialogDescription>
               </DialogHeader>
-              <div className="px-2 py-4">
+              <div className="flex-1 overflow-y-auto px-6 py-6">
                 <CreateEmployeeForm onSuccess={() => { setIsCreateDialogOpen(false); loadEmployees(); }} />
               </div>
             </DialogContent>
@@ -297,19 +297,20 @@ export default function Employees() {
       {/* Detail/View Modal */}
       {selectedEmployee && !editingEmployee && (
         <Dialog open={!!selectedEmployee} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
+          <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-blue-100">
                   <UserCircle className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <DialogTitle>{selectedEmployee.name}</DialogTitle>
-                  <DialogDescription>{selectedEmployee.email}</DialogDescription>
+                  <DialogTitle className="text-xl">{selectedEmployee.name}</DialogTitle>
+                  <DialogDescription className="mt-1.5">{selectedEmployee.email}</DialogDescription>
                 </div>
               </div>
             </DialogHeader>
-            <div className="space-y-3 text-sm py-2">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Perfil</p>
@@ -348,8 +349,9 @@ export default function Employees() {
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Cadastrado em</p>
                 <p className="mt-1">{new Date(selectedEmployee.createdAt).toLocaleDateString("pt-BR")}</p>
               </div>
+              </div>
             </div>
-            <div className="flex justify-between pt-2 border-t">
+            <div className="px-6 py-4 border-t bg-muted/30 flex justify-between items-center">
               <Button
                 variant="ghost"
                 size="sm"
