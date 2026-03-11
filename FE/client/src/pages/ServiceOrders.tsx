@@ -95,6 +95,19 @@ const priorityLabels: Record<string, string> = {
   low: "Baixa", normal: "Normal", high: "Alta", urgent: "Urgente",
 };
 
+// Valid status transitions (mirrors backend logic)
+const VALID_STATUS_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
+  pending:       ["evaluating", "cancelled"],
+  evaluating:    ["approved", "cancelled"],
+  approved:      ["waiting_parts", "in_repair", "cancelled"],
+  waiting_parts: ["in_repair", "cancelled"],
+  in_repair:     ["testing", "waiting_parts", "cancelled"],
+  testing:       ["ready", "in_repair", "cancelled"],
+  ready:         ["delivered", "cancelled"],
+  delivered:     [],
+  cancelled:     [],
+};
+
 export default function ServiceOrders() {
   const { user } = useAuth();
   const permissions = usePermissions("/service-orders");
@@ -756,7 +769,7 @@ function EditOrderDialog({ order, onClose, onSuccess }: { order: ServiceOrder; o
     <>
       <Dialog open={true} onOpenChange={handleDialogClose}>
         <DialogContent 
-          className="max-w-3xl max-h-[90vh] flex flex-col"
+          className="max-w-5xl max-h-[90vh] flex flex-col"
           onInteractOutside={(e) => {
             e.preventDefault();
             setShowCloseConfirm(true);
@@ -1376,35 +1389,52 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
           </div>
           <div className="space-y-2">
             <Label>Alterar Status</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.entries(statusLabels) as [ServiceOrderStatus, string][]).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    const previousStatus = formData.newStatus;
-                    setFormData({ ...formData, newStatus: value });
-                    // Se mudou para delivered e estamos no step de status, avança para finalização
-                    if (value === "delivered" && previousStatus !== "delivered" && step === EDIT_STEPS.findIndex(s => s.id === "status")) {
-                      setTimeout(() => setStep(EDIT_STEPS.findIndex(s => s.id === "finalize")), 100);
-                    }
-                    // Se mudou de delivered para outro status e estamos no step de finalização, volta para status
-                    if (previousStatus === "delivered" && value !== "delivered" && step === EDIT_STEPS.findIndex(s => s.id === "finalize")) {
-                      setTimeout(() => setStep(EDIT_STEPS.findIndex(s => s.id === "status")), 100);
-                    }
-                  }}
-                  className={cn(
-                    "px-3 py-2 rounded-md text-sm font-medium text-left border transition-colors",
-                    formData.newStatus === value
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-muted"
-                  )}
-                >
-                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${statusColors[value].split(" ")[0]}`} />
-                  {label}
-                </button>
-              ))}
+            <div className="grid grid-cols-3 gap-2">
+              {(Object.entries(statusLabels) as [ServiceOrderStatus, string][]).map(([value, label]) => {
+                const isCurrentStatus = value === order.status;
+                const isValidNext = VALID_STATUS_TRANSITIONS[order.status]?.includes(value) ?? false;
+                const isSelected = formData.newStatus === value;
+                const isDisabled = !isCurrentStatus && !isValidNext;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => {
+                      if (isDisabled) return;
+                      const previousStatus = formData.newStatus;
+                      setFormData({ ...formData, newStatus: value });
+                      if (value === "delivered" && previousStatus !== "delivered" && step === EDIT_STEPS.findIndex(s => s.id === "status")) {
+                        setTimeout(() => setStep(EDIT_STEPS.findIndex(s => s.id === "finalize")), 100);
+                      }
+                      if (previousStatus === "delivered" && value !== "delivered" && step === EDIT_STEPS.findIndex(s => s.id === "finalize")) {
+                        setTimeout(() => setStep(EDIT_STEPS.findIndex(s => s.id === "status")), 100);
+                      }
+                    }}
+                    title={isDisabled ? `Transição de "${statusLabels[order.status]}" para "${label}" não é permitida` : undefined}
+                    className={cn(
+                      "px-3 py-2.5 rounded-md text-sm font-medium text-left border transition-colors",
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : isCurrentStatus
+                          ? "border-blue-300 bg-blue-50 text-blue-700"
+                          : isDisabled
+                            ? "border-border/30 bg-muted/30 text-muted-foreground/40 cursor-not-allowed"
+                            : "border-border hover:bg-muted"
+                    )}
+                  >
+                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${statusColors[value].split(" ")[0]}`} />
+                    {label}
+                    {isCurrentStatus && !isSelected && (
+                      <span className="block text-xs text-blue-500 mt-0.5">atual</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Apenas as transições válidas para o fluxo de trabalho estão disponíveis. Itens em cinza não podem ser selecionados a partir do status atual.
+            </p>
           </div>
           {formData.newStatus !== order.status && (
             <div className="space-y-2">

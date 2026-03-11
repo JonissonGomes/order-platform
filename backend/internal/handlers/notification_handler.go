@@ -24,8 +24,18 @@ func NewNotificationHandler(notificationRepo *repository.NotificationRepository)
 
 // ListNotifications handles GET /api/notifications
 func (h *NotificationHandler) ListNotifications(c *gin.Context) {
+	ctx := c.Request.Context()
+	
+	// Get user ID from either employee or customer
 	currentEmployee := middleware.GetEmployeeFromContext(c)
-	if currentEmployee == nil {
+	currentCustomer := middleware.GetCustomerFromContext(c)
+	
+	var userID primitive.ObjectID
+	if currentEmployee != nil {
+		userID = currentEmployee.ID
+	} else if currentCustomer != nil {
+		userID = currentCustomer.ID
+	} else {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
@@ -33,9 +43,6 @@ func (h *NotificationHandler) ListNotifications(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	unreadOnly := c.Query("unread") == "true"
-
-	ctx := c.Request.Context()
-	userID := currentEmployee.ID
 
 	filter := make(map[string]interface{})
 	if unreadOnly {
@@ -65,14 +72,23 @@ func (h *NotificationHandler) ListNotifications(c *gin.Context) {
 
 // GetUnreadCount handles GET /api/notifications/unread-count
 func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
+	ctx := c.Request.Context()
+	
+	// Get user ID from either employee or customer
 	currentEmployee := middleware.GetEmployeeFromContext(c)
-	if currentEmployee == nil {
+	currentCustomer := middleware.GetCustomerFromContext(c)
+	
+	var userID primitive.ObjectID
+	if currentEmployee != nil {
+		userID = currentEmployee.ID
+	} else if currentCustomer != nil {
+		userID = currentCustomer.ID
+	} else {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
-	ctx := c.Request.Context()
-	count, err := h.notificationRepo.CountUnreadNotifications(ctx, currentEmployee.ID)
+	count, err := h.notificationRepo.CountUnreadNotifications(ctx, userID)
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
@@ -102,15 +118,23 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 
 // MarkAllAsRead handles POST /api/notifications/read-all
 func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
+	ctx := c.Request.Context()
+	
+	// Get user ID from either employee or customer
 	currentEmployee := middleware.GetEmployeeFromContext(c)
-	if currentEmployee == nil {
+	currentCustomer := middleware.GetCustomerFromContext(c)
+	
+	var userID primitive.ObjectID
+	if currentEmployee != nil {
+		userID = currentEmployee.ID
+	} else if currentCustomer != nil {
+		userID = currentCustomer.ID
+	} else {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
-	ctx := c.Request.Context()
-
-	if err := h.notificationRepo.MarkAllAsRead(ctx, currentEmployee.ID); err != nil {
+	if err := h.notificationRepo.MarkAllAsRead(ctx, userID); err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}

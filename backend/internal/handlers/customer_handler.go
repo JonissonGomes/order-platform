@@ -120,17 +120,29 @@ func (h *CustomerHandler) GetCustomer(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	customer, err := h.customerRepo.GetCustomerByID(ctx, customerID)
+
+	// Security check: if the authenticated user is a customer, they can only access their own data
+	// Employees can access any customer's data
+	customer := middleware.GetCustomerFromContext(c)
+	if customer != nil {
+		// Authenticated user is a customer - verify they're accessing their own data
+		if customer.ID != customerID {
+			utils.RespondWithForbidden(c, "Você só pode acessar seus próprios dados")
+			return
+		}
+	}
+
+	customerData, err := h.customerRepo.GetCustomerByID(ctx, customerID)
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}
-	if customer == nil {
+	if customerData == nil {
 		utils.RespondWithNotFound(c, "Cliente não encontrado")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"customer": customer})
+	c.JSON(http.StatusOK, gin.H{"customer": customerData})
 }
 
 // GetCustomerByCPF retrieves a customer by CPF
@@ -243,11 +255,6 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentEmployee := middleware.GetEmployeeFromContext(c)
-	if currentEmployee == nil {
-		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
-		return
-	}
 
 	// Get existing customer
 	customer, err := h.customerRepo.GetCustomerByID(ctx, customerID)
@@ -257,6 +264,26 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	}
 	if customer == nil {
 		utils.RespondWithNotFound(c, "Cliente não encontrado")
+		return
+	}
+
+	// Security check: if the authenticated user is a customer, they can only update their own data
+	// Employees can update any customer's data
+	currentCustomer := middleware.GetCustomerFromContext(c)
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+
+	if currentCustomer != nil {
+		// Authenticated user is a customer - verify they're updating their own data
+		if currentCustomer.ID != customerID {
+			utils.RespondWithForbidden(c, "Você só pode atualizar seus próprios dados")
+			return
+		}
+		// Customers cannot update Notes or MaintenanceIntervalMonths (only employees can)
+		req.Notes = ""
+		req.MaintenanceIntervalMonths = nil
+	} else if currentEmployee == nil {
+		// Neither customer nor employee - unauthorized
+		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
@@ -273,24 +300,32 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	if req.Address != nil {
 		customer.Address = req.Address
 	}
-	if req.Notes != "" {
-		customer.Notes = req.Notes
-	}
-	if req.MaintenanceIntervalMonths != nil {
-		customer.MaintenanceIntervalMonths = *req.MaintenanceIntervalMonths
-		// Recalcular próxima data de manutenção se houver data de última manutenção
-		if customer.LastMaintenanceDate != nil && *req.MaintenanceIntervalMonths > 0 {
-			next := customer.LastMaintenanceDate.AddDate(0, *req.MaintenanceIntervalMonths, 0)
-			customer.NextMaintenanceDate = &next
-		} else {
-			customer.NextMaintenanceDate = nil
+	// Notes and MaintenanceIntervalMonths can only be updated by employees
+	if currentEmployee != nil {
+		if req.Notes != "" {
+			customer.Notes = req.Notes
 		}
-		customer.MaintenanceAlertSent = false // Resetar flag ao alterar intervalo
+		if req.MaintenanceIntervalMonths != nil {
+			customer.MaintenanceIntervalMonths = *req.MaintenanceIntervalMonths
+			// Recalcular próxima data de manutenção se houver data de última manutenção
+			if customer.LastMaintenanceDate != nil && *req.MaintenanceIntervalMonths > 0 {
+				next := customer.LastMaintenanceDate.AddDate(0, *req.MaintenanceIntervalMonths, 0)
+				customer.NextMaintenanceDate = &next
+			} else {
+				customer.NextMaintenanceDate = nil
+			}
+			customer.MaintenanceAlertSent = false // Resetar flag ao alterar intervalo
+		}
 	}
 	// CPF não pode ser alterado (dado único)
 
 	// Determine updatedBy
-	customer.UpdatedBy = currentEmployee.ID
+	if currentEmployee != nil {
+		customer.UpdatedBy = currentEmployee.ID
+	} else if currentCustomer != nil {
+		// If customer is updating themselves, use their own ID
+		customer.UpdatedBy = currentCustomer.ID
+	}
 	customer.UpdatedAt = time.Now()
 
 	if err := h.customerRepo.UpdateCustomer(ctx, customerID, customer); err != nil {
@@ -342,6 +377,18 @@ func (h *CustomerHandler) GetCustomerServiceOrders(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+
+	// Security check: if the authenticated user is a customer, they can only access their own orders
+	// Employees can access any customer's orders
+	customer := middleware.GetCustomerFromContext(c)
+	if customer != nil {
+		// Authenticated user is a customer - verify they're accessing their own orders
+		if customer.ID != customerID {
+			utils.RespondWithForbidden(c, "Você só pode acessar suas próprias ordens")
+			return
+		}
+	}
+
 	orders, err := h.serviceOrderRepo.GetServiceOrdersByCustomerID(ctx, customerID)
 	if err != nil {
 		utils.RespondWithInternalError(c)

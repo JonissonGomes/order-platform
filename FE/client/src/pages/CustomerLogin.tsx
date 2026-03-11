@@ -22,8 +22,8 @@ export default function CustomerLogin() {
 
     try {
       await api.login({ email, password });
-      // Redirecionar para a página de acompanhamento de ordem após login bem-sucedido
-      window.location.href = "/track";
+      // Redirecionar para o dashboard do cliente após login bem-sucedido
+      window.location.href = "/cliente/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login. Verifique suas credenciais e tente novamente.");
     } finally {

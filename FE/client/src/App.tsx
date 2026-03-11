@@ -16,6 +16,9 @@ import Customers from "./pages/Customers";
 import Departments from "./pages/Departments";
 import Employees from "./pages/Employees";
 import PublicOrderTracking from "./pages/PublicOrderTracking";
+import CustomerDashboard from "./pages/CustomerDashboard";
+import CustomerProfile from "./pages/CustomerProfile";
+import CustomerOrdersHistory from "./pages/CustomerOrdersHistory";
 import PrintServiceOrder from "./pages/PrintServiceOrder";
 import Stock from "./pages/Stock";
 import Financial from "./pages/Financial";
@@ -41,6 +44,9 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/login"} component={Login} />
       <Route path={"/cliente/login"} component={CustomerLogin} />
+      <Route path={"/cliente/dashboard"} component={CustomerDashboard} />
+      <Route path={"/cliente/perfil"} component={CustomerProfile} />
+      <Route path={"/cliente/ordens"} component={CustomerOrdersHistory} />
       <Route path={"/register"} component={Register} />
       <Route path={"/dashboard"} component={Dashboard} />
       <Route path={"/profile"} component={Profile} />

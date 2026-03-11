@@ -723,14 +723,17 @@ func (h *ServiceOrderHandler) UpdateServiceOrderStatus(c *gin.Context) {
 		return
 	}
 
-	// Validate status transition
-	if !models.IsValidStatusTransition(order.Status, req.Status) {
+	// Admins and donos can transition to any status (they can fix mistakes / skip steps)
+	isAdminUser := currentEmployee != nil && currentEmployee.IsAdmin()
+
+	// Validate status transition for non-admins
+	if !isAdminUser && !models.IsValidStatusTransition(order.Status, req.Status) {
 		utils.RespondWithBadRequest(c, "Transição de status inválida")
 		return
 	}
 
-	// Check if employee can change to this status (admin/super_admin can change any status)
-	if currentEmployee != nil && !currentEmployee.CanChangeStatus(req.Status) {
+	// Check if employee can change to this status
+	if !isAdminUser && !currentEmployee.CanChangeStatus(req.Status) {
 		utils.RespondWithForbidden(c, "Você não tem permissão para mudar para este status")
 		return
 	}
