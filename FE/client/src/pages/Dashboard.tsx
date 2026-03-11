@@ -270,15 +270,25 @@ export default function Dashboard() {
                           <span className="font-mono text-sm font-medium">#{order.orderNumber}</span>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                             order.status === "pending" ? "bg-orange-100 text-orange-700" :
+                            order.status === "evaluating" ? "bg-blue-100 text-blue-700" :
+                            order.status === "approved" ? "bg-green-100 text-green-700" :
+                            order.status === "waiting_parts" ? "bg-orange-100 text-orange-700" :
                             order.status === "in_repair" ? "bg-yellow-100 text-yellow-700" :
+                            order.status === "testing" ? "bg-indigo-100 text-indigo-700" :
                             order.status === "ready" ? "bg-green-100 text-green-700" :
                             order.status === "delivered" ? "bg-blue-100 text-blue-700" :
+                            order.status === "cancelled" ? "bg-red-100 text-red-700" :
                             "bg-gray-100 text-gray-700"
                           }`}>
-                            {order.status === "pending" ? "Pendente" :
+                            {order.status === "pending" ? "Aguardando Avaliação" :
+                             order.status === "evaluating" ? "Em Avaliação" :
+                             order.status === "approved" ? "Aprovado" :
+                             order.status === "waiting_parts" ? "Aguardando Peças" :
                              order.status === "in_repair" ? "Em Conserto" :
-                             order.status === "ready" ? "Pronta" :
+                             order.status === "testing" ? "Em Teste" :
+                             order.status === "ready" ? "Pronto para Retirada" :
                              order.status === "delivered" ? "Entregue" :
+                             order.status === "cancelled" ? "Cancelado" :
                              order.status}
                           </span>
                         </div>

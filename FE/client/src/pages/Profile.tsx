@@ -34,16 +34,19 @@ export default function Profile() {
 
   // Buscar dados do departamento se o colaborador tiver
   const { data: departmentData } = useQuery({
-    queryKey: ["department", employeeData?.departmentId],
+    queryKey: ["department", employeeData?.employee?.departmentId],
     queryFn: async () => {
-      if (!employeeData?.departmentId) return null;
-      return api.getDepartment(employeeData.departmentId);
+      if (!employeeData?.employee?.departmentId) return null;
+      return api.getDepartment(employeeData.employee.departmentId);
     },
-    enabled: !!employeeData?.departmentId,
+    enabled: !!employeeData?.employee?.departmentId,
   });
 
   // Get the actual role from employee if available, otherwise use user role
-  const actualRole = employeeData?.role || user?.role;
+  // Se for cliente, usar role "customer" ou "user"
+  const actualRole = user?.type === "customer" || user?.role === "customer" 
+    ? "customer" 
+    : (employeeData?.employee?.role || user?.role);
 
   const getRoleLabel = (role?: string) => {
     switch (role) {
@@ -59,6 +62,7 @@ export default function Profile() {
       case "technician":
         return "Técnico";
       case "user":
+      case "customer":
         return "Cliente";
       default:
         return role || "Usuário";
@@ -82,7 +86,7 @@ export default function Profile() {
     if (actualRole === "technician") {
       return "Técnico";
     }
-    if (actualRole === "user") {
+    if (actualRole === "user" || actualRole === "customer") {
       return "Cliente";
     }
     return null;

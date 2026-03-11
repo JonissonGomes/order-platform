@@ -21,12 +21,21 @@ export default function CustomerLogin() {
     setLoading(true);
 
     try {
-      await api.login({ email, password });
-      // Redirecionar para o dashboard do cliente após login bem-sucedido
-      window.location.href = "/cliente/dashboard";
+      const response = await api.login({ email, password });
+      
+      // Verificar se o login retornou um cliente
+      if (response.user && (response.user.type === "customer" || response.user.role === "customer")) {
+        // Aguardar um pouco para garantir que o cookie está definido
+        await new Promise(resolve => setTimeout(resolve, 100));
+        // Redirecionar para o dashboard do cliente após login bem-sucedido
+        window.location.href = "/cliente/dashboard";
+      } else {
+        // Se não for cliente, redirecionar para dashboard de funcionário
+        await new Promise(resolve => setTimeout(resolve, 100));
+        window.location.href = "/dashboard";
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login. Verifique suas credenciais e tente novamente.");
-    } finally {
       setLoading(false);
     }
   };

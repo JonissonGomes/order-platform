@@ -427,6 +427,9 @@ export default function Profiles() {
     ));
   };
 
+  // Verificar se o perfil selecionado é de cliente
+  const isCustomerProfile = selectedRole === "User" || selectedRole === "Cliente";
+  
   // Group modules by category
   // Negócio: módulos relacionados ao negócio principal
   const businessModules = availableModules.filter((m) => 
@@ -437,10 +440,10 @@ export default function Profiles() {
   const adminModules = availableModules.filter((m) => 
     m === "/departments" || m === "/employees" || m === "/profiles" || m === "/settings"
   );
-  // Cliente: módulos específicos para clientes
-  const customerModules = availableModules.filter((m) => 
-    m.startsWith("/cliente/")
-  );
+  // Cliente: módulos específicos para clientes (apenas para perfis de cliente)
+  const customerModules = isCustomerProfile 
+    ? availableModules.filter((m) => m.startsWith("/cliente/"))
+    : [];
 
   // Debug: log available modules
   console.log("[Profiles] Available modules:", availableModules);
@@ -479,12 +482,9 @@ export default function Profiles() {
                       .map((role) => (
                         <SelectItem key={role.id} value={role.name}>
                           <div className="flex items-center gap-2">
-                            <span>{role.name}</span>
+                            <span>{role.name === "User" ? "Cliente" : role.name}</span>
                             {role.name === "Administrador" && (
                               <Badge variant="secondary">Departamento</Badge>
-                            )}
-                            {role.name === "User" && (
-                              <Badge variant="outline">Cliente</Badge>
                             )}
                           </div>
                         </SelectItem>
@@ -492,7 +492,6 @@ export default function Profiles() {
                   </SelectContent>
                 </Select>
               </div>
-
               {selectedRole === "Administrador" && (
                 <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
                   <p className="text-sm text-amber-900 dark:text-amber-100">

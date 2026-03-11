@@ -99,13 +99,13 @@ export default function DashboardLayout({
         "department_manager": "Gerente",
         "attendant": "Atendente",
         "technician": "Técnico",
-        "user": "User", // Cliente
+        "user": "Cliente",
       };
       return roleMap[employeeData.role] || null;
     }
     // If employeeData is not found but user has role "user", it might be a customer
     if (user?.role === "user" && !isLoadingEmployee) {
-      return "User";
+      return "Cliente";
     }
     return null;
   };
@@ -335,12 +335,12 @@ function DashboardLayoutContent({
         "department_manager": "Gerente",
         "attendant": "Atendente",
         "technician": "Técnico",
-        "user": "User",
+        "user": "Cliente",
       };
       return roleMap[employeeData.role] || null;
     }
     if (user?.role === "user" && !isLoadingEmployee) {
-      return "User";
+      return "Cliente";
     }
     return null;
   };

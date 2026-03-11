@@ -68,7 +68,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function CustomerDashboard() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +80,9 @@ export default function CustomerDashboard() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
+    // Aguardar o carregamento inicial antes de verificar autenticação
+    if (authLoading) return;
+
     if (!isAuthenticated || !user) {
       setLocation("/cliente/login");
       return;
@@ -101,7 +104,7 @@ export default function CustomerDashboard() {
     }, 30000);
     
     return () => clearInterval(interval);
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, authLoading]);
 
   const loadOrders = async () => {
     if (!user?.id) return;
