@@ -2,6 +2,7 @@ package router
 
 import (
 	"log"
+	"net/http"
 
 	"order-platform/backend/internal/config"
 	"order-platform/backend/internal/database"
@@ -232,6 +233,22 @@ func New(db *database.MongoDB) *gin.Engine {
 			{
 				upload.POST("/image", uploadHandler.UploadImage)
 				upload.DELETE("/image/:id", uploadHandler.DeleteImage)
+			}
+		} else {
+			// Return error if Cloudinary is not configured
+			upload := api.Group("/upload")
+			upload.Use(authMiddleware, middleware.RequireAuth())
+			{
+				upload.POST("/image", func(c *gin.Context) {
+					c.JSON(http.StatusServiceUnavailable, gin.H{
+						"error": "Serviço de upload de imagens não está configurado. Configure as credenciais do Cloudinary.",
+					})
+				})
+				upload.DELETE("/image/:id", func(c *gin.Context) {
+					c.JSON(http.StatusServiceUnavailable, gin.H{
+						"error": "Serviço de upload de imagens não está configurado. Configure as credenciais do Cloudinary.",
+					})
+				})
 			}
 		}
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	"order-platform/backend/internal/middleware"
@@ -34,6 +35,7 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 	// Get file from form
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
+		log.Printf("Error getting file from form: %v", err)
 		utils.RespondWithBadRequest(c, "Arquivo não encontrado")
 		return
 	}
@@ -41,9 +43,36 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 
 	// Validate file type
 	contentType := header.Header.Get("Content-Type")
-	if contentType != "image/jpeg" && contentType != "image/png" && contentType != "image/webp" {
-		utils.RespondWithBadRequest(c, "Tipo de arquivo não suportado. Use JPEG, PNG ou WebP")
-		return
+	fileName := header.Filename
+	log.Printf("Upload attempt - Content-Type: %s, Filename: %s, Size: %d", contentType, fileName, header.Size)
+	
+	// Validate by Content-Type (common MIME types)
+	validContentType := contentType == "image/jpeg" || 
+		contentType == "image/jpg" || 
+		contentType == "image/png" || 
+		contentType == "image/webp"
+	
+	// If Content-Type is not valid, try to validate by file extension as fallback
+	if !validContentType {
+		validExtension := false
+		if len(fileName) > 4 {
+			ext := fileName[len(fileName)-4:]
+			if ext == ".jpg" || ext == ".png" || ext == "webp" {
+				validExtension = true
+			}
+		}
+		if len(fileName) > 5 {
+			ext5 := fileName[len(fileName)-5:]
+			if ext5 == ".jpeg" {
+				validExtension = true
+			}
+		}
+		if !validExtension {
+			log.Printf("Invalid file type - Content-Type: %s, Filename: %s", contentType, fileName)
+			utils.RespondWithBadRequest(c, "Tipo de arquivo não suportado. Use JPEG, PNG ou WebP")
+			return
+		}
+		log.Printf("File type validated by extension - Content-Type: %s, Filename: %s", contentType, fileName)
 	}
 
 	// Validate file size (max 10MB)
@@ -55,6 +84,7 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 	ctx := c.Request.Context()
 	result, err := h.cloudinaryService.UploadImage(ctx, file, folder)
 	if err != nil {
+		log.Printf("Error uploading image to Cloudinary: %v", err)
 		utils.RespondWithInternalError(c)
 		return
 	}
@@ -85,6 +115,7 @@ func (h *UploadHandler) DeleteImage(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	if err := h.cloudinaryService.DeleteImage(ctx, publicID); err != nil {
+		log.Printf("Error deleting image from Cloudinary: %v (publicID: %s)", err, publicID)
 		utils.RespondWithInternalError(c)
 		return
 	}

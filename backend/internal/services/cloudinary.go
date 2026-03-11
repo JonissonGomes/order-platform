@@ -1,9 +1,11 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"time"
 
@@ -50,6 +52,20 @@ func (s *CloudinaryService) UploadImage(ctx context.Context, file multipart.File
 	// Generate unique filename
 	filename := fmt.Sprintf("%s_%d", folder, time.Now().UnixNano())
 
+	// Read file content first (before closing)
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		log.Printf("Error reading file bytes: %v", err)
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	if len(fileBytes) == 0 {
+		log.Printf("Error: file is empty")
+		return nil, fmt.Errorf("file is empty")
+	}
+
+	log.Printf("File read successfully: %d bytes, uploading to folder: %s, filename: %s", len(fileBytes), folder, filename)
+
 	// Upload options
 	overwrite := false
 	uploadParams := uploader.UploadParams{
@@ -57,20 +73,21 @@ func (s *CloudinaryService) UploadImage(ctx context.Context, file multipart.File
 		PublicID:     filename,
 		Overwrite:    &overwrite,
 		ResourceType: "image",
-		Transformation: "q_auto,f_auto,c_limit,w_1920,h_1080", // Auto quality, auto format, limit dimensions
-	}
-
-	// Read file content
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+		// Transformation is applied via EagerTransformation or via URL transformation
+		// For now, we'll apply transformations via URL when serving the image
 	}
 
 	// Upload to Cloudinary
-	result, err := s.cld.Upload.Upload(ctx, fileBytes, uploadParams)
+	// Cloudinary SDK v2 requires an io.Reader, not []byte directly
+	fileReader := bytes.NewReader(fileBytes)
+	log.Printf("Starting Cloudinary upload...")
+	result, err := s.cld.Upload.Upload(ctx, fileReader, uploadParams)
 	if err != nil {
+		log.Printf("Cloudinary upload error: %v", err)
 		return nil, fmt.Errorf("failed to upload to Cloudinary: %w", err)
 	}
+
+	log.Printf("Cloudinary upload successful: URL=%s, PublicID=%s", result.SecureURL, result.PublicID)
 
 	return &UploadResult{
 		URL:      result.SecureURL,
