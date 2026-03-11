@@ -4,6 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -11,134 +17,473 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  ArrowRight,
-  CheckCircle2,
-  Phone,
-  Mail,
-  MapPin,
-  Clock,
-  Shield,
-  Wrench,
-  Gamepad2,
-  Joystick,
-  Cpu,
+  ShieldCheck,
   Truck,
-  MessageSquare,
-  Zap,
-  UserPlus,
+  Gamepad2,
+  Cpu,
+  Wrench,
+  MessageSquareText,
+  BadgeCheck,
+  Phone,
+  MapPin,
+  MessageCircle,
+  Radar,
+  History,
   Bell,
-  Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
-import { MapView } from "@/components/Map";
 import { formatPhone } from "@/lib/formatters";
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", message: "" });
+  const [contactForm, setContactForm] = useState({ 
+    fullName: "", 
+    email: "", 
+    phone: "", 
+    equipment: "",
+    description: "" 
+  });
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  const services = [
+  const heroHighlights = [
     {
-      icon: Gamepad2,
-      title: "Reparo de Consoles",
-      description: "Especialistas em reparo de Playstation, Xbox e Nintendo. Resolvemos desde problemas simples até reparos complexos.",
-      gradient: "from-purple-500 to-pink-500",
-    },
-    {
-      icon: Joystick,
-      title: "Reparo de Controles",
-      description: "Conserto de controles de todas as marcas. Analógicos, botões, conectividade e muito mais.",
-      gradient: "from-blue-500 to-cyan-500",
-    },
-    {
-      icon: Cpu,
-      title: "Diagnóstico Detalhado",
-      description: "Cada equipamento recebe diagnóstico detalhado e atendimento exclusivo.",
-      gradient: "from-orange-500 to-red-500",
+      icon: ShieldCheck,
+      title: "Garantia de 90 dias",
+      text: "Cobertura para todos os reparos realizados pela equipe.",
     },
     {
       icon: Truck,
-      title: "Coleta e Entrega",
-      description: "Buscamos e entregamos seu console em Recife. Consulte nossas taxas para sua localidade.",
-      gradient: "from-green-500 to-emerald-500",
+      title: "Coleta e entrega",
+      text: "Buscamos e devolvemos em Recife com segurança e agilidade.",
+    },
+    {
+      icon: Gamepad2,
+      title: "Especialistas em consoles",
+      text: "PlayStation, Xbox, Nintendo e controles de várias marcas.",
     },
   ];
 
-  const benefits = [
+  const services = [
+    {
+      icon: Cpu,
+      title: "Reparo de Consoles",
+      text: "Especialistas em PlayStation, Xbox e Nintendo. Placa, leitor, fonte, superaquecimento e travamentos.",
+      hoverColor: "hover:border-blue-500/60",
+    },
+    {
+      icon: Gamepad2,
+      title: "Reparo de Controles",
+      text: "Conserto de analógicos, botões, gatilhos, conectividade e problemas elétricos em controles de diversas marcas.",
+      hoverColor: "hover:border-emerald-500/60",
+    },
     {
       icon: Wrench,
-      title: "Técnicos qualificados",
-      description: "Nossa equipe é composta por especialistas em videogames.",
-    },
-    {
-      icon: Shield,
-      title: "Garantia de 90 dias",
-      description: "Para todos os reparos realizados pela nossa equipe.",
-    },
-    {
-      icon: MessageSquare,
-      title: "Suporte especializado",
-      description: "Cada equipamento recebe diagnóstico detalhado e atendimento exclusivo.",
-    },
-    {
-      icon: Clock,
-      title: "Coleta e entrega",
-      description: "Pensando na sua conveniência, buscamos e entregamos seu console em Recife.",
+      title: "Diagnóstico Detalhado",
+      text: "Cada equipamento passa por análise completa para identificar a causa do defeito e definir o melhor reparo.",
+      hoverColor: "hover:border-red-500/60",
     },
   ];
 
-  // Depoimentos removidos - podem ser adicionados via API no futuro
+  const logisticsSteps = [
+    {
+      icon: MessageSquareText,
+      title: "1. Solicite",
+      text: "Envie o problema do seu console e receba orientação inicial da equipe.",
+    },
+    {
+      icon: Truck,
+      title: "2. Coleta",
+      text: "Buscamos seu equipamento em Recife com segurança e praticidade.",
+    },
+    {
+      icon: Wrench,
+      title: "3. Reparo e Entrega",
+      text: "Após diagnóstico e reparo, devolvemos seu videogame pronto para jogar.",
+    },
+  ];
+
+  const logisticsBenefits = [
+    "Técnicos qualificados",
+    "Garantia de 90 dias",
+    "Suporte especializado",
+    "Coleta e entrega",
+  ];
+
+  const accountFeatures = [
+    {
+      icon: Radar,
+      title: "Acompanhamento em tempo real",
+      description: "Receba notificações sobre o status do seu serviço.",
+    },
+    {
+      icon: History,
+      title: "Histórico completo",
+      description: "Acesse todo o histórico dos seus atendimentos.",
+    },
+    {
+      icon: Bell,
+      title: "Notificações automáticas",
+      description: "Seja avisado sempre que houver mudança de status.",
+    },
+  ];
+
+  const faqList = [
+    {
+      question: "Quais videogames vocês consertam?",
+      answer: "Consertamos PlayStation (todas as gerações), Xbox (One, Series S/X), Nintendo Switch e controles de diversas marcas. Trabalhamos com problemas de hardware, software, superaquecimento, travamentos e muito mais.",
+    },
+    {
+      question: "Vocês fazem coleta e entrega em Recife?",
+      answer: "Sim! Oferecemos serviço de coleta e entrega em Recife e região metropolitana. Consulte nossas taxas por localidade ao solicitar o orçamento.",
+    },
+    {
+      question: "Qual é o prazo médio de reparo?",
+      answer: "O prazo varia conforme a complexidade do problema. Após o diagnóstico, informamos o tempo estimado. Geralmente, reparos simples levam de 3 a 5 dias úteis, enquanto reparos mais complexos podem levar até 10 dias úteis.",
+    },
+    {
+      question: "Os reparos possuem garantia?",
+      answer: "Sim! Todos os reparos realizados pela nossa equipe possuem garantia de 90 dias. Caso o mesmo problema ocorra novamente dentro desse período, refazemos o serviço sem custo adicional.",
+    },
+    {
+      question: "Como solicitar orçamento?",
+      answer: "Você pode solicitar um orçamento através do formulário de contato nesta página, pelo WhatsApp (botão flutuante) ou pelo telefone (81) 9 8676-3169. Descreva o problema do seu console ou controle e nossa equipe entrará em contato em breve.",
+    },
+  ];
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Aqui você pode implementar o envio do formulário
     console.log("Formulário enviado:", contactForm);
     setShowSuccessDialog(true);
-    setContactForm({ name: "", email: "", phone: "", message: "" });
+    setContactForm({ fullName: "", email: "", phone: "", equipment: "", description: "" });
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
-
+    <main className="app-shell min-h-screen w-full bg-zinc-950">
       {/* Hero Section */}
-      <section className="w-full container mx-auto px-4 py-16 md:py-24 relative z-10">
-        <div className="text-center max-w-4xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 mb-6 backdrop-blur-sm">
-            <Sparkles className="h-4 w-4 text-purple-300" />
-            <span className="text-sm font-medium text-purple-200">Especialistas em Reparo de Videogames</span>
+      <section className="relative overflow-hidden border-b border-white/10">
+        <div className="tech-grid absolute inset-0 opacity-25" aria-hidden="true"></div>
+        <img 
+          alt="Controles e consoles para reparo" 
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-25" 
+          src="https://images.unsplash.com/photo-1550921464-1bbe1d247da5?auto=format&fit=crop&w=1600&q=80"
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.2),transparent_60%)]"></div>
+        
+        <header className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5 md:px-12">
+          <a href="#topo" className="font-heading text-xl font-bold text-white">
+            Doutor <span className="text-indigo-400">Game</span>
+          </a>
+          <nav className="hidden items-center gap-6 text-sm md:flex">
+            <a href="#servicos" className="text-slate-300 transition-colors hover:text-white">
+              Serviços
+            </a>
+            <a href="#logistica" className="text-slate-300 transition-colors hover:text-white">
+              Logística
+            </a>
+            <a href="#contato" className="text-slate-300 transition-colors hover:text-white">
+              Contato
+            </a>
+          </nav>
+          <a 
+            href="https://wa.me/5581986763169" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10"
+          >
+            WhatsApp
+          </a>
+        </header>
+
+        <div id="topo" className="relative mx-auto grid w-full max-w-7xl gap-10 px-6 pb-20 pt-16 md:grid-cols-12 md:px-12 md:pb-28">
+          <div className="space-y-8 md:col-span-7">
+            <p className="font-mono text-xs uppercase tracking-[0.24em] text-emerald-400">
+              assistência técnica especializada em consoles • recife
+            </p>
+            <h1 className="font-heading text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">
+              Seu videogame <span className="text-indigo-400">quebrou</span>?
+            </h1>
+            <p className="max-w-2xl text-sm text-slate-300 md:text-lg">
+              Reparos de PlayStation, Xbox e Nintendo com coleta e entrega em Recife. Atendimento técnico rápido, diagnóstico detalhado e garantia para você voltar a jogar sem dor de cabeça.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button
+                className="h-12 w-full rounded-md bg-indigo-500 text-base font-semibold text-white transition-colors hover:bg-indigo-600"
+                onClick={() => {
+                  document.getElementById("contato")?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                Solicitar Orçamento
+              </Button>
+              <Button
+                className="h-12 w-full rounded-md bg-emerald-500 text-base font-semibold text-zinc-950 transition-colors hover:bg-emerald-400"
+                onClick={() => setLocation("/track")}
+              >
+                Acompanhar Serviço
+              </Button>
+            </div>
           </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-4 leading-tight">
-            <span className="block text-white">Seu videogame</span>
-            <span className="block bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mt-2 animate-pulse">
-              quebrou ?
-            </span>
-          </h1>
-          <p className="text-xl md:text-2xl text-slate-300 mb-8 leading-relaxed font-medium max-w-3xl mx-auto">
-            Reparos de <span className="text-purple-300 font-semibold">Playstation</span>, <span className="text-green-300 font-semibold">Xbox</span> e <span className="text-red-300 font-semibold">Nintendo</span> com coleta e entrega em Recife, só na <span className="text-cyan-300 font-bold">Doutor Game</span>.
+          <div className="grid gap-4 md:col-span-5">
+            {heroHighlights.map((highlight, index) => (
+              <article key={index} className="rounded-xl border border-white/10 bg-black/50 p-5 backdrop-blur">
+                <highlight.icon className="mb-3 h-5 w-5 text-emerald-400" aria-hidden="true" />
+                <h2 className="font-heading text-base font-semibold text-white">{highlight.title}</h2>
+                <p className="mt-2 text-sm text-slate-300">{highlight.text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Services Section */}
+      <section id="servicos" className="mx-auto w-full max-w-7xl px-6 py-20 md:px-12">
+        <div className="mb-12 max-w-2xl space-y-3">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-300">serviços</p>
+          <h2 className="font-heading text-3xl font-semibold text-white md:text-5xl">
+            Reparos rápidos com padrão profissional
+          </h2>
+          <p className="text-sm text-slate-300 md:text-base">
+            Nossa equipe técnica resolve desde defeitos simples até reparos complexos com peças de qualidade e atendimento transparente.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          {services.map((service, index) => (
+            <Card key={index} className={`rounded-xl border border-white/10 bg-zinc-950/70 backdrop-blur transition-all duration-300 ${service.hoverColor}`}>
+              <CardHeader className="flex flex-col space-y-1.5 p-6">
+                <service.icon className="h-6 w-6 text-indigo-400" aria-hidden="true" />
+                <CardTitle className="font-heading text-xl text-white">{service.title}</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <p className="text-sm leading-relaxed text-slate-300">{service.text}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* Logistics Section */}
+      <section id="logistica" className="relative overflow-hidden border-y border-white/10">
+        <img 
+          alt="Entrega de equipamento" 
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-25" 
+          src="https://images.unsplash.com/photo-1768423083233-b3f696c9b703?auto=format&fit=crop&w=1400&q=80"
+        />
+        <div className="absolute inset-0 bg-black/85"></div>
+        <div className="relative mx-auto w-full max-w-7xl px-6 py-20 md:px-12">
+          <div className="mb-10 space-y-3">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-emerald-400">logística</p>
+            <h2 className="font-heading text-3xl font-semibold text-white md:text-5xl">
+              Coleta e entrega para sua conveniência
+            </h2>
+            <p className="max-w-3xl text-sm text-slate-300 md:text-base">
+              Pensando no seu conforto, buscamos e entregamos seu console em Recife. Consulte taxas por localidade e disponibilidade.
+            </p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-3">
+            {logisticsSteps.map((step, index) => (
+              <article key={index} className="rounded-xl border border-white/10 bg-black/40 p-5 backdrop-blur transition-colors duration-300 hover:border-indigo-500/60">
+                <step.icon className="mb-3 h-6 w-6 text-indigo-400" aria-hidden="true" />
+                <h3 className="font-heading text-lg font-semibold text-white">{step.title}</h3>
+                <p className="mt-2 text-sm text-slate-300">{step.text}</p>
+              </article>
+            ))}
+          </div>
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {logisticsBenefits.map((benefit, index) => (
+              <div key={index} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+                <BadgeCheck className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+                <span className="text-sm text-slate-100">{benefit}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Section */}
+      <section id="contato" className="mx-auto w-full max-w-7xl px-6 py-20 md:px-12">
+        <div className="mb-10 max-w-2xl space-y-3">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-300">contatos</p>
+          <h2 className="font-heading text-3xl font-semibold text-white md:text-5xl">
+            Fale conosco e volte a jogar sem preocupações
+          </h2>
+        </div>
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div className="space-y-6">
+            <div className="rounded-xl border border-white/10 bg-zinc-950/70 p-6">
+              <h3 className="font-heading text-xl font-semibold text-white">Informações de Contato</h3>
+              <div className="mt-5 space-y-4">
+                <p className="flex items-start gap-3 text-slate-200">
+                  <Phone className="mt-0.5 h-4 w-4 text-emerald-400" aria-hidden="true" />
+                  <span>
+                    <strong className="text-white">Telefone:</strong> (81) 9 8676-3169
+                  </span>
+                </p>
+                <p className="flex items-start gap-3 text-slate-200">
+                  <MapPin className="mt-0.5 h-4 w-4 text-indigo-400" aria-hidden="true" />
+                  <span>
+                    <strong className="text-white">Endereço:</strong> Rua Ijuí, nº 293, Torrões, Recife - PE
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-zinc-950/70 p-3">
+              <h3 className="mb-3 px-2 font-heading text-base font-semibold text-white">Nossa Localização</h3>
+              <div className="aspect-[16/9] overflow-hidden rounded-lg border border-white/10">
+                <iframe
+                  title="Mapa Doutor Game"
+                  src="https://www.google.com/maps?q=Rua%20Iju%C3%AD%20293%20Recife&output=embed"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="h-full w-full border-0 [filter:grayscale(1)_invert(1)_contrast(0.8)]"
+                />
+              </div>
+            </div>
+          </div>
+          <form className="rounded-xl border border-white/10 bg-zinc-950/70 p-6 backdrop-blur" onSubmit={handleContactSubmit}>
+            <h3 className="mb-5 font-heading text-xl font-semibold text-white">Envie sua Mensagem</h3>
+            <div className="space-y-4">
+              <Input
+                placeholder="Seu nome completo"
+                required
+                value={contactForm.fullName}
+                onChange={(e) => setContactForm({ ...contactForm, fullName: e.target.value })}
+                name="fullName"
+                className="h-11 border-white/10 bg-zinc-900/80 text-white placeholder:text-slate-500"
+              />
+              <Input
+                type="email"
+                placeholder="seu@email.com"
+                required
+                value={contactForm.email}
+                onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                name="email"
+                className="h-11 border-white/10 bg-zinc-900/80 text-white placeholder:text-slate-500"
+              />
+              <Input
+                placeholder="(81) 98676-3169"
+                required
+                value={formatPhone(contactForm.phone)}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, "");
+                  if (raw.length <= 11) {
+                    setContactForm({ ...contactForm, phone: raw });
+                  }
+                }}
+                name="phone"
+                className="h-11 border-white/10 bg-zinc-900/80 text-white placeholder:text-slate-500"
+              />
+              <Input
+                placeholder="Console/controle (opcional)"
+                value={contactForm.equipment}
+                onChange={(e) => setContactForm({ ...contactForm, equipment: e.target.value })}
+                name="equipment"
+                className="h-11 border-white/10 bg-zinc-900/80 text-white placeholder:text-slate-500"
+              />
+              <Textarea
+                name="description"
+                placeholder="Descreva o problema do seu console ou controle..."
+                required
+                value={contactForm.description}
+                onChange={(e) => setContactForm({ ...contactForm, description: e.target.value })}
+                className="min-h-32 border-white/10 bg-zinc-900/80 text-white placeholder:text-slate-500"
+              />
+            </div>
+            <Button 
+              type="submit" 
+              className="mt-6 h-11 w-full rounded-md bg-emerald-500 font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-70"
+            >
+              Enviar Mensagem
+            </Button>
+          </form>
+        </div>
+      </section>
+
+      {/* Account Section */}
+      <section className="border-y border-white/10 bg-zinc-950/30 px-6 py-20 md:px-12">
+        <div className="mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[1.2fr_1fr]">
+          <div className="space-y-5">
+            <h2 className="font-heading text-3xl font-semibold text-white md:text-5xl">
+              Crie sua conta e acompanhe melhor seus pedidos
+            </h2>
+            <p className="text-sm text-slate-300 md:text-base">
+              Com uma conta, você terá acesso a recursos exclusivos para gerenciar seus serviços com mais praticidade.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+              {accountFeatures.map((feature, index) => (
+                <article key={index} className="rounded-xl border border-white/10 bg-black/40 p-4">
+                  <feature.icon className="mb-2 h-5 w-5 text-indigo-400" aria-hidden="true" />
+                  <h3 className="font-heading text-base font-semibold text-white">{feature.title}</h3>
+                  <p className="mt-1 text-sm text-slate-300">{feature.description}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col justify-center gap-4 rounded-xl border border-white/10 bg-black/40 p-6">
+            <p className="text-sm text-slate-300">
+              Quer ser avisado sobre cada etapa do reparo? Fale com nosso atendimento e solicite seu cadastro.
+            </p>
             <Button
-              size="lg"
-              className="text-lg px-8 py-6 shadow-2xl hover:shadow-purple-500/50 transition-all w-full sm:w-auto bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 border-0 text-white font-bold"
+              className="h-11 w-full rounded-md bg-indigo-500 text-base font-semibold text-white transition-colors hover:bg-indigo-600"
+              onClick={() => setLocation("/register")}
+            >
+              Criar conta gratuita
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 w-full rounded-md border-white/20 bg-white/5 text-base font-semibold text-white transition-colors hover:bg-white/10"
+              onClick={() => setLocation("/login")}
+            >
+              Já tem uma conta? Faça login
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="mx-auto w-full max-w-7xl px-6 py-20 md:px-12">
+        <div className="mb-8 space-y-3">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-emerald-400">faq</p>
+          <h2 className="font-heading text-3xl font-semibold text-white md:text-5xl">
+            Dúvidas frequentes
+          </h2>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-zinc-950/70 p-5 md:p-7">
+          <Accordion type="single" collapsible className="w-full">
+            {faqList.map((faq, index) => (
+              <AccordionItem key={index} value={`item-${index}`} className="border-b border-white/10">
+                <AccordionTrigger className="text-left text-base text-white hover:no-underline">
+                  {faq.question}
+                </AccordionTrigger>
+                <AccordionContent>
+                  <p className="text-sm text-slate-300">{faq.answer}</p>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section className="px-6 pb-20 pt-8 md:px-12">
+        <div className="mx-auto w-full max-w-7xl rounded-2xl border border-white/10 bg-[linear-gradient(120deg,rgba(99,102,241,0.25),rgba(16,185,129,0.2))] p-8 text-center backdrop-blur md:p-12">
+          <h2 className="font-heading text-3xl font-semibold text-white md:text-5xl">
+            Pronto para consertar seu videogame?
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm text-slate-100 md:text-base">
+            Solicite um orçamento gratuito e sem compromisso com atendimento rápido da equipe Doutor Game.
+          </p>
+          <div className="mx-auto mt-7 grid max-w-xl gap-3 sm:grid-cols-2">
+            <Button
+              className="h-12 w-full rounded-md bg-indigo-500 text-base font-semibold text-white transition-colors hover:bg-indigo-600"
               onClick={() => {
                 document.getElementById("contato")?.scrollIntoView({ behavior: "smooth" });
               }}
             >
               Solicitar Orçamento
-              <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button
-              size="lg"
-              variant="outline"
-              className="text-lg px-8 py-6 w-full sm:w-auto border-2 border-purple-400/50 text-purple-200 hover:bg-purple-500/20 hover:border-purple-400 backdrop-blur-sm"
+              className="h-12 w-full rounded-md bg-emerald-500 text-base font-semibold text-zinc-950 transition-colors hover:bg-emerald-400"
               onClick={() => setLocation("/track")}
             >
               Acompanhar Serviço
@@ -147,298 +492,28 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Services Section */}
-      <section className="w-full container mx-auto px-4 py-16 relative z-10">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white mb-4">
-            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Serviços</span>
-          </h2>
-          <p className="text-lg text-slate-300 max-w-3xl mx-auto">
-            Na <span className="text-cyan-300 font-semibold">Doutor Game</span>, somos especialistas em reparo de consoles e controles da Playstation, Xbox e Nintendo. 
-            Com uma equipe de técnicos capacitados e tecnologia avançada, resolvemos desde problemas simples até reparos complexos, 
-            sempre com agilidade e qualidade.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
-          {services.map((service, index) => (
-            <Card key={index} className="border-0 shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-purple-500/20 hover:border-purple-400/50 group">
-              <CardHeader>
-                <div className={`h-14 w-14 rounded-xl bg-gradient-to-br ${service.gradient} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
-                  <service.icon className="h-7 w-7 text-white" />
-                </div>
-                <CardTitle className="text-xl text-white">{service.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-base text-slate-300">
-                  {service.description}
-                </CardDescription>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
+      {/* Footer */}
+      <footer className="border-t border-white/10 px-6 py-6 text-center text-sm text-slate-400">
+        © {new Date().getFullYear()} Doutor Game • Rua Ijuí, nº 293 • Torrões, Recife - PE
+      </footer>
 
-      {/* Benefits Section */}
-      <section className="w-full bg-gradient-to-b from-slate-900 via-purple-900/50 to-slate-900 py-16 relative z-10">
-        <div className="w-full container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold mb-4">
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">Logística</span>
-            </h2>
-            <p className="text-xl text-slate-300 max-w-2xl mx-auto mb-4 font-semibold">
-              Coleta e entrega
-            </p>
-            <p className="text-base text-slate-400 max-w-2xl mx-auto">
-              Pensando na sua conveniência, buscamos e entregamos seu console em Recife. Consulte nossas taxas para sua localidade.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
-            {benefits.map((benefit, index) => (
-              <Card key={index} className="border-0 shadow-2xl text-center bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-cyan-500/20 hover:border-cyan-400/50 transition-all duration-300 hover:shadow-cyan-500/20">
-                <CardHeader>
-                  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                    <benefit.icon className="h-8 w-8 text-white" />
-                  </div>
-                  <CardTitle className="text-lg text-white">{benefit.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-slate-300">{benefit.description}</CardDescription>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section - Removido dados mockados */}
-
-      {/* Contact Section */}
-      <section id="contato" className="w-full bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 py-16 relative z-10">
-        <div className="w-full container mx-auto px-4">
-          <div className="max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold mb-4">
-                <span className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">Contatos</span>
-              </h2>
-              <p className="text-lg text-slate-300 mb-2 font-medium">
-                Fale conosco, e volte a jogar sem preocupações!
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              {/* Contact Info */}
-              <div className="space-y-6">
-                <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-purple-500/20">
-                  <CardHeader>
-                    <CardTitle className="text-white">Informações de Contato</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
-                        <Phone className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-200">Telefone</p>
-                        <p className="text-slate-300">(81) 9 8676-3169</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500">
-                        <MapPin className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-200">Endereço</p>
-                        <p className="text-slate-300">
-                          Rua Ijuí, nº 293<br />
-                          Torrões, Recife - PE
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                {/* Map */}
-                <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-purple-500/20">
-                  <CardHeader>
-                    <CardTitle className="text-white">Nossa Localização</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <MapView 
-                      initialCenter={{ lat: -8.0704, lng: -34.9100 }} 
-                      initialZoom={15} 
-                      className="h-[300px] w-full rounded-b-lg" 
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Contact Form */}
-              <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-purple-500/20">
-                <CardHeader>
-                  <CardTitle className="text-white">Envie sua Mensagem</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleContactSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name" className="text-slate-200">Nome</Label>
-                      <Input
-                        id="name"
-                        value={contactForm.name}
-                        onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                        required
-                        placeholder="Seu nome completo"
-                        className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-purple-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="text-slate-200">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={contactForm.email}
-                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                        required
-                        placeholder="seu@email.com"
-                        className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-purple-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone" className="text-slate-200">Telefone</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={formatPhone(contactForm.phone)}
-                        onChange={(e) => {
-                          const raw = e.target.value.replace(/\D/g, "");
-                          if (raw.length <= 11) {
-                            setContactForm({ ...contactForm, phone: raw });
-                          }
-                        }}
-                        required
-                        placeholder="(81) 98676-3169"
-                        className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-purple-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="message" className="text-slate-200">Mensagem</Label>
-                      <Textarea
-                        id="message"
-                        value={contactForm.message}
-                        onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                        required
-                        placeholder="Descreva o problema do seu console ou controle..."
-                        rows={5}
-                        className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-purple-500"
-                      />
-                    </div>
-                    <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 border-0 text-white font-bold shadow-lg" size="lg">
-                      Enviar Mensagem
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* CTA para criar conta - Full width */}
-            <Card className="border-0 shadow-2xl border-2 border-purple-500/30 bg-gradient-to-br from-purple-900/40 to-pink-900/40 backdrop-blur-sm">
-              <CardHeader>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-                    <UserPlus className="h-5 w-5 text-white" />
-                  </div>
-                  <CardTitle className="text-xl text-white">Crie sua conta e acompanhe melhor seus pedidos</CardTitle>
-                </div>
-                <CardDescription className="text-base text-slate-300">
-                  Com uma conta, você terá acesso a recursos exclusivos para gerenciar seus serviços
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-cyan-400 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm text-slate-200">Acompanhamento em tempo real</p>
-                      <p className="text-xs text-slate-400">Receba notificações sobre o status do seu serviço</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-cyan-400 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm text-slate-200">Histórico completo</p>
-                      <p className="text-xs text-slate-400">Acesse todo o histórico de seus serviços</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Bell className="h-5 w-5 text-cyan-400 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm text-slate-200">Notificações automáticas</p>
-                      <p className="text-xs text-slate-400">Seja avisado sobre mudanças de status</p>
-                    </div>
-                  </div>
-                </div>
-            <Button 
-              onClick={() => setLocation("/register")} 
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 border-0 text-white font-bold shadow-lg" 
-              size="lg"
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Criar conta gratuita
-            </Button>
-                <p className="text-xs text-center text-slate-400">
-                  Já tem uma conta? <button onClick={() => setLocation("/login")} className="text-cyan-400 hover:text-cyan-300 hover:underline font-medium">Faça login</button>
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="w-full container mx-auto px-4 py-16 relative z-10">
-        <Card className="border-0 shadow-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 text-white max-w-6xl xl:max-w-7xl 2xl:max-w-full mx-auto border-2 border-white/20 backdrop-blur-sm">
-          <CardContent className="p-8 md:p-12 text-center relative overflow-hidden">
-            {/* Animated background pattern */}
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC40Ij48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')]"></div>
-            </div>
-            <div className="relative z-10">
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold mb-4 drop-shadow-lg">
-                Pronto para consertar seu videogame?
-              </h2>
-              <p className="text-lg md:text-xl mb-8 text-white/90 font-medium">
-                Solicite um orçamento gratuito e sem compromisso
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="text-lg px-8 py-6 w-full sm:w-auto bg-white text-purple-600 hover:bg-slate-100 font-bold shadow-xl"
-                  onClick={() => {
-                    document.getElementById("contato")?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                >
-                  Solicitar Orçamento
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="text-lg px-8 py-6 bg-transparent border-2 border-white text-white hover:bg-white hover:text-purple-600 w-full sm:w-auto font-bold backdrop-blur-sm"
-                  onClick={() => setLocation("/track")}
-                >
-                  Acompanhar Serviço
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+      {/* Floating WhatsApp Button */}
+      <a
+        href="https://wa.me/5581986763169"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_10px_20px_rgba(37,211,102,0.45)] transition-transform duration-300 hover:scale-110 active:scale-95"
+        aria-label="Abrir conversa no WhatsApp"
+      >
+        <MessageCircle className="h-7 w-7" aria-hidden="true" />
+      </a>
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mx-auto mb-4">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
+              <ShieldCheck className="h-6 w-6 text-green-600" />
             </div>
             <DialogTitle className="text-center">Mensagem Enviada!</DialogTitle>
             <DialogDescription className="text-center">
@@ -452,6 +527,6 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   );
 }
