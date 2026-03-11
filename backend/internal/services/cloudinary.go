@@ -64,6 +64,12 @@ func (s *CloudinaryService) UploadImage(ctx context.Context, file multipart.File
 		return nil, fmt.Errorf("file is empty")
 	}
 
+	// Normalize folder name (Cloudinary creates folders automatically if they don't exist)
+	// Ensure folder is "doutor_game" as default
+	if folder == "" {
+		folder = "doutor_game"
+	}
+	
 	log.Printf("File read successfully: %d bytes, uploading to folder: %s, filename: %s", len(fileBytes), folder, filename)
 
 	// Upload options
@@ -101,8 +107,21 @@ func (s *CloudinaryService) UploadImage(ctx context.Context, file multipart.File
 
 // DeleteImage deletes an image from Cloudinary
 func (s *CloudinaryService) DeleteImage(ctx context.Context, publicID string) error {
-	_, err := s.cld.Upload.Destroy(ctx, uploader.DestroyParams{
+	if publicID == "" {
+		return fmt.Errorf("publicID cannot be empty")
+	}
+
+	log.Printf("Cloudinary: Attempting to delete image with publicID: %s", publicID)
+	
+	result, err := s.cld.Upload.Destroy(ctx, uploader.DestroyParams{
 		PublicID: publicID,
 	})
-	return err
+	
+	if err != nil {
+		log.Printf("Cloudinary: Error deleting image: %v (publicID: %s)", err, publicID)
+		return fmt.Errorf("failed to delete image from Cloudinary: %w", err)
+	}
+
+	log.Printf("Cloudinary: Successfully deleted image - publicID: %s, result: %+v", publicID, result)
+	return nil
 }

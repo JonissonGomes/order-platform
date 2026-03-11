@@ -890,4 +890,12 @@ export const api = {
   async getPaymentStatus(paymentId: string): Promise<{ status: string }> {
     return fetchAPI<{ status: string }>(`/api/payments/${paymentId}/status`);
   },
+
+  // ── Upload endpoints ────────────────────────────────────────────────────────
+
+  async deleteImage(publicId: string): Promise<{ success: boolean }> {
+    return fetchAPI<{ success: boolean }>(`/api/upload/image/${publicId}`, {
+      method: "DELETE",
+    });
+  },
 };

@@ -1,6 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { api } from "@/lib/api";
 import { Upload, X, Loader2 } from "lucide-react";
 import { useState, useRef } from "react";
@@ -14,8 +24,10 @@ interface ImageUploadProps {
   maxImages?: number;
 }
 
-export function ImageUpload({ value = [], onChange, folder = "products", maxImages = 5 }: ImageUploadProps) {
+export function ImageUpload({ value = [], onChange, folder = "doutor_game", maxImages = 5 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [imageToDelete, setImageToDelete] = useState<{ index: number; image: Image } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,8 +99,43 @@ export function ImageUpload({ value = [], onChange, folder = "products", maxImag
   };
 
   const handleRemove = (index: number) => {
-    const newImages = value.filter((_, i) => i !== index);
-    onChange(newImages);
+    const image = value[index];
+    if (!image) return;
+    
+    // Validação: verificar se a imagem tem publicId (foi enviada para Cloudinary)
+    if (!image.publicId) {
+      // Se não tem publicId, pode ser uma imagem local que ainda não foi enviada
+      // Remove diretamente sem confirmação
+      const newImages = value.filter((_, i) => i !== index);
+      onChange(newImages);
+      return;
+    }
+    
+    // Abre o diálogo de confirmação
+    setImageToDelete({ index, image });
+  };
+
+  const confirmDelete = async () => {
+    if (!imageToDelete) return;
+
+    const { index, image } = imageToDelete;
+    setDeleting(image.publicId);
+
+    try {
+      // Deletar do Cloudinary
+      await api.deleteImage(image.publicId);
+      
+      // Remover do array local apenas se a deleção foi bem-sucedida
+      const newImages = value.filter((_, i) => i !== index);
+      onChange(newImages);
+      
+      toast.success("Imagem removida com sucesso");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao remover imagem do Cloudinary");
+    } finally {
+      setDeleting(null);
+      setImageToDelete(null);
+    }
   };
 
   return (
@@ -142,13 +189,47 @@ export function ImageUpload({ value = [], onChange, folder = "products", maxImag
                 size="icon"
                 className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={() => handleRemove(index)}
+                disabled={deleting === image.publicId}
               >
-                <X className="h-4 w-4" />
+                {deleting === image.publicId ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="h-4 w-4" />
+                )}
               </Button>
             </div>
           ))}
         </div>
       )}
+
+      {/* Dialog de confirmação para deletar imagem */}
+      <AlertDialog open={imageToDelete !== null} onOpenChange={(open) => !open && setImageToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar remoção</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover esta imagem? Esta ação não pode ser desfeita e a imagem será permanentemente deletada do Cloudinary.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting !== null}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting !== null}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removendo...
+                </>
+              ) : (
+                "Remover"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

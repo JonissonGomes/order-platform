@@ -29,8 +29,11 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 		return
 	}
 
-	// Get folder from query parameter (default: "products")
-	folder := c.DefaultQuery("folder", "products")
+	// Get folder from query parameter (default: "doutor_game")
+	// All images should be uploaded to "doutor_game" folder by default
+	folder := c.DefaultQuery("folder", "doutor_game")
+	
+	log.Printf("Upload request - folder: %s", folder)
 
 	// Get file from form
 	file, header, err := c.Request.FormFile("file")
@@ -109,16 +112,27 @@ func (h *UploadHandler) DeleteImage(c *gin.Context) {
 
 	publicID := c.Param("id")
 	if publicID == "" {
+		log.Printf("DeleteImage: publicID is empty")
 		utils.RespondWithBadRequest(c, "ID da imagem é obrigatório")
 		return
 	}
 
+	// Validação: verificar se o publicID não está vazio e tem formato válido
+	if len(publicID) < 3 {
+		log.Printf("DeleteImage: publicID too short: %s", publicID)
+		utils.RespondWithBadRequest(c, "ID da imagem inválido")
+		return
+	}
+
+	log.Printf("DeleteImage: Attempting to delete image with publicID: %s (requested by employee: %s)", publicID, currentEmployee.ID)
+
 	ctx := c.Request.Context()
 	if err := h.cloudinaryService.DeleteImage(ctx, publicID); err != nil {
-		log.Printf("Error deleting image from Cloudinary: %v (publicID: %s)", err, publicID)
+		log.Printf("Error deleting image from Cloudinary: %v (publicID: %s, employee: %s)", err, publicID, currentEmployee.ID)
 		utils.RespondWithInternalError(c)
 		return
 	}
 
+	log.Printf("DeleteImage: Successfully deleted image with publicID: %s (deleted by employee: %s)", publicID, currentEmployee.ID)
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
