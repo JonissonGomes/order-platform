@@ -7,6 +7,7 @@ import { LogIn, Loader2, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { api } from "@/lib/api";
+import { findFirstAccessibleModule } from "@/lib/redirect-helper";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -21,10 +22,18 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await api.login({ email, password });
-      // Redirecionar para o dashboard após login bem-sucedido
-      // Recarregar a página para atualizar o estado de autenticação
-      window.location.href = "/dashboard";
+      const response = await api.login({ email, password });
+      const user = response.user;
+
+      // Encontrar o primeiro módulo acessível
+      const redirectPath = await findFirstAccessibleModule(user);
+      
+      if (redirectPath) {
+        window.location.href = redirectPath;
+      } else {
+        // Se não encontrou nenhum módulo acessível, redirecionar para página de sem acesso
+        window.location.href = "/no-access";
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login. Tente novamente.");
     } finally {

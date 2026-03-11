@@ -22,6 +22,10 @@ export const MODULE_NAMES: Record<string, string> = {
   "/reports": "Relatórios",
   "/profiles": "Perfis e Módulos",
   "/settings": "Configurações",
+  // Módulos do cliente
+  "/cliente/dashboard": "Área do Cliente",
+  "/cliente/perfil": "Meu Perfil",
+  "/cliente/ordens": "Histórico de Ordens",
 };
 
 export const MODULES: Module[] = [
@@ -104,6 +108,31 @@ export const MODULES: Module[] = [
     icon: "Settings",
     path: "/settings",
     permissions: ["settings.read", "settings.*", "*"],
+  },
+  // Módulos do cliente (não usam sistema de permissões de perfis)
+  {
+    id: "customer_dashboard",
+    name: "customer_dashboard",
+    label: "Área do Cliente",
+    icon: "User",
+    path: "/cliente/dashboard",
+    permissions: ["customer.*", "*"], // Apenas para referência, clientes têm acesso direto
+  },
+  {
+    id: "customer_profile",
+    name: "customer_profile",
+    label: "Meu Perfil",
+    icon: "UserCircle",
+    path: "/cliente/perfil",
+    permissions: ["customer.*", "*"], // Apenas para referência, clientes têm acesso direto
+  },
+  {
+    id: "customer_orders",
+    name: "customer_orders",
+    label: "Histórico de Ordens",
+    icon: "FileText",
+    path: "/cliente/ordens",
+    permissions: ["customer.*", "*"], // Apenas para referência, clientes têm acesso direto
   },
 ];
 

@@ -182,6 +182,10 @@ func (h *ProfileHandler) GetAvailableModules(c *gin.Context) {
 		"/reports",
 		"/profiles",
 		"/settings",
+		// Módulos do cliente
+		"/cliente/dashboard",
+		"/cliente/perfil",
+		"/cliente/ordens",
 	}
 
 	c.JSON(http.StatusOK, gin.H{"modules": modules})

@@ -137,10 +137,23 @@ export default function Profiles() {
       const response = await api.getAvailableModules();
       const modules = response.modules || [];
       console.log("[Profiles] Available modules from API:", modules);
-      setAvailableModules(modules);
+      
+      // Garantir que os módulos do cliente estejam sempre incluídos
+      const customerModules = ["/cliente/dashboard", "/cliente/perfil", "/cliente/ordens"];
+      const allModules = [...modules];
+      
+      // Adicionar módulos do cliente se não estiverem presentes
+      customerModules.forEach((customerModule) => {
+        if (!allModules.includes(customerModule)) {
+          allModules.push(customerModule);
+          console.log(`[Profiles] Added missing customer module: ${customerModule}`);
+        }
+      });
+      
+      setAvailableModules(allModules);
       
       // If API returns empty or incomplete, use fallback
-      if (modules.length === 0 || modules.length < 8) {
+      if (allModules.length === 0 || allModules.length < 10) {
         console.warn("[Profiles] API returned incomplete modules, using fallback");
         setAvailableModules([
           "/dashboard",
@@ -153,6 +166,9 @@ export default function Profiles() {
           "/reports",
           "/profiles",
           "/settings",
+          "/cliente/dashboard",
+          "/cliente/perfil",
+          "/cliente/ordens",
         ]);
       }
     } catch (error: any) {
@@ -172,6 +188,9 @@ export default function Profiles() {
         "/reports",
         "/profiles",
         "/settings",
+        "/cliente/dashboard",
+        "/cliente/perfil",
+        "/cliente/ordens",
       ]);
     } finally {
       setModulesLoading(false);
@@ -418,11 +437,16 @@ export default function Profiles() {
   const adminModules = availableModules.filter((m) => 
     m === "/departments" || m === "/employees" || m === "/profiles" || m === "/settings"
   );
+  // Cliente: módulos específicos para clientes
+  const customerModules = availableModules.filter((m) => 
+    m.startsWith("/cliente/")
+  );
 
   // Debug: log available modules
   console.log("[Profiles] Available modules:", availableModules);
   console.log("[Profiles] Business modules:", businessModules);
   console.log("[Profiles] Admin modules:", adminModules);
+  console.log("[Profiles] Customer modules:", customerModules);
 
   return (
     <DashboardLayout>
@@ -601,6 +625,20 @@ export default function Profiles() {
                       {renderModulePermissions(adminModules)}
                     </div>
                   </div>
+
+                  {customerModules.length > 0 && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
+                          Cliente
+                        </h3>
+                        <div className="space-y-4">
+                          {renderModulePermissions(customerModules)}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>

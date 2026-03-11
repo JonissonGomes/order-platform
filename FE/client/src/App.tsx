@@ -25,6 +25,7 @@ import Financial from "./pages/Financial";
 import SettingsPage from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Notifications from "./pages/Notifications";
+import NoAccess from "./pages/NoAccess";
 
 /**
  * Router da Aplicação
@@ -62,6 +63,7 @@ function Router() {
       <Route path={"/notifications"} component={Notifications} />
       <Route path={"/track"} component={PublicOrderTracking} />
       <Route path={"/print/order/:id"} component={PrintServiceOrder} />
+      <Route path={"/no-access"} component={NoAccess} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
