@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useCustomerPermissions } from "@/lib/permissions";
 import { StatusTimeline } from "@/components/StatusTimeline";
 import type { ServiceOrder, StatusHistory } from "@/types";
 import {
@@ -69,6 +70,7 @@ const statusColors: Record<string, string> = {
 
 export default function CustomerDashboard() {
   const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
+  const { canViewDashboard, canViewProfile, canViewOrders, isLoading: permissionsLoading } = useCustomerPermissions();
   const [, setLocation] = useLocation();
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +83,7 @@ export default function CustomerDashboard() {
 
   useEffect(() => {
     // Aguardar o carregamento inicial antes de verificar autenticação
-    if (authLoading) return;
+    if (authLoading || permissionsLoading) return;
 
     if (!isAuthenticated || !user) {
       setLocation("/cliente/login");
@@ -95,6 +97,25 @@ export default function CustomerDashboard() {
       return;
     }
 
+    // Verificar se tem permissão para visualizar o dashboard
+    // Se permissionsLoading ainda estiver true, aguardar
+    if (permissionsLoading) {
+      console.log("[CustomerDashboard] Aguardando carregamento de permissões...");
+      return;
+    }
+    
+    if (!canViewDashboard) {
+      console.log("[CustomerDashboard] Sem permissão para acessar dashboard", {
+        canViewDashboard,
+        user,
+        permissionsLoading,
+      });
+      toast.error("Você não tem permissão para acessar esta área. Entre em contato com o suporte.");
+      // Não redirecionar imediatamente, apenas mostrar o erro
+      // O usuário pode ter permissões configuradas mas ainda não carregadas
+      return;
+    }
+
     loadOrders();
     loadUnreadNotifications();
     
@@ -104,7 +125,7 @@ export default function CustomerDashboard() {
     }, 30000);
     
     return () => clearInterval(interval);
-  }, [user, isAuthenticated, authLoading]);
+  }, [user, isAuthenticated, authLoading, permissionsLoading, canViewDashboard]);
 
   const loadOrders = async () => {
     if (!user?.id) return;
@@ -207,145 +228,157 @@ export default function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100">
-      {/* Header */}
-      <header className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Área do Cliente</h1>
-              <p className="text-sm text-muted-foreground">
+      {/* Header Responsivo */}
+      <header className="bg-white border-b shadow-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">Área do Cliente</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Bem-vindo, {user?.name || "Cliente"}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               {unreadNotifications > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    // Scroll para seção de notificações ou abrir modal
                     const notificationsSection = document.getElementById("notifications-section");
                     if (notificationsSection) {
                       notificationsSection.scrollIntoView({ behavior: "smooth" });
                     }
                   }}
-                  className="relative"
+                  className="relative flex-1 sm:flex-initial"
                 >
-                  <Bell className="h-4 w-4 mr-2" />
-                  Notificações
+                  <Bell className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Notificações</span>
                   {unreadNotifications > 0 && (
-                    <span className="ml-2 px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">
+                    <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">
                       {unreadNotifications}
                     </span>
                   )}
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => setLocation("/track")}>
-                <FileText className="h-4 w-4 mr-2" />
-                Buscar Ordem
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setLocation("/track")}
+                className="flex-1 sm:flex-initial"
+              >
+                <FileText className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Buscar</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleLogout}
+                className="flex-1 sm:flex-initial"
+              >
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Sair</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Filtros e Busca */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5 text-blue-600" />
+      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 lg:py-8 max-w-7xl">
+        {/* Filtros e Busca - Responsivo */}
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Search className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
               Buscar Ordens
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por número, produto, marca, modelo ou problema..."
+                  placeholder="Buscar por número, produto..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && loadOrders()}
-                  className="pl-10"
+                  className="pl-10 text-sm sm:text-base"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-[200px]">
-                  <SelectValue placeholder="Filtrar por status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
-                  <SelectItem value="pending">Aguardando Avaliação</SelectItem>
-                  <SelectItem value="evaluating">Em Avaliação</SelectItem>
-                  <SelectItem value="approved">Aprovado</SelectItem>
-                  <SelectItem value="waiting_parts">Aguardando Peças</SelectItem>
-                  <SelectItem value="in_repair">Em Conserto</SelectItem>
-                  <SelectItem value="testing">Em Teste</SelectItem>
-                  <SelectItem value="ready">Pronto para Retirada</SelectItem>
-                  <SelectItem value="delivered">Entregue</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-              {(searchTerm || statusFilter !== "all") && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setStatusFilter("all");
-                  }}
-                >
-                  Limpar
-                </Button>
-              )}
+              <div className="flex gap-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px] lg:w-[200px] text-sm">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Status</SelectItem>
+                    <SelectItem value="pending">Aguardando Avaliação</SelectItem>
+                    <SelectItem value="evaluating">Em Avaliação</SelectItem>
+                    <SelectItem value="approved">Aprovado</SelectItem>
+                    <SelectItem value="waiting_parts">Aguardando Peças</SelectItem>
+                    <SelectItem value="in_repair">Em Conserto</SelectItem>
+                    <SelectItem value="testing">Em Teste</SelectItem>
+                    <SelectItem value="ready">Pronto para Retirada</SelectItem>
+                    <SelectItem value="delivered">Entregue</SelectItem>
+                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(searchTerm || statusFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setStatusFilter("all");
+                    }}
+                    className="shrink-0"
+                  >
+                    Limpar
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Avisos de Atualizações Recentes */}
+        {/* Avisos de Atualizações Recentes - Responsivo */}
         {recentUpdates.length > 0 && (
-          <Card className="mb-6 border-blue-200 bg-blue-50">
-            <CardHeader>
+          <Card className="mb-4 sm:mb-6 border-blue-200 bg-blue-50" id="notifications-section">
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-blue-600" />
-                <CardTitle className="text-lg">Atualizações Recentes</CardTitle>
+                <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                <CardTitle className="text-base sm:text-lg">Atualizações Recentes</CardTitle>
               </div>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 Você tem {recentUpdates.length} ordem(ns) com atualizações nos últimos 7 dias
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {recentUpdates.slice(0, 3).map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors"
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 p-3 bg-white rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors"
                     onClick={() => handleOrderClick(order)}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-full">
-                        <Package className="h-4 w-4 text-blue-600" />
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className="p-1.5 sm:p-2 bg-blue-100 rounded-full shrink-0">
+                        <Package className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-xs sm:text-sm truncate">
                           OS #{order.orderNumber}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground truncate">
                           {order.productType} - {order.productBrand} {order.productModel}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge className={statusColors[order.status] || ""}>
+                    <div className="flex items-center gap-2 sm:flex-col sm:items-end w-full sm:w-auto">
+                      <Badge className={`${statusColors[order.status] || ""} text-xs`}>
                         {statusLabels[order.status]}
                       </Badge>
                       {order.statusChangedAt && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Atualizado em{" "}
+                        <p className="text-xs text-muted-foreground sm:mt-1">
                           {format(new Date(order.statusChangedAt), "dd/MM/yyyy", {
                             locale: ptBR,
                           })}
@@ -359,18 +392,18 @@ export default function CustomerDashboard() {
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Coluna Principal - Ordens em Aberto */}
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Coluna Principal - Ordens em Aberto - Responsivo */}
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-blue-600" />
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                       Ordens em Aberto
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">
                       {openOrders.length} ordem(ns) em andamento
                     </CardDescription>
                   </div>
@@ -378,39 +411,39 @@ export default function CustomerDashboard() {
               </CardHeader>
               <CardContent>
                 {sortedOpenOrders.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Package className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>Nenhuma ordem em aberto no momento</p>
+                  <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                    <Package className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-30" />
+                    <p className="text-sm sm:text-base">Nenhuma ordem em aberto no momento</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {sortedOpenOrders.map((order) => (
                       <div
                         key={order.id}
-                        className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                        className="p-3 sm:p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                         onClick={() => handleOrderClick(order)}
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold">OS #{order.orderNumber}</h3>
-                              <Badge className={statusColors[order.status] || ""}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3 sm:gap-4">
+                          <div className="flex-1 min-w-0 w-full">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <h3 className="font-semibold text-sm sm:text-base">OS #{order.orderNumber}</h3>
+                              <Badge className={`${statusColors[order.status] || ""} text-xs`}>
                                 {statusLabels[order.status]}
                               </Badge>
                             </div>
-                            <p className="text-sm text-muted-foreground mb-2">
+                            <p className="text-xs sm:text-sm text-muted-foreground mb-2 truncate">
                               {order.productType} - {order.productBrand} {order.productModel}
                             </p>
                             {order.problemDescription && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">
+                              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-2">
                                 {order.problemDescription}
                               </p>
                             )}
-                            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-muted-foreground">
                               {order.createdAt && (
                                 <div className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  Entrada:{" "}
+                                  <Calendar className="h-3 w-3 shrink-0" />
+                                  <span className="hidden sm:inline">Entrada: </span>
                                   {format(new Date(order.createdAt), "dd/MM/yyyy", {
                                     locale: ptBR,
                                   })}
@@ -418,8 +451,8 @@ export default function CustomerDashboard() {
                               )}
                               {order.estimatedDelivery && (
                                 <div className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  Previsão:{" "}
+                                  <Clock className="h-3 w-3 shrink-0" />
+                                  <span className="hidden sm:inline">Previsão: </span>
                                   {format(new Date(order.estimatedDelivery), "dd/MM/yyyy", {
                                     locale: ptBR,
                                   })}
@@ -428,11 +461,11 @@ export default function CustomerDashboard() {
                             </div>
                           </div>
                           {order.statusChangedAt && (
-                            <div className="text-right">
-                              <div className="p-2 bg-blue-100 rounded-full mb-2">
-                                <Bell className="h-4 w-4 text-blue-600" />
+                            <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-0 shrink-0">
+                              <div className="p-1.5 sm:p-2 bg-blue-100 rounded-full">
+                                <Bell className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
                               </div>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-muted-foreground sm:mt-1">
                                 Atualizado
                               </p>
                             </div>
@@ -445,39 +478,39 @@ export default function CustomerDashboard() {
               </CardContent>
             </Card>
 
-            {/* Últimas Ordens */}
+            {/* Últimas Ordens - Responsivo */}
             {recentOrders.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-gray-600" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <History className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
                     Últimas Ordens
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">
                     Histórico das suas últimas 5 ordens finalizadas
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {recentOrders.map((order) => (
                       <div
                         key={order.id}
-                        className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                        className="p-2.5 sm:p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                         onClick={() => handleOrderClick(order)}
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-sm">OS #{order.orderNumber}</p>
-                            <p className="text-xs text-muted-foreground">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-xs sm:text-sm truncate">OS #{order.orderNumber}</p>
+                            <p className="text-xs text-muted-foreground truncate">
                               {order.productType} - {order.productBrand} {order.productModel}
                             </p>
                           </div>
-                          <div className="text-right">
-                            <Badge className={statusColors[order.status] || ""}>
+                          <div className="flex items-center gap-2 sm:flex-col sm:items-end w-full sm:w-auto">
+                            <Badge className={`${statusColors[order.status] || ""} text-xs`}>
                               {statusLabels[order.status]}
                             </Badge>
                             {order.updatedAt && (
-                              <p className="text-xs text-muted-foreground mt-1">
+                              <p className="text-xs text-muted-foreground sm:mt-1">
                                 {format(new Date(order.updatedAt), "dd/MM/yyyy", {
                                   locale: ptBR,
                                 })}
@@ -493,23 +526,23 @@ export default function CustomerDashboard() {
             )}
           </div>
 
-          {/* Sidebar - Informações e Ações Rápidas */}
-          <div className="space-y-6">
-            {/* Informações do Cliente */}
+          {/* Sidebar - Informações e Ações Rápidas - Responsivo */}
+          <div className="space-y-4 sm:space-y-6">
+            {/* Informações do Cliente - Responsivo */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-blue-600" />
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                   Meus Dados
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <p className="text-sm font-medium">{user?.name}</p>
+                  <p className="text-sm sm:text-base font-medium truncate">{user?.name}</p>
                   {user?.email && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                      <Mail className="h-3 w-3" />
-                      {user.email}
+                      <Mail className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{user.email}</span>
                     </div>
                   )}
                 </div>
@@ -517,16 +550,30 @@ export default function CustomerDashboard() {
                 <div className="space-y-2">
                   <Button
                     variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => setLocation("/cliente/perfil")}
+                    className="w-full justify-start text-sm"
+                    onClick={() => {
+                      if (canViewProfile) {
+                        setLocation("/cliente/perfil");
+                      } else {
+                        toast.error("Você não tem permissão para acessar seu perfil.");
+                      }
+                    }}
+                    disabled={!canViewProfile}
                   >
                     <User className="h-4 w-4 mr-2" />
                     Editar Perfil
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => setLocation("/cliente/ordens")}
+                    className="w-full justify-start text-sm"
+                    onClick={() => {
+                      if (canViewOrders) {
+                        setLocation("/cliente/ordens");
+                      } else {
+                        toast.error("Você não tem permissão para visualizar o histórico de ordens.");
+                      }
+                    }}
+                    disabled={!canViewOrders}
                   >
                     <History className="h-4 w-4 mr-2" />
                     Ver Todas as Ordens
@@ -588,30 +635,30 @@ export default function CustomerDashboard() {
         </div>
       </div>
 
-      {/* Dialog de Detalhes da Ordem */}
+      {/* Dialog de Detalhes da Ordem - Responsivo */}
       {selectedOrder && (
         <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
-              <DialogTitle>OS #{selectedOrder.orderNumber}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-lg sm:text-xl">OS #{selectedOrder.orderNumber}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
                 Detalhes completos da ordem de serviço
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-6">
-              {/* Status Atual */}
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+            <div className="space-y-4 sm:space-y-6">
+              {/* Status Atual - Responsivo */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-muted rounded-lg">
                 <div>
-                  <p className="text-sm text-muted-foreground">Status Atual</p>
-                  <Badge className={`mt-1 ${statusColors[selectedOrder.status] || ""}`}>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Status Atual</p>
+                  <Badge className={`mt-1 text-xs sm:text-sm ${statusColors[selectedOrder.status] || ""}`}>
                     {statusLabels[selectedOrder.status]}
                   </Badge>
                 </div>
                 {selectedOrder.statusChangedAt && (
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Última Atualização</p>
-                    <p className="text-sm font-medium">
+                  <div className="text-left sm:text-right">
+                    <p className="text-xs sm:text-sm text-muted-foreground">Última Atualização</p>
+                    <p className="text-xs sm:text-sm font-medium">
                       {format(new Date(selectedOrder.statusChangedAt), "dd/MM/yyyy 'às' HH:mm", {
                         locale: ptBR,
                       })}
@@ -620,10 +667,10 @@ export default function CustomerDashboard() {
                 )}
               </div>
 
-              {/* Informações do Equipamento */}
+              {/* Informações do Equipamento - Responsivo */}
               <div>
-                <h3 className="font-semibold mb-3">Equipamento</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <h3 className="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">Equipamento</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                   <div>
                     <p className="text-muted-foreground">Tipo</p>
                     <p className="font-medium">{selectedOrder.productType}</p>
@@ -673,11 +720,11 @@ export default function CustomerDashboard() {
                 </div>
               )}
 
-              {/* Custos */}
+              {/* Custos - Responsivo */}
               {(selectedOrder.estimatedCost || selectedOrder.finalCost) && (
                 <div>
-                  <h3 className="font-semibold mb-3">Custos</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <h3 className="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">Custos</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                     {selectedOrder.estimatedCost && (
                       <div>
                         <p className="text-muted-foreground">Custo Estimado</p>
@@ -698,10 +745,10 @@ export default function CustomerDashboard() {
                 </div>
               )}
 
-              {/* Datas */}
+              {/* Datas - Responsivo */}
               <div>
-                <h3 className="font-semibold mb-3">Datas</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <h3 className="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">Datas</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                   {selectedOrder.createdAt && (
                     <div>
                       <p className="text-muted-foreground">Data de Entrada</p>
@@ -749,11 +796,11 @@ export default function CustomerDashboard() {
                 )
               )}
 
-              {/* Observações */}
+              {/* Observações - Responsivo */}
               {selectedOrder.observations && (
                 <div>
-                  <h3 className="font-semibold mb-2">Observações</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="font-semibold mb-2 text-sm sm:text-base">Observações</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {selectedOrder.observations}
                   </p>
                 </div>

@@ -90,6 +90,103 @@ export function usePermissions(modulePath: string) {
 }
 
 /**
+ * Hook para verificar permissões do cliente baseado no perfil "Cliente" ou "User"
+ */
+export function useCustomerPermissions() {
+  const { user } = useAuth();
+  
+  // Verificar se é cliente
+  const isCustomer = user?.type === "customer" || user?.role === "customer" || user?.role === "user";
+  
+  // Buscar perfil - tentar "User" primeiro (nome padrão no banco), depois "Cliente"
+  const { data: profile } = useQuery({
+    queryKey: ["profile", "User", "Cliente"],
+    queryFn: async () => {
+      // Tentar buscar "User" primeiro (nome padrão no banco)
+      try {
+        const userProfile = await api.getProfileByName("User");
+        if (userProfile?.profile) {
+          return userProfile;
+        }
+      } catch (error) {
+        console.log("Perfil 'User' não encontrado, tentando 'Cliente'");
+      }
+      
+      // Se não encontrar "User", tentar "Cliente"
+      try {
+        return await api.getProfileByName("Cliente");
+      } catch (error) {
+        console.log("Perfil 'Cliente' não encontrado");
+        return null;
+      }
+    },
+    enabled: isCustomer,
+    retry: 1,
+  });
+
+  // Função para verificar permissão em um módulo específico
+  const hasPermission = (modulePath: string, action: "view" | "create" | "edit" | "delete" = "view"): boolean => {
+    if (!isCustomer) {
+      console.log("[useCustomerPermissions] Não é cliente");
+      return false;
+    }
+
+    // Se não encontrou perfil, permitir acesso por padrão (fallback)
+    if (!profile?.profile) {
+      console.log("[useCustomerPermissions] Perfil não encontrado, permitindo acesso por padrão");
+      return true; // Permitir acesso se perfil não for encontrado
+    }
+
+    const profileData = profile.profile;
+    console.log(`[useCustomerPermissions] Verificando permissão para ${modulePath} (${action})`, {
+      permissions: profileData.permissions,
+      editPermissions: profileData.editPermissions,
+      deletePermissions: profileData.deletePermissions,
+    });
+
+    switch (action) {
+      case "view":
+        // Verificar se tem permissão de visualização para o módulo
+        const hasView = profileData.permissions?.some((perm) => {
+          const matches = permissionMatchesModule(perm, modulePath);
+          console.log(`[useCustomerPermissions] Verificando permissão "${perm}" contra "${modulePath}": ${matches}`);
+          return matches;
+        }) ?? false;
+        console.log(`[useCustomerPermissions] Resultado para ${modulePath}: ${hasView}`);
+        return hasView;
+      case "create":
+      case "edit":
+        // Verificar se tem permissão de edição/criação para o módulo
+        return profileData.editPermissions?.some((perm) => 
+          moduleInEditOrDeletePermissions(modulePath, [perm])
+        ) ?? false;
+      case "delete":
+        // Verificar se tem permissão de exclusão para o módulo
+        return profileData.deletePermissions?.some((perm) => 
+          moduleInEditOrDeletePermissions(modulePath, [perm])
+        ) ?? false;
+      default:
+        return false;
+    }
+  };
+
+  return {
+    // Permissões específicas para módulos do cliente
+    canViewDashboard: hasPermission("/cliente/dashboard", "view"),
+    canViewProfile: hasPermission("/cliente/perfil", "view"),
+    canEditProfile: hasPermission("/cliente/perfil", "edit"),
+    canViewOrders: hasPermission("/cliente/ordens", "view"),
+    
+    // Função genérica para verificar permissões
+    hasPermission,
+    
+    // Dados do perfil
+    profile: profile?.profile,
+    isLoading: isCustomer && !profile,
+  };
+}
+
+/**
  * Função helper para verificar permissões sem hook (para uso em componentes não-hook)
  */
 export function checkPermission(

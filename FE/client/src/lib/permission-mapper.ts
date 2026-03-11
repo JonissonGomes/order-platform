@@ -14,6 +14,10 @@ const MODULE_TO_PERMISSION_MAP: Record<string, string> = {
   "/reports": "reports",
   "/profiles": "profiles",
   "/settings": "settings",
+  // Módulos do cliente
+  "/cliente/dashboard": "cliente_dashboard",
+  "/cliente/perfil": "cliente_perfil",
+  "/cliente/ordens": "cliente_ordens",
 };
 
 // Mapeamento reverso: prefixo de permissão para caminho de módulo
@@ -38,14 +42,20 @@ export function permissionPrefixToModulePath(permissionPrefix: string): string {
 /**
  * Verifica se uma permissão do backend corresponde a um módulo do frontend
  * Ex: "service_orders.*" ou "service_orders.read" corresponde a "/service-orders"
+ * Também verifica se a permissão é exatamente o caminho do módulo (ex: "/cliente/dashboard")
  */
 export function permissionMatchesModule(permission: string, modulePath: string): boolean {
-  const prefix = modulePathToPermissionPrefix(modulePath);
-  
   // Permissão wildcard "*" permite tudo
   if (permission === "*") {
     return true;
   }
+  
+  // Verifica se a permissão é exatamente o caminho do módulo (para módulos do cliente)
+  if (permission === modulePath) {
+    return true;
+  }
+  
+  const prefix = modulePathToPermissionPrefix(modulePath);
   
   // Verifica se a permissão começa com o prefixo do módulo
   if (permission.startsWith(prefix + ".") || permission === prefix || permission === `${prefix}.*`) {
