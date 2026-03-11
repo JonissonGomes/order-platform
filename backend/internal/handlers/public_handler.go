@@ -269,8 +269,10 @@ func (h *PublicHandler) RegisterCustomer(c *gin.Context) {
 		Notes:                     req.Notes,
 		MaintenanceIntervalMonths: 0,
 		IsTemporary:               false,
+		IsSuspended:               false,
 		CreatedBy:                 primitive.NilObjectID, // Public registration, no employee creator
 		UpdatedBy:                 primitive.NilObjectID,
+		// CreatedAt and UpdatedAt will be set by CreateCustomer
 	}
 
 	if err := h.customerRepo.CreateCustomer(ctx, customer); err != nil {

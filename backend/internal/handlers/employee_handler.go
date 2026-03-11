@@ -44,20 +44,6 @@ func (h *EmployeeHandler) populateEmployeeDepartment(ctx context.Context, emp *m
 	}
 }
 
-// populateEmployeeFromUser is no longer needed - IsSuspended is now directly on Employee
-func (h *EmployeeHandler) populateEmployeeFromUser(ctx context.Context, emp *models.Employee) {
-	// IsSuspended is now directly on Employee model, no need to populate from User
-}
-
-// mapRoleToUserRole maps EmployeeRole to UserRole for the associated User
-func mapRoleToUserRole(role models.EmployeeRole) models.UserRole {
-	switch role {
-	case models.EmployeeRoleAdmin, models.EmployeeRoleDepartmentManager:
-		return models.RoleAdmin
-	default:
-		return models.RoleUser
-	}
-}
 
 type CreateEmployeeRequest struct {
 	Email        string              `json:"email" binding:"required,email"`
@@ -209,7 +195,6 @@ func (h *EmployeeHandler) GetEmployee(c *gin.Context) {
 	}
 
 	h.populateEmployeeDepartment(ctx, employee)
-	h.populateEmployeeFromUser(ctx, employee)
 	c.JSON(http.StatusOK, gin.H{"employee": employee})
 }
 
@@ -246,10 +231,9 @@ func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 		return
 	}
 
-	// Populate department and suspension status for each employee
+	// Populate department for each employee
 	for _, emp := range employees {
 		h.populateEmployeeDepartment(ctx, emp)
-		h.populateEmployeeFromUser(ctx, emp)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"employees": employees})

@@ -12,12 +12,13 @@ type Customer struct {
 	CPF   string             `bson:"cpf" json:"cpf"` // Único, indexado (pode ser vazio para avulsos)
 	Phone string             `bson:"phone" json:"phone"`
 	// Authentication fields (for customers who can login)
-	Email        string    `bson:"email,omitempty" json:"email,omitempty"`
-	Password     string    `bson:"password,omitempty" json:"-"` // Never return password in JSON, optional for customers
-	Address      *Address  `bson:"address,omitempty" json:"address,omitempty"`
-	IsTemporary  bool      `bson:"isTemporary,omitempty" json:"isTemporary,omitempty"` // Cliente avulso
-	Notes        string    `bson:"notes,omitempty" json:"notes,omitempty"`             // Observações sobre o cliente
-	LastSignedIn time.Time `bson:"lastSignedIn,omitempty" json:"lastSignedIn,omitempty"`
+	Email        string     `bson:"email,omitempty" json:"email,omitempty"`
+	Password     string     `bson:"password,omitempty" json:"-"` // Never return password in JSON, optional for customers
+	Address      *Address   `bson:"address,omitempty" json:"address,omitempty"`
+	IsTemporary  bool       `bson:"isTemporary,omitempty" json:"isTemporary,omitempty"` // Cliente avulso
+	IsSuspended  bool       `bson:"isSuspended,omitempty" json:"isSuspended,omitempty"` // Customer suspension
+	Notes        string     `bson:"notes,omitempty" json:"notes,omitempty"`             // Observações sobre o cliente
+	LastSignedIn *time.Time `bson:"lastSignedIn,omitempty" json:"lastSignedIn,omitempty"`
 
 	// Fidelização e manutenção periódica
 	MaintenanceIntervalMonths int        `bson:"maintenanceIntervalMonths,omitempty" json:"maintenanceIntervalMonths,omitempty"` // 0 = sem intervalo

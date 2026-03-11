@@ -39,6 +39,10 @@ func NewEmployeeRepository(db *mongo.Database) *EmployeeRepository {
 
 // CreateEmployee creates a new employee
 func (r *EmployeeRepository) CreateEmployee(ctx context.Context, employee *models.Employee) error {
+	// Generate ID if not set
+	if employee.ID.IsZero() {
+		employee.ID = primitive.NewObjectID()
+	}
 	employee.CreatedAt = time.Now()
 	employee.UpdatedAt = time.Now()
 	_, err := r.collection.InsertOne(ctx, employee)
@@ -109,9 +113,13 @@ func (r *EmployeeRepository) CountEmployees(ctx context.Context) (int64, error) 
 	return r.collection.CountDocuments(ctx, bson.M{})
 }
 
-// CountAdmins counts employees with admin role
+// CountAdmins counts employees with admin or dono role
 func (r *EmployeeRepository) CountAdmins(ctx context.Context) (int64, error) {
-	filter := bson.M{"role": string(models.EmployeeRoleAdmin)}
+	filter := bson.M{
+		"role": bson.M{
+			"$in": []string{string(models.EmployeeRoleAdmin), string(models.EmployeeRoleDono)},
+		},
+	}
 	return r.collection.CountDocuments(ctx, filter)
 }
 

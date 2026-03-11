@@ -51,9 +51,9 @@ func main() {
 	}
 
 	fmt.Println("═══════════════════════════════════════════════════════════")
-	fmt.Println("  Criar Administrador do Sistema")
+	fmt.Println("  Criar Dono do Sistema")
 	fmt.Println("═══════════════════════════════════════════════════════════")
-	fmt.Printf("Administradores cadastrados: %d/3\n\n", adminCount)
+	fmt.Printf("Donos cadastrados: %d/3\n\n", adminCount)
 
 	// Get user input
 	reader := bufio.NewReader(os.Stdin)
@@ -148,12 +148,18 @@ func main() {
 		}
 	}
 
-	// Criar employee com perfil Administrador
+	// Determinar role baseado no perfil encontrado
+	employeeRole := models.EmployeeRoleAdmin
+	if profile.Name == "Dono" {
+		employeeRole = models.EmployeeRoleDono
+	}
+
+	// Criar employee com perfil Dono
 	employee := &models.Employee{
 		Email:       email,
 		Password:    hashedPassword,
 		Name:        name,
-		Role:        models.EmployeeRoleAdmin,
+		Role:        employeeRole,
 		ProfileID:   profile.ID,
 		IsActive:    true,
 		IsSuspended: false,
@@ -162,15 +168,16 @@ func main() {
 	}
 
 	if err := employeeRepo.CreateEmployee(ctx, employee); err != nil {
-		log.Fatalf("Falha ao criar o Administrador: %v", err)
+		log.Fatalf("Falha ao criar o Dono: %v", err)
 	}
 
 	fmt.Println()
-	fmt.Println("✅ Administrador criado com sucesso!")
+	fmt.Println("✅ Dono criado com sucesso!")
 	fmt.Println("═══════════════════════════════════════════════════════════")
 	fmt.Printf("Nome:   %s\n", employee.Name)
 	fmt.Printf("Email:  %s\n", employee.Email)
-	fmt.Printf("Perfil: Administrador (role: %s)\n", employee.Role)
+	fmt.Printf("Role:   %s\n", employee.Role)
+	fmt.Printf("Perfil: %s\n", profile.Name)
 	fmt.Println("═══════════════════════════════════════════════════════════")
 	fmt.Println("⚠️  Guarde as credenciais em local seguro.")
 }

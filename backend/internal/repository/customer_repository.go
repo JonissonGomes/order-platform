@@ -40,6 +40,17 @@ func NewCustomerRepository(db *mongo.Database) *CustomerRepository {
 
 // CreateCustomer creates a new customer
 func (r *CustomerRepository) CreateCustomer(ctx context.Context, customer *models.Customer) error {
+	// Generate ID if not set
+	if customer.ID.IsZero() {
+		customer.ID = primitive.NewObjectID()
+	}
+	// Set timestamps if not already set
+	if customer.CreatedAt.IsZero() {
+		customer.CreatedAt = time.Now()
+	}
+	if customer.UpdatedAt.IsZero() {
+		customer.UpdatedAt = time.Now()
+	}
 	_, err := r.collection.InsertOne(ctx, customer)
 	return err
 }
@@ -110,10 +121,11 @@ func (r *CustomerRepository) GetCustomerByEmail(ctx context.Context, email strin
 
 // UpdateLastSignedIn updates the last signed in timestamp
 func (r *CustomerRepository) UpdateLastSignedIn(ctx context.Context, customerID primitive.ObjectID) error {
+	now := time.Now()
 	filter := bson.M{"_id": customerID}
 	update := bson.M{
 		"$set": bson.M{
-			"lastSignedIn": time.Now(),
+			"lastSignedIn": &now,
 			"updatedAt":    time.Now(),
 		},
 	}

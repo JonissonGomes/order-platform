@@ -32,16 +32,6 @@ func main() {
 
 	ctx := context.Background()
 
-	// Migrar usuários com role "super_admin" legado para "dono"
-	// Seguro chamar sempre — só atualiza registros com valor antigo
-	userRepo := repository.NewUserRepository(db.Database)
-	migratedCount, err := userRepo.MigrateSuperAdminRole(ctx)
-	if err != nil {
-		log.Printf("⚠️  Aviso: falha na migração de roles: %v", err)
-	} else if migratedCount > 0 {
-		log.Printf("✅ Migração: %d usuário(s) atualizados de 'super_admin' → 'dono'", migratedCount)
-	}
-
 	// Garantir que todos os perfis padrão existam no banco (upsert por nome)
 	// Seguro chamar sempre — não sobrescreve perfis já customizados
 	profileRepo := repository.NewProfileRepository(db.Database)

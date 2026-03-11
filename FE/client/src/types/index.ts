@@ -13,7 +13,7 @@ export interface User {
   lastSignedIn: string;
 }
 
-export type EmployeeRole = "admin" | "department_manager" | "attendant" | "technician";
+export type EmployeeRole = "dono" | "admin" | "department_manager" | "attendant" | "technician";
 
 export interface Employee {
   id: string;

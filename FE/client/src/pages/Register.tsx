@@ -107,7 +107,7 @@ export default function Register() {
         } : undefined,
       });
       toast.success("Conta criada com sucesso! Faça login para continuar.");
-      setLocation("/login");
+      setLocation("/cliente/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar conta. Tente novamente.");
     } finally {

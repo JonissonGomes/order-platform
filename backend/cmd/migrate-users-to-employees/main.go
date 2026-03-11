@@ -13,7 +13,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func main() {
@@ -38,10 +37,8 @@ func main() {
 
 	ctx := context.Background()
 
-	// Get collections
+	// Get users collection
 	usersCollection := db.Database.Collection("users")
-	employeesCollection := db.Database.Collection("employees")
-	customersCollection := db.Database.Collection("customers")
 
 	// Count existing users
 	userCount, err := usersCollection.CountDocuments(ctx, bson.M{})
@@ -79,8 +76,8 @@ func main() {
 			continue
 		}
 
-		userID, ok := user["_id"].(primitive.ObjectID)
-		if !ok {
+		// Validate user has valid ID
+		if _, ok := user["_id"].(primitive.ObjectID); !ok {
 			log.Printf("⚠️  Invalid user ID: %v", user["_id"])
 			skipped++
 			continue
@@ -117,18 +114,24 @@ func main() {
 		if role == "user" || role == "" {
 			// Create as customer only if has password
 			if password != "" {
+				var lastSignedInPtr *time.Time
+				if !lastSignedIn.IsZero() {
+					lastSignedInPtr = &lastSignedIn
+				}
+
 				customer := &models.Customer{
-					Name:        name,
-					Email:       email,
-					Password:    password,
-					Phone:       "", // Will need to be filled manually
-					CPF:         "", // Will need to be filled manually
-					IsTemporary: false,
-					CreatedAt:   createdAt,
-					UpdatedAt:   updatedAt,
-					LastSignedIn: lastSignedIn,
-					CreatedBy:   primitive.NilObjectID,
-					UpdatedBy:   primitive.NilObjectID,
+					Name:         name,
+					Email:        email,
+					Password:     password,
+					Phone:        "", // Will need to be filled manually
+					CPF:          "", // Will need to be filled manually
+					IsTemporary:  false,
+					IsSuspended:  isSuspended,
+					CreatedAt:    createdAt,
+					UpdatedAt:    updatedAt,
+					LastSignedIn: lastSignedInPtr,
+					CreatedBy:    primitive.NilObjectID,
+					UpdatedBy:    primitive.NilObjectID,
 				}
 
 				if err := customerRepo.CreateCustomer(ctx, customer); err != nil {
@@ -149,7 +152,7 @@ func main() {
 			var employeeRole models.EmployeeRole
 			switch role {
 			case "dono", "super_admin":
-				employeeRole = models.EmployeeRoleAdmin
+				employeeRole = models.EmployeeRoleDono
 			case "admin":
 				employeeRole = models.EmployeeRoleAdmin
 			case "department_manager":
@@ -165,8 +168,10 @@ func main() {
 			// Get profile based on role
 			profileName := "Atendente" // Default
 			switch employeeRole {
-			case models.EmployeeRoleAdmin:
+			case models.EmployeeRoleDono:
 				profileName = "Dono"
+			case models.EmployeeRoleAdmin:
+				profileName = "Administrador"
 			case models.EmployeeRoleDepartmentManager:
 				profileName = "Gerente"
 			case models.EmployeeRoleAttendant:
@@ -177,11 +182,12 @@ func main() {
 
 			profile, err := profileRepo.GetProfileByName(ctx, profileName)
 			if err != nil || profile == nil {
-				// Try "Administrador" as fallback
-				profile, err = profileRepo.GetProfileByName(ctx, "Administrador")
+				// Try "Administrador" as fallback for "Dono"
+				if profileName == "Dono" {
+					profile, err = profileRepo.GetProfileByName(ctx, "Administrador")
+				}
 				if err != nil || profile == nil {
 					log.Printf("⚠️  Profile '%s' não encontrado para %s, usando perfil padrão", profileName, email)
-					// Continue without profile, will need manual assignment
 				}
 			}
 

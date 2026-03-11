@@ -9,6 +9,7 @@ import (
 type EmployeeRole string
 
 const (
+	EmployeeRoleDono              EmployeeRole = "dono"
 	EmployeeRoleAdmin             EmployeeRole = "admin"
 	EmployeeRoleDepartmentManager EmployeeRole = "department_manager"
 	EmployeeRoleAttendant         EmployeeRole = "attendant"
@@ -39,6 +40,8 @@ type Employee struct {
 // CanChangeStatus verifica se o colaborador pode mudar para o status especificado
 func (e *Employee) CanChangeStatus(status ServiceOrderStatus) bool {
 	switch e.Role {
+	case EmployeeRoleDono:
+		return true
 	case EmployeeRoleAdmin:
 		return true
 	case EmployeeRoleDepartmentManager:
@@ -52,10 +55,18 @@ func (e *Employee) CanChangeStatus(status ServiceOrderStatus) bool {
 	}
 }
 
-// IsAdmin checks if the employee has admin role
+// IsAdmin checks if the employee has admin role (Dono or Admin)
 func (e *Employee) IsAdmin() bool {
 	if e == nil {
 		return false
 	}
-	return e.Role == EmployeeRoleAdmin
+	return e.Role == EmployeeRoleAdmin || e.Role == EmployeeRoleDono
+}
+
+// IsDono checks if the employee has Dono role
+func (e *Employee) IsDono() bool {
+	if e == nil {
+		return false
+	}
+	return e.Role == EmployeeRoleDono
 }

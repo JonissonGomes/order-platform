@@ -69,7 +69,7 @@ func AuthMiddleware(employeeRepo *repository.EmployeeRepository, customerRepo *r
 			authenticated = customer
 			email = customer.Email
 			role = "customer"
-			isSuspended = false // Customers don't have suspension yet
+			isSuspended = customer.IsSuspended
 		} else {
 			// Default to employee
 			employee, err := employeeRepo.GetEmployeeByID(ctx, userID)
