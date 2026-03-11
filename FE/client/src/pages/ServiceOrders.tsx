@@ -848,6 +848,7 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
     newStatus: order.status,
     statusNote: "",
     images: order.images ?? [],
+    deliveryEvidence: order.delivery?.deliveryEvidence ? [order.delivery.deliveryEvidence] : [],
   });
 
   const totalServiceItems = serviceItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
@@ -923,7 +924,9 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
       case 5: // Status - sempre válido
         return true;
       case 6: // Finalização - só aparece se status for delivered
-        return formData.newStatus === "delivered";
+        if (formData.newStatus !== "delivered") return false;
+        // Evidência é obrigatória quando status for delivered
+        return formData.deliveryEvidence && formData.deliveryEvidence.length > 0;
       default:
         return true;
     }
@@ -975,7 +978,13 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
 
       // Update status first if changed, then update other fields
       if (formData.newStatus !== order.status) {
-        await api.updateServiceOrderStatus(order.id, { status: formData.newStatus, notes: formData.statusNote || undefined });
+        const evidenceImage = formData.deliveryEvidence && formData.deliveryEvidence.length > 0 ? formData.deliveryEvidence[0] : null;
+        await api.updateServiceOrderStatus(order.id, { 
+          status: formData.newStatus, 
+          notes: formData.statusNote || undefined,
+          deliveryEvidenceUrl: evidenceImage?.url || undefined,
+          deliveryEvidenceId: evidenceImage?.publicId || undefined,
+        });
       }
       
       // Then update other fields
@@ -1448,6 +1457,15 @@ function EditOrderForm({ order, onSuccess, onCancel }: { order: ServiceOrder; on
       {/* Step 6: Finalização - só aparece se status for delivered */}
       {step === 6 && formData.newStatus === "delivered" && (
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Evidência de Conserto/Entrega <span className="text-red-500">*</span></Label>
+            <p className="text-xs text-muted-foreground mb-2">Faça upload de uma foto como evidência do conserto realizado</p>
+            <ImageUpload
+              value={formData.deliveryEvidence}
+              onChange={(images) => setFormData({ ...formData, deliveryEvidence: images })}
+              maxImages={1}
+            />
+          </div>
           <div className="space-y-2">
             <Label>Data de Saída</Label>
             <Input type="date" value={formData.exitDate} onChange={(e) => setFormData({ ...formData, exitDate: e.target.value })} />

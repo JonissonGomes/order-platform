@@ -123,8 +123,10 @@ type UpdateServiceOrderRequest struct {
 }
 
 type UpdateStatusRequest struct {
-	Status models.ServiceOrderStatus `json:"status" binding:"required"`
-	Notes  string                    `json:"notes,omitempty"`
+	Status              models.ServiceOrderStatus `json:"status" binding:"required"`
+	Notes               string                    `json:"notes,omitempty"`
+	DeliveryEvidenceURL string                    `json:"deliveryEvidenceUrl,omitempty"` // URL da imagem de evidência quando status for "delivered"
+	DeliveryEvidenceID  string                    `json:"deliveryEvidenceId,omitempty"`  // PublicID da imagem de evidência
 }
 
 type AddNoteRequest struct {
@@ -744,6 +746,32 @@ func (h *ServiceOrderHandler) UpdateServiceOrderStatus(c *gin.Context) {
 	order.StatusChangedAt = time.Now()
 	order.UpdatedBy = changedBy
 	order.UpdatedAt = time.Now()
+
+	// Se status for "delivered" e houver evidência, salvar a imagem
+	if req.Status == models.StatusDelivered && req.DeliveryEvidenceURL != "" {
+		// Garantir que Delivery existe
+		if order.Delivery == nil {
+			order.Delivery = &models.DeliveryInfo{
+				Type: models.DeliveryTypeNone,
+			}
+		}
+		
+		// Criar objeto Image para evidência
+		evidenceImage := models.Image{
+			ID:         primitive.NewObjectID(),
+			URL:        req.DeliveryEvidenceURL,
+			PublicID:   req.DeliveryEvidenceID,
+			UploadedAt: time.Now(),
+			UploadedBy: changedBy,
+		}
+		order.Delivery.DeliveryEvidence = &evidenceImage
+		
+		// Definir data de entrega se não estiver definida
+		if order.Delivery.DeliveredAt == nil {
+			now := time.Now()
+			order.Delivery.DeliveredAt = &now
+		}
+	}
 
 	// Update order
 	if err := h.serviceOrderRepo.UpdateServiceOrder(ctx, orderID, order); err != nil {

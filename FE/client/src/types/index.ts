@@ -119,6 +119,7 @@ export interface DeliveryInfo {
   scheduledAt?: string;
   deliveredAt?: string;
   observations?: string;
+  deliveryEvidence?: Image; // Evidência de conserto/entrega
 }
 
 export interface ServiceOrder {
@@ -411,6 +412,8 @@ export interface CreateServiceOrderRequest {
 export interface UpdateServiceOrderStatusRequest {
   status: ServiceOrderStatus;
   notes?: string;
+  deliveryEvidenceUrl?: string;
+  deliveryEvidenceId?: string;
 }
 
 export interface CreateDepartmentRequest {

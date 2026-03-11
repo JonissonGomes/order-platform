@@ -335,7 +335,7 @@ export default function Home() {
                   src="https://www.google.com/maps?q=Rua%20Iju%C3%AD%20293%20Recife&output=embed"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  className="h-full w-full border-0 [filter:grayscale(1)_invert(1)_contrast(0.8)]"
+                  className="h-full w-full border-0"
                 />
               </div>
             </div>

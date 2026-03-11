@@ -277,22 +277,39 @@ export default function PublicOrderTracking() {
             </Card>
 
             {/* Botão de Pagamento */}
-            {order.finalCost && !order.payment?.paid && (
+            {order.finalCost && (
               <Card className="shadow-lg">
-                <CardContent className="pt-6">
-                  <Button 
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white" 
-                    size="lg"
-                    onClick={() => {
-                      if (order.payment?.method === "pix" || order.payment?.method === "boleto") {
-                        toast.info("Link de pagamento será enviado em breve");
-                      } else {
-                        toast.info("Entre em contato para finalizar o pagamento");
-                      }
-                    }}
-                  >
-                    Pagar R$ {order.finalCost.toFixed(2).replace(".", ",")}
-                  </Button>
+                <CardContent className="pt-6 space-y-4">
+                  {!order.payment?.paid && (
+                    <>
+                      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
+                        <p className="font-medium mb-1">Link de Pagamento</p>
+                        <p>Este é o link de pagamento e irá direcionar para o Mercado Pago. O status da ordem de serviço mudará automaticamente assim que o pagamento for confirmado.</p>
+                      </div>
+                      <Button 
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white" 
+                        size="lg"
+                        onClick={() => {
+                          if (order.payment?.method === "pix" || order.payment?.method === "boleto") {
+                            toast.info("Link de pagamento será enviado em breve");
+                          } else {
+                            toast.info("Entre em contato para finalizar o pagamento");
+                          }
+                        }}
+                      >
+                        Pagar R$ {order.finalCost.toFixed(2).replace(".", ",")}
+                      </Button>
+                    </>
+                  )}
+                  {order.payment?.paid && (
+                    <Button 
+                      className="w-full bg-green-500 text-white cursor-not-allowed" 
+                      size="lg"
+                      disabled
+                    >
+                      Pago
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -360,6 +377,22 @@ export default function PublicOrderTracking() {
                   <p className="text-muted-foreground mb-1">Problema:</p>
                   <p className="text-foreground">{order.problemDescription}</p>
                 </div>
+                {order.technicalReport && (
+                  <div className="pt-2 border-t">
+                    <p className="text-muted-foreground mb-1">Laudo Técnico:</p>
+                    <p className="text-foreground">{order.technicalReport}</p>
+                  </div>
+                )}
+                {order.delivery?.deliveryEvidence && (
+                  <div className="pt-2 border-t">
+                    <p className="text-muted-foreground mb-2">Evidência de Conserto:</p>
+                    <img 
+                      src={order.delivery.deliveryEvidence.url} 
+                      alt="Evidência de conserto" 
+                      className="w-full rounded-md border border-border"
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
 

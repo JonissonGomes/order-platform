@@ -47,13 +47,14 @@ type PaymentInfo struct {
 
 // DeliveryInfo armazena dados de entrega em domicílio
 type DeliveryInfo struct {
-	Type         DeliveryType `bson:"type" json:"type"`
-	Address      *Address     `bson:"address,omitempty" json:"address,omitempty"` // endereço de entrega
-	DistanceKm   float64      `bson:"distanceKm,omitempty" json:"distanceKm,omitempty"`
-	Cost         float64      `bson:"cost,omitempty" json:"cost,omitempty"`
-	ScheduledAt  *time.Time   `bson:"scheduledAt,omitempty" json:"scheduledAt,omitempty"`
-	DeliveredAt  *time.Time   `bson:"deliveredAt,omitempty" json:"deliveredAt,omitempty"`
-	Observations string       `bson:"observations,omitempty" json:"observations,omitempty"`
+	Type            DeliveryType `bson:"type" json:"type"`
+	Address         *Address     `bson:"address,omitempty" json:"address,omitempty"` // endereço de entrega
+	DistanceKm      float64      `bson:"distanceKm,omitempty" json:"distanceKm,omitempty"`
+	Cost            float64      `bson:"cost,omitempty" json:"cost,omitempty"`
+	ScheduledAt     *time.Time   `bson:"scheduledAt,omitempty" json:"scheduledAt,omitempty"`
+	DeliveredAt     *time.Time   `bson:"deliveredAt,omitempty" json:"deliveredAt,omitempty"`
+	Observations    string       `bson:"observations,omitempty" json:"observations,omitempty"`
+	DeliveryEvidence *Image      `bson:"deliveryEvidence,omitempty" json:"deliveryEvidence,omitempty"` // Evidência de conserto/entrega
 }
 
 type ServiceOrder struct {

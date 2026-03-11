@@ -68,7 +68,7 @@ func New(db *database.MongoDB) *gin.Engine {
 	var paymentHandler *handlers.PaymentHandler
 	if cfg.PaymentProvider != "" && cfg.PaymentAPIKey != "" && cfg.PaymentAPIURL != "" {
 		paymentService := services.NewPaymentService(cfg.PaymentProvider, cfg.PaymentAPIKey, cfg.PaymentAPIURL)
-		paymentHandler = handlers.NewPaymentHandler(paymentService)
+		paymentHandler = handlers.NewPaymentHandler(paymentService, serviceOrderRepo)
 		log.Println("Payment service initialized successfully")
 	} else {
 		log.Println("Payment gateway not configured. Payment processing will be disabled.")
@@ -318,8 +318,9 @@ func New(db *database.MongoDB) *gin.Engine {
 			{
 				payments.POST("/create", paymentHandler.CreatePayment)
 				payments.GET("/:id/status", paymentHandler.GetPaymentStatus)
-				payments.POST("/webhook/:provider", paymentHandler.Webhook) // Public webhook (no auth)
 			}
+			// Webhook route (public, no auth required)
+			api.POST("/payments/webhook/:provider", paymentHandler.Webhook)
 		}
 
 		// NFE routes (requires auth, optional if not configured)
