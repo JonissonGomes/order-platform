@@ -22,8 +22,8 @@ func NewUploadHandler(cloudinaryService *services.CloudinaryService) *UploadHand
 
 // UploadImage handles image upload to Cloudinary
 func (h *UploadHandler) UploadImage(c *gin.Context) {
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
@@ -71,8 +71,8 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 
 // DeleteImage deletes an image from Cloudinary
 func (h *UploadHandler) DeleteImage(c *gin.Context) {
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}

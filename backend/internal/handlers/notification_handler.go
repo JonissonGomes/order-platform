@@ -24,8 +24,8 @@ func NewNotificationHandler(notificationRepo *repository.NotificationRepository)
 
 // ListNotifications handles GET /api/notifications
 func (h *NotificationHandler) ListNotifications(c *gin.Context) {
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
@@ -35,7 +35,7 @@ func (h *NotificationHandler) ListNotifications(c *gin.Context) {
 	unreadOnly := c.Query("unread") == "true"
 
 	ctx := c.Request.Context()
-	userID := currentUser.ID
+	userID := currentEmployee.ID
 
 	filter := make(map[string]interface{})
 	if unreadOnly {
@@ -65,14 +65,14 @@ func (h *NotificationHandler) ListNotifications(c *gin.Context) {
 
 // GetUnreadCount handles GET /api/notifications/unread-count
 func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
 	ctx := c.Request.Context()
-	count, err := h.notificationRepo.CountUnreadNotifications(ctx, currentUser.ID)
+	count, err := h.notificationRepo.CountUnreadNotifications(ctx, currentEmployee.ID)
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
@@ -102,15 +102,15 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 
 // MarkAllAsRead handles POST /api/notifications/read-all
 func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
 	ctx := c.Request.Context()
 
-	if err := h.notificationRepo.MarkAllAsRead(ctx, currentUser.ID); err != nil {
+	if err := h.notificationRepo.MarkAllAsRead(ctx, currentEmployee.ID); err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}

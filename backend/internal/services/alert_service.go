@@ -84,18 +84,18 @@ func (s *AlertService) checkOverdueServiceOrders(ctx context.Context) error {
 		}
 
 		// Get assigned employee or department manager
-		var userID primitive.ObjectID
+		var employeeID primitive.ObjectID
 		if !order.AssignedTo.IsZero() {
 			emp, _ := s.employeeRepo.GetEmployeeByID(ctx, order.AssignedTo)
 			if emp != nil {
-				userID = emp.UserID
+				employeeID = emp.ID
 			}
 		}
 
-		if !userID.IsZero() {
+		if !employeeID.IsZero() {
 			notification := &models.Notification{
 				ID:      primitive.NewObjectID(),
-				UserID:  userID,
+				UserID:  employeeID, // UserID agora é Employee ID
 				Type:    models.NotificationTypeWarning,
 				Channel: models.NotificationChannelInApp,
 				Title:   "Ordem de Serviço Atrasada",

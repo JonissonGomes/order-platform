@@ -59,16 +59,11 @@ type UpdateQuotationRequest struct {
 }
 
 func (h *QuotationHandler) resolveActor(c *gin.Context) (primitive.ObjectID, error) {
-	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		return primitive.NilObjectID, nil
 	}
-	emp, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err == nil && emp != nil {
-		return emp.ID, nil
-	}
-	return currentUser.ID, nil
+	return currentEmployee.ID, nil
 }
 
 func (h *QuotationHandler) generateQuotationNumber(ctx context.Context) (string, error) {
