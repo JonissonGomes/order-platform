@@ -132,9 +132,9 @@ export default function DashboardLayout({
   const visibleModules = useMemo(() => {
     if (!user?.role) return [];
     
-    // If admin/dono, show all modules
+    // If admin/dono, show all modules except customer modules
     if (isAdmin) {
-      return MODULES;
+      return MODULES.filter((module) => !module.path.startsWith("/cliente/"));
     }
 
     // If we're still loading employee data, wait
@@ -167,6 +167,11 @@ export default function DashboardLayout({
     // Filter modules based on actual profile permissions
     const userPermissions = profile.profile.permissions || [];
     const filtered = MODULES.filter((module) => {
+      // Excluir módulos do cliente do menu lateral (apenas clientes devem ver)
+      if (module.path.startsWith("/cliente/")) {
+        return false;
+      }
+      
       // Check if user has any of the required permissions for this module
       // First check if user has wildcard permission
       if (userPermissions.includes("*")) {
@@ -364,7 +369,8 @@ function DashboardLayoutContent({
 
   const visibleModules = useMemo(() => {
     if (!user?.role) return [];
-    if (isAdmin) return MODULES;
+    // If admin/dono, show all modules except customer modules
+    if (isAdmin) return MODULES.filter((module) => !module.path.startsWith("/cliente/"));
     
     // If we're still loading employee data, wait
     if (isLoadingEmployee && !employeeData) {
@@ -395,6 +401,11 @@ function DashboardLayoutContent({
 
     const userPermissions = profile.profile.permissions || [];
     const filtered = MODULES.filter((module) => {
+      // Excluir módulos do cliente do menu lateral (apenas clientes devem ver)
+      if (module.path.startsWith("/cliente/")) {
+        return false;
+      }
+      
       // Check if user has any of the required permissions for this module
       // First check if user has wildcard permission
       if (userPermissions.includes("*")) {
