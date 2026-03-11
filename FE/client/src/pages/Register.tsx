@@ -389,7 +389,7 @@ export default function Register() {
               Já tem uma conta?{" "}
               <button
                 type="button"
-                onClick={() => setLocation("/login")}
+                onClick={() => setLocation("/cliente/login")}
                 className="text-blue-600 hover:underline font-medium"
               >
                 Faça login

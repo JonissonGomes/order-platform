@@ -92,7 +92,7 @@ export default function PublicOrderTracking() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <div className="w-full container mx-auto px-4 py-12 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
+      <div className="w-full container mx-auto px-4 py-12 max-w-4xl">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Acompanhe sua Ordem</h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -146,7 +146,7 @@ export default function PublicOrderTracking() {
               Criar conta gratuita
             </Button>
             <p className="text-xs text-center text-muted-foreground">
-              Já tem uma conta? <button onClick={() => setLocation("/login")} className="text-blue-600 hover:underline font-medium">Faça login</button>
+              Já tem uma conta? <button onClick={() => setLocation("/cliente/login")} className="text-blue-600 hover:underline font-medium">Faça login</button>
             </p>
           </CardContent>
         </Card>
