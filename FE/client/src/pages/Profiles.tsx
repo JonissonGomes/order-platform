@@ -56,6 +56,9 @@ export default function Profiles() {
     }
   }, [selectedRole]);
 
+  // Verificar se o perfil selecionado é de cliente
+  const isCustomerProfile = selectedRole === "User" || selectedRole === "Cliente";
+
   // Load permissions when role data is loaded
   useEffect(() => {
     if (roleData) {
@@ -87,6 +90,23 @@ export default function Profiles() {
           roleData.deletePermissions || []
         );
       });
+
+      // Adicionar permissões de blocos do cliente se for perfil de cliente
+      if (isCustomerProfile) {
+        const customerBlocks = [
+          "customer.search_orders",
+          "customer.open_orders",
+          "customer.summary",
+          "customer.help",
+        ];
+        customerBlocks.forEach((block) => {
+          viewMap[block] = roleData.permissions?.includes(block) || false;
+          // Blocos do cliente só têm visualização
+          createMap[block] = false;
+          editMap[block] = false;
+          deleteMap[block] = false;
+        });
+      }
       
       setViewPermissions(viewMap);
       setCreatePermissions(createMap);
@@ -105,6 +125,22 @@ export default function Profiles() {
         editMap[module] = false;
         deleteMap[module] = false;
       });
+
+      // Adicionar permissões de blocos do cliente se for perfil de cliente
+      if (isCustomerProfile) {
+        const customerBlocks = [
+          "customer.search_orders",
+          "customer.open_orders",
+          "customer.summary",
+          "customer.help",
+        ];
+        customerBlocks.forEach((block) => {
+          viewMap[block] = false;
+          createMap[block] = false;
+          editMap[block] = false;
+          deleteMap[block] = false;
+        });
+      }
       
       setViewPermissions(viewMap);
       setCreatePermissions(createMap);
@@ -282,15 +318,21 @@ export default function Profiles() {
     const enabledViewPermissions: string[] = [];
     Object.entries(viewPermissions).forEach(([module, enabled]) => {
       if (enabled) {
-        const prefix = modulePathToPermissionPrefix(module);
-        
-        // Se tem criar ou editar, usa wildcard (ex: "service_orders.*")
-        if (createPermissions[module] || editPermissions[module]) {
-          enabledViewPermissions.push(`${prefix}.*`);
+        // Se for um bloco do cliente, adiciona diretamente (ex: "customer.search_orders")
+        if (module.startsWith("customer.")) {
+          enabledViewPermissions.push(module);
         } else {
-          // Se só tem visualização, adiciona permissões específicas
-          // Para manter compatibilidade, adiciona read
-          enabledViewPermissions.push(`${prefix}.read`);
+          // Para módulos normais, converte o caminho para prefixo de permissão
+          const prefix = modulePathToPermissionPrefix(module);
+          
+          // Se tem criar ou editar, usa wildcard (ex: "service_orders.*")
+          if (createPermissions[module] || editPermissions[module]) {
+            enabledViewPermissions.push(`${prefix}.*`);
+          } else {
+            // Se só tem visualização, adiciona permissões específicas
+            // Para manter compatibilidade, adiciona read
+            enabledViewPermissions.push(`${prefix}.read`);
+          }
         }
       }
     });
@@ -300,7 +342,12 @@ export default function Profiles() {
     const prefixes = new Set<string>();
     
     enabledViewPermissions.forEach((perm) => {
-      if (perm.endsWith(".*")) {
+      // Permissões de blocos do cliente (customer.*) são adicionadas diretamente
+      if (perm.startsWith("customer.")) {
+        if (!uniqueViewPermissions.includes(perm)) {
+          uniqueViewPermissions.push(perm);
+        }
+      } else if (perm.endsWith(".*")) {
         const prefix = perm.slice(0, -2);
         // Remove permissões específicas do mesmo prefixo se tem wildcard
         prefixes.add(prefix);
@@ -427,9 +474,44 @@ export default function Profiles() {
     ));
   };
 
-  // Verificar se o perfil selecionado é de cliente
-  const isCustomerProfile = selectedRole === "User" || selectedRole === "Cliente";
-  
+  // Renderizar permissões de blocos do cliente (apenas visualizar)
+  const renderCustomerBlockPermissions = (blocks: string[]) => {
+    const blockLabels: Record<string, string> = {
+      "customer.search_orders": "Busca de Ordens",
+      "customer.open_orders": "Ordens em Aberto",
+      "customer.summary": "Resumo",
+      "customer.help": "Precisa de Ajuda",
+    };
+
+    return blocks.map((block) => (
+      <div
+        key={block}
+        className="p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <Label
+              htmlFor={`view-${block}`}
+              className="text-base font-medium cursor-pointer"
+            >
+              {blockLabels[block] || block}
+            </Label>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <Label htmlFor={`view-${block}`} className="text-xs text-muted-foreground">
+              Visualizar
+            </Label>
+            <Switch
+              id={`view-${block}`}
+              checked={viewPermissions[block] || false}
+              onCheckedChange={() => handleToggleView(block)}
+            />
+          </div>
+        </div>
+      </div>
+    ));
+  };
+
   // Group modules by category
   // Negócio: módulos relacionados ao negócio principal
   const businessModules = availableModules.filter((m) => 
@@ -440,16 +522,21 @@ export default function Profiles() {
   const adminModules = availableModules.filter((m) => 
     m === "/departments" || m === "/employees" || m === "/profiles" || m === "/settings"
   );
-  // Cliente: módulos específicos para clientes (apenas para perfis de cliente)
-  const customerModules = isCustomerProfile 
-    ? availableModules.filter((m) => m.startsWith("/cliente/"))
+  // Cliente: blocos específicos da área do cliente (apenas para perfis de cliente)
+  const customerBlocks = isCustomerProfile 
+    ? [
+        "customer.search_orders", // Busca de Ordens
+        "customer.open_orders",   // Ordens em Aberto
+        "customer.summary",        // Resumo
+        "customer.help",           // Precisa de Ajuda
+      ]
     : [];
 
   // Debug: log available modules
   console.log("[Profiles] Available modules:", availableModules);
   console.log("[Profiles] Business modules:", businessModules);
   console.log("[Profiles] Admin modules:", adminModules);
-  console.log("[Profiles] Customer modules:", customerModules);
+  console.log("[Profiles] Customer blocks:", customerBlocks);
 
   return (
     <DashboardLayout>
@@ -625,15 +712,18 @@ export default function Profiles() {
                     </div>
                   </div>
 
-                  {customerModules.length > 0 && (
+                  {customerBlocks.length > 0 && (
                     <>
                       <Separator />
                       <div>
                         <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
-                          Cliente
+                          Área do Cliente
                         </h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Configure quais blocos da área do cliente este perfil pode visualizar
+                        </p>
                         <div className="space-y-4">
-                          {renderModulePermissions(customerModules)}
+                          {renderCustomerBlockPermissions(customerBlocks)}
                         </div>
                       </div>
                     </>

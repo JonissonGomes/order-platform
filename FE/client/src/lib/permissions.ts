@@ -170,12 +170,24 @@ export function useCustomerPermissions() {
     }
   };
 
+  // Verificar permissões de blocos específicos
+  const canViewSearchOrders = hasPermission("customer.search_orders", "view");
+  const canViewOpenOrders = hasPermission("customer.open_orders", "view");
+  const canViewSummary = hasPermission("customer.summary", "view");
+  const canViewHelp = hasPermission("customer.help", "view");
+
   return {
     // Permissões específicas para módulos do cliente
     canViewDashboard: hasPermission("/cliente/dashboard", "view"),
     canViewProfile: hasPermission("/cliente/perfil", "view"),
     canEditProfile: hasPermission("/cliente/perfil", "edit"),
     canViewOrders: hasPermission("/cliente/ordens", "view"),
+    
+    // Permissões de blocos da área do cliente
+    canViewSearchOrders,
+    canViewOpenOrders,
+    canViewSummary,
+    canViewHelp,
     
     // Função genérica para verificar permissões
     hasPermission,

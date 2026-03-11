@@ -23,6 +23,8 @@ import {
   Phone,
   Mail,
   Search,
+  ChevronDown,
+  Settings,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -43,6 +45,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const statusLabels: Record<string, string> = {
   approved: "Aprovado",
@@ -70,7 +81,16 @@ const statusColors: Record<string, string> = {
 
 export default function CustomerDashboard() {
   const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
-  const { canViewDashboard, canViewProfile, canViewOrders, isLoading: permissionsLoading } = useCustomerPermissions();
+  const { 
+    canViewDashboard, 
+    canViewProfile, 
+    canViewOrders, 
+    canViewSearchOrders,
+    canViewOpenOrders,
+    canViewSummary,
+    canViewHelp,
+    isLoading: permissionsLoading 
+  } = useCustomerPermissions();
   const [, setLocation] = useLocation();
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +100,7 @@ export default function CustomerDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   useEffect(() => {
     // Aguardar o carregamento inicial antes de verificar autenticação
@@ -172,6 +193,7 @@ export default function CustomerDashboard() {
   };
 
   const handleLogout = async () => {
+    setShowLogoutDialog(false);
     await logout();
     setLocation("/cliente/login");
   };
@@ -228,20 +250,17 @@ export default function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100">
-      {/* Header Responsivo */}
+      {/* Header Minimalista */}
       <header className="bg-white border-b shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 sm:py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">Área do Cliente</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                Bem-vindo, {user?.name || "Cliente"}
-              </p>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Área do Cliente</h1>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 sm:gap-3">
               {unreadNotifications > 0 && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => {
                     const notificationsSection = document.getElementById("notifications-section");
@@ -249,43 +268,100 @@ export default function CustomerDashboard() {
                       notificationsSection.scrollIntoView({ behavior: "smooth" });
                     }
                   }}
-                  className="relative flex-1 sm:flex-initial"
+                  className="relative"
                 >
-                  <Bell className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Notificações</span>
+                  <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
                   {unreadNotifications > 0 && (
-                    <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">
+                    <span className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center text-xs bg-red-500 text-white rounded-full">
                       {unreadNotifications}
                     </span>
                   )}
                 </Button>
               )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setLocation("/track")}
-                className="flex-1 sm:flex-initial"
-              >
-                <FileText className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Buscar</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleLogout}
-                className="flex-1 sm:flex-initial"
-              >
-                <LogOut className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Sair</span>
-              </Button>
+              
+              {/* Dropdown de Perfil */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2 h-9 px-2 sm:px-3">
+                    <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
+                      <AvatarFallback className="text-xs sm:text-sm bg-blue-100 text-blue-700">
+                        {user?.name?.charAt(0).toUpperCase() || "C"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden sm:inline text-sm font-medium truncate max-w-[120px]">
+                      {user?.name || "Cliente"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 hidden sm:inline" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium">{user?.name || "Cliente"}</p>
+                      {user?.email && (
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      )}
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (canViewProfile) {
+                        setLocation("/cliente/perfil");
+                      } else {
+                        toast.error("Você não tem permissão para acessar seu perfil.");
+                      }
+                    }}
+                    disabled={!canViewProfile}
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    Meu Perfil
+                  </DropdownMenuItem>
+                  {canViewOrders && (
+                    <DropdownMenuItem onClick={() => setLocation("/cliente/ordens")}>
+                      <History className="mr-2 h-4 w-4" />
+                      Histórico de Ordens
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setShowLogoutDialog(true)}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </header>
 
+      {/* Dialog de Confirmação de Logout */}
+      <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirmar Saída</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja sair da sua conta?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowLogoutDialog(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleLogout}>
+              Sair
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 lg:py-8 max-w-7xl">
         {/* Filtros e Busca - Responsivo */}
-        <Card className="mb-4 sm:mb-6">
+        {canViewSearchOrders && (
+          <Card className="mb-4 sm:mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Search className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
@@ -339,6 +415,7 @@ export default function CustomerDashboard() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Avisos de Atualizações Recentes - Responsivo */}
         {recentUpdates.length > 0 && (
@@ -394,21 +471,22 @@ export default function CustomerDashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Coluna Principal - Ordens em Aberto - Responsivo */}
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                      <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                      Ordens em Aberto
-                    </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">
-                      {openOrders.length} ordem(ns) em andamento
-                    </CardDescription>
+          {canViewOpenOrders && (
+            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                        Ordens em Aberto
+                      </CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">
+                        {openOrders.length} ordem(ns) em andamento
+                      </CardDescription>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
+                </CardHeader>
               <CardContent>
                 {sortedOpenOrders.length === 0 ? (
                   <div className="text-center py-8 sm:py-12 text-muted-foreground">
@@ -523,8 +601,9 @@ export default function CustomerDashboard() {
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Sidebar - Informações e Ações Rápidas - Responsivo */}
           <div className="space-y-4 sm:space-y-6">
@@ -583,10 +662,11 @@ export default function CustomerDashboard() {
             </Card>
 
             {/* Estatísticas Rápidas */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Resumo</CardTitle>
-              </CardHeader>
+            {canViewSummary && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Resumo</CardTitle>
+                </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -613,24 +693,27 @@ export default function CustomerDashboard() {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Ajuda */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Precisa de Ajuda?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Entre em contato conosco para esclarecer dúvidas sobre suas ordens.
-                </p>
-                <Button variant="outline" className="w-full" asChild>
-                  <a href="tel:+5581999999999">
-                    <Phone className="h-4 w-4 mr-2" />
-                    Ligar para Suporte
-                  </a>
-                </Button>
-              </CardContent>
-            </Card>
+            {canViewHelp && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Precisa de Ajuda?</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Entre em contato conosco para esclarecer dúvidas sobre suas ordens.
+                  </p>
+                  <Button variant="outline" className="w-full" asChild>
+                    <a href="tel:+5581999999999">
+                      <Phone className="h-4 w-4 mr-2" />
+                      Ligar para Suporte
+                    </a>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
