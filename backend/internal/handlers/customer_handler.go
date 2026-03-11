@@ -63,22 +63,10 @@ func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
-	}
-
-	// Get current employee
-	// Admin and Super Admin can create customers even without an Employee record
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		// If user is admin or super admin, allow creation without Employee record
-		if !currentUser.IsAdmin() {
-			utils.RespondWithForbidden(c, "")
-			return
-		}
-		// For admin/super admin without Employee, we'll use User ID for createdBy
 	}
 
 	// Check if customer with CPF already exists (only if CPF is provided)
@@ -94,17 +82,9 @@ func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
 		}
 	}
 
-	// Determine createdBy - use Employee ID if available, otherwise use User ID for super admin
-	var createdBy primitive.ObjectID
-	var updatedBy primitive.ObjectID
-	if currentEmployee != nil {
-		createdBy = currentEmployee.ID
-		updatedBy = currentEmployee.ID
-	} else {
-		// For super admin without Employee, use User ID
-		createdBy = currentUser.ID
-		updatedBy = currentUser.ID
-	}
+	// Determine createdBy
+	createdBy := currentEmployee.ID
+	updatedBy := currentEmployee.ID
 
 	// Create customer
 	customer := &models.Customer{
@@ -263,21 +243,10 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
-	}
-
-	// Get current employee
-	// Admin and Super Admin can update customers even without an Employee record
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		// If user is admin or super admin, allow update without Employee record
-		if !currentUser.IsAdmin() {
-			utils.RespondWithForbidden(c, "")
-			return
-		}
 	}
 
 	// Get existing customer
@@ -320,12 +289,8 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	}
 	// CPF não pode ser alterado (dado único)
 
-	// Determine updatedBy - use Employee ID if available, otherwise use User ID for super admin
-	if currentEmployee != nil {
-		customer.UpdatedBy = currentEmployee.ID
-	} else {
-		customer.UpdatedBy = currentUser.ID
-	}
+	// Determine updatedBy
+	customer.UpdatedBy = currentEmployee.ID
 	customer.UpdatedAt = time.Now()
 
 	if err := h.customerRepo.UpdateCustomer(ctx, customerID, customer); err != nil {

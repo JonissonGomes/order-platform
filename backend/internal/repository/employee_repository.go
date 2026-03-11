@@ -23,9 +23,10 @@ func NewEmployeeRepository(db *mongo.Database) *EmployeeRepository {
 		collection: db.Collection(employeesCollection),
 	}
 
-	// Índice para busca por userId
+	// Índice único para busca por email (autenticação)
 	repo.collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
-		Keys: bson.D{{Key: "userId", Value: 1}},
+		Keys:    bson.D{{Key: "email", Value: 1}},
+		Options: options.Index().SetUnique(true),
 	})
 
 	// Índice para busca por departmentId
@@ -60,10 +61,10 @@ func (r *EmployeeRepository) GetEmployeeByID(ctx context.Context, id primitive.O
 	return &employee, nil
 }
 
-// GetEmployeeByUserID retrieves an employee by user ID
-func (r *EmployeeRepository) GetEmployeeByUserID(ctx context.Context, userID primitive.ObjectID) (*models.Employee, error) {
+// GetEmployeeByEmail retrieves an employee by email (for authentication)
+func (r *EmployeeRepository) GetEmployeeByEmail(ctx context.Context, email string) (*models.Employee, error) {
 	var employee models.Employee
-	filter := bson.M{"userId": userID}
+	filter := bson.M{"email": email}
 
 	err := r.collection.FindOne(ctx, filter).Decode(&employee)
 	if err != nil {
@@ -74,6 +75,44 @@ func (r *EmployeeRepository) GetEmployeeByUserID(ctx context.Context, userID pri
 	}
 
 	return &employee, nil
+}
+
+// UpdateLastSignedIn updates the last signed in timestamp
+func (r *EmployeeRepository) UpdateLastSignedIn(ctx context.Context, employeeID primitive.ObjectID) error {
+	filter := bson.M{"_id": employeeID}
+	update := bson.M{
+		"$set": bson.M{
+			"lastSignedIn": time.Now(),
+			"updatedAt":    time.Now(),
+		},
+	}
+
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	return err
+}
+
+// SetEmployeeSuspended sets the suspended status of an employee
+func (r *EmployeeRepository) SetEmployeeSuspended(ctx context.Context, employeeID primitive.ObjectID, suspended bool) error {
+	filter := bson.M{"_id": employeeID}
+	update := bson.M{
+		"$set": bson.M{
+			"isSuspended": suspended,
+			"updatedAt":   time.Now(),
+		},
+	}
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	return err
+}
+
+// CountEmployees counts total employees
+func (r *EmployeeRepository) CountEmployees(ctx context.Context) (int64, error) {
+	return r.collection.CountDocuments(ctx, bson.M{})
+}
+
+// CountAdmins counts employees with admin role
+func (r *EmployeeRepository) CountAdmins(ctx context.Context) (int64, error) {
+	filter := bson.M{"role": string(models.EmployeeRoleAdmin)}
+	return r.collection.CountDocuments(ctx, filter)
 }
 
 // UpdateEmployee updates an employee

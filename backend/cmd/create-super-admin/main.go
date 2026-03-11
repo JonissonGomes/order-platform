@@ -15,6 +15,7 @@ import (
 	"order-platform/backend/internal/models"
 	"order-platform/backend/internal/repository"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/term"
 )
 
@@ -34,24 +35,25 @@ func main() {
 	defer db.Disconnect()
 
 	ctx := context.Background()
-	userRepo := repository.NewUserRepository(db.Database)
+	employeeRepo := repository.NewEmployeeRepository(db.Database)
+	profileRepo := repository.NewProfileRepository(db.Database)
 
-	// Check current super admin count
-	superAdminCount, err := userRepo.CountSuperAdmins(ctx)
+	// Check current admin count
+	adminCount, err := employeeRepo.CountAdmins(ctx)
 	if err != nil {
-		log.Fatalf("Falha ao contar donos: %v", err)
+		log.Fatalf("Falha ao contar administradores: %v", err)
 	}
 
-	if superAdminCount >= 3 {
-		fmt.Println("❌ Erro: Máximo de 3 usuários com perfil Dono permitido no sistema")
-		fmt.Printf("Total de Donos atual: %d\n", superAdminCount)
+	if adminCount >= 3 {
+		fmt.Println("❌ Erro: Máximo de 3 administradores permitido no sistema")
+		fmt.Printf("Total de Administradores atual: %d\n", adminCount)
 		os.Exit(1)
 	}
 
 	fmt.Println("═══════════════════════════════════════════════════════════")
-	fmt.Println("  Criar Dono do Sistema")
+	fmt.Println("  Criar Administrador do Sistema")
 	fmt.Println("═══════════════════════════════════════════════════════════")
-	fmt.Printf("Donos cadastrados: %d/3\n\n", superAdminCount)
+	fmt.Printf("Administradores cadastrados: %d/3\n\n", adminCount)
 
 	// Get user input
 	reader := bufio.NewReader(os.Stdin)
@@ -82,17 +84,17 @@ func main() {
 		log.Fatal("Formato de email inválido")
 	}
 
-	// Verificar se usuário já existe
-	existingUser, err := userRepo.GetUserByEmail(ctx, email)
+	// Verificar se employee já existe
+	existingEmployee, err := employeeRepo.GetEmployeeByEmail(ctx, email)
 	if err != nil {
-		log.Fatalf("Falha ao verificar usuário: %v", err)
+		log.Fatalf("Falha ao verificar colaborador: %v", err)
 	}
-	if existingUser != nil {
-		fmt.Printf("❌ Erro: Já existe um usuário com o email %s\n", email)
-		if existingUser.IsSuperAdmin() {
-			fmt.Println("Este usuário já possui o perfil Dono.")
+	if existingEmployee != nil {
+		fmt.Printf("❌ Erro: Já existe um colaborador com o email %s\n", email)
+		if existingEmployee.Role == models.EmployeeRoleAdmin {
+			fmt.Println("Este colaborador já possui o perfil Administrador.")
 		} else {
-			fmt.Printf("Perfil atual: %s\n", existingUser.Role)
+			fmt.Printf("Perfil atual: %s\n", existingEmployee.Role)
 			fmt.Println("Use o endpoint da API para alterar o perfil.")
 		}
 		os.Exit(1)
@@ -130,24 +132,45 @@ func main() {
 		log.Fatalf("Falha ao gerar hash da senha: %v", err)
 	}
 
-	// Criar usuário com perfil Dono
-	user := &models.User{
-		Email:    email,
-		Password: hashedPassword,
-		Name:     name,
-		Role:     models.RoleSuperAdmin, // "dono"
+	// Buscar perfil "Dono" ou "Administrador"
+	profile, err := profileRepo.GetProfileByName(ctx, "Dono")
+	if err != nil {
+		log.Fatalf("Falha ao buscar perfil: %v", err)
+	}
+	if profile == nil {
+		// Tentar "Administrador" como fallback
+		profile, err = profileRepo.GetProfileByName(ctx, "Administrador")
+		if err != nil {
+			log.Fatalf("Falha ao buscar perfil: %v", err)
+		}
+		if profile == nil {
+			log.Fatal("Perfil 'Dono' ou 'Administrador' não encontrado. Execute a sincronização de perfis padrão primeiro.")
+		}
 	}
 
-	if err := userRepo.CreateUser(ctx, user); err != nil {
-		log.Fatalf("Falha ao criar o Dono: %v", err)
+	// Criar employee com perfil Administrador
+	employee := &models.Employee{
+		Email:       email,
+		Password:    hashedPassword,
+		Name:        name,
+		Role:        models.EmployeeRoleAdmin,
+		ProfileID:   profile.ID,
+		IsActive:    true,
+		IsSuspended: false,
+		CreatedBy:   primitive.NilObjectID, // Primeiro admin, sem criador
+		UpdatedBy:   primitive.NilObjectID,
+	}
+
+	if err := employeeRepo.CreateEmployee(ctx, employee); err != nil {
+		log.Fatalf("Falha ao criar o Administrador: %v", err)
 	}
 
 	fmt.Println()
-	fmt.Println("✅ Dono criado com sucesso!")
+	fmt.Println("✅ Administrador criado com sucesso!")
 	fmt.Println("═══════════════════════════════════════════════════════════")
-	fmt.Printf("Nome:   %s\n", user.Name)
-	fmt.Printf("Email:  %s\n", user.Email)
-	fmt.Printf("Perfil: Dono (role: %s)\n", user.Role)
+	fmt.Printf("Nome:   %s\n", employee.Name)
+	fmt.Printf("Email:  %s\n", employee.Email)
+	fmt.Printf("Perfil: Administrador (role: %s)\n", employee.Role)
 	fmt.Println("═══════════════════════════════════════════════════════════")
 	fmt.Println("⚠️  Guarde as credenciais em local seguro.")
 }

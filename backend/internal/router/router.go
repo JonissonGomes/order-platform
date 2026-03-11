@@ -28,7 +28,6 @@ func New(db *database.MongoDB) *gin.Engine {
 	r.Use(corsMiddleware(cfg.CORSOrigins))
 
 	// Initialize repositories
-	userRepo := repository.NewUserRepository(db.Database)
 	employeeRepo := repository.NewEmployeeRepository(db.Database)
 	profileRepo := repository.NewProfileRepository(db.Database)
 	customerRepo := repository.NewCustomerRepository(db.Database)
@@ -85,13 +84,13 @@ func New(db *database.MongoDB) *gin.Engine {
 	}
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(userRepo)
-	employeeHandler := handlers.NewEmployeeHandler(userRepo, employeeRepo, profileRepo, departmentRepo)
+	authHandler := handlers.NewAuthHandler(employeeRepo, customerRepo)
+	employeeHandler := handlers.NewEmployeeHandler(employeeRepo, profileRepo, departmentRepo)
 	profileHandler := handlers.NewProfileHandler(profileRepo)
 	customerHandler := handlers.NewCustomerHandler(customerRepo, serviceOrderRepo, employeeRepo)
 	serviceOrderHandler := handlers.NewServiceOrderHandler(serviceOrderRepo, customerRepo, departmentRepo, employeeRepo, statusHistoryRepo)
 	departmentHandler := handlers.NewDepartmentHandler(departmentRepo, employeeRepo, serviceOrderRepo)
-	publicHandler := handlers.NewPublicHandler(customerRepo, serviceOrderRepo, userRepo)
+	publicHandler := handlers.NewPublicHandler(customerRepo, serviceOrderRepo, employeeRepo)
 	stockHandler := handlers.NewStockHandler(stockRepo, employeeRepo)
 	financialHandler := handlers.NewFinancialHandler(financialRepo, employeeRepo)
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo, employeeRepo)
@@ -115,7 +114,7 @@ func New(db *database.MongoDB) *gin.Engine {
 	reportHandler := handlers.NewReportHandler(reportService)
 
 	// Auth middleware (optional authentication)
-	authMiddleware := middleware.AuthMiddleware(userRepo)
+	authMiddleware := middleware.AuthMiddleware(employeeRepo, customerRepo)
 
 	// Audit middleware
 	auditMiddleware := middleware.AuditMiddleware(auditLogRepo, employeeRepo)
@@ -135,11 +134,11 @@ func New(db *database.MongoDB) *gin.Engine {
 			auth.POST("/logout", authHandler.Logout)
 		}
 
-		// User management routes (Super Admin only)
-		users := api.Group("/users")
-		users.Use(authMiddleware, middleware.RequireSuperAdmin(), auditMiddleware)
+		// Employee role management routes (Admin only)
+		employeeRoleRoutes := api.Group("/employees")
+		employeeRoleRoutes.Use(authMiddleware, middleware.RequireAdmin(), auditMiddleware)
 		{
-			users.PATCH("/:id/role", authHandler.UpdateUserRole)
+			employeeRoleRoutes.PATCH("/:id/role", authHandler.UpdateEmployeeRole)
 		}
 
 		// Protected routes example

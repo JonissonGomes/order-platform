@@ -56,7 +56,8 @@ export interface User {
   email: string;
   name: string;
   // "dono" = novo valor; "super_admin" mantido por retrocompatibilidade
-  role: "user" | "admin" | "dono" | "super_admin";
+  role: "user" | "admin" | "dono" | "super_admin" | "department_manager" | "attendant" | "technician" | "customer";
+  type?: "employee" | "customer"; // Indica se é Employee ou Customer
   createdAt?: string;
   updatedAt?: string;
   lastSignedIn?: string;

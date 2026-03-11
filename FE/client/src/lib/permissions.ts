@@ -15,13 +15,23 @@ export function usePermissions(modulePath: string) {
   
   // Busca o colaborador para obter o perfil
   const { data: employeeData } = useQuery({
-    queryKey: ["employee", user?.id],
+    queryKey: ["employee", user?.id, user?.email],
     queryFn: async () => {
-      if (!user?.id) return null;
+      if (!user?.id || user?.type === "customer") return null;
+      // If user.type is "employee", try to get by id first
+      if (user?.type === "employee") {
+        try {
+          const employee = await api.getEmployee(user.id);
+          return employee.employee || null;
+        } catch {
+          // Fallback to list search
+        }
+      }
+      // Search in list by email or id
       const employees = await api.listEmployees();
-      return employees.employees?.find((e: Employee) => e.userId === user.id);
+      return employees.employees?.find((e: Employee) => e.email === user.email || e.id === user.id) || null;
     },
-    enabled: !isAdmin && !!user?.id,
+    enabled: !isAdmin && !!user?.id && user?.type !== "customer",
   });
 
   // Mapeia role para nome do perfil

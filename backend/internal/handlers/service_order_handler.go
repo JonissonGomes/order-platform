@@ -165,28 +165,14 @@ func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
-	// Get current employee (admin/super_admin can operate without Employee record)
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		if !currentUser.IsAdmin() {
-			utils.RespondWithForbidden(c, "")
-			return
-		}
-	}
-
-	// Determine createdBy - use Employee ID if available, otherwise use User ID for admin
-	var createdBy primitive.ObjectID
-	if currentEmployee != nil {
-		createdBy = currentEmployee.ID
-	} else {
-		createdBy = currentUser.ID
-	}
+	// Determine createdBy
+	createdBy := currentEmployee.ID
 
 	// Handle customer: either use existing ID or create temporary customer
 	var customerID primitive.ObjectID
@@ -194,6 +180,7 @@ func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 
 	if req.CustomerID != "" {
 		// Use existing customer
+		var err error
 		customerID, err = primitive.ObjectIDFromHex(req.CustomerID)
 		if err != nil {
 			utils.RespondWithBadRequest(c, "ID do cliente inválido")
@@ -414,6 +401,9 @@ func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 		return
 	}
 
+	// Populate customer before returning
+	h.populateServiceOrderCustomer(ctx, order)
+
 	c.JSON(http.StatusCreated, gin.H{"order": order})
 }
 
@@ -562,28 +552,14 @@ func (h *ServiceOrderHandler) UpdateServiceOrder(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
-	// Get current employee (admin/super_admin can operate without Employee record)
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		if !currentUser.IsAdmin() {
-			utils.RespondWithForbidden(c, "")
-			return
-		}
-	}
-
 	// Determine updatedBy
-	var updatedBy primitive.ObjectID
-	if currentEmployee != nil {
-		updatedBy = currentEmployee.ID
-	} else {
-		updatedBy = currentUser.ID
-	}
+	updatedBy := currentEmployee.ID
 
 	// Get existing order
 	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)
@@ -727,28 +703,14 @@ func (h *ServiceOrderHandler) UpdateServiceOrderStatus(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
-	// Get current employee (admin/super_admin can operate without Employee record)
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		if !currentUser.IsAdmin() {
-			utils.RespondWithForbidden(c, "")
-			return
-		}
-	}
-
 	// Determine changedBy
-	var changedBy primitive.ObjectID
-	if currentEmployee != nil {
-		changedBy = currentEmployee.ID
-	} else {
-		changedBy = currentUser.ID
-	}
+	changedBy := currentEmployee.ID
 
 	// Get existing order
 	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)
@@ -787,14 +749,8 @@ func (h *ServiceOrderHandler) UpdateServiceOrderStatus(c *gin.Context) {
 	}
 
 	// Create status history entry
-	var employeeRole models.EmployeeRole
-	var departmentID primitive.ObjectID
-	if currentEmployee != nil {
-		employeeRole = currentEmployee.Role
-		departmentID = currentEmployee.DepartmentID
-	} else {
-		employeeRole = models.EmployeeRole(currentUser.Role) // fallback
-	}
+	employeeRole := currentEmployee.Role
+	departmentID := currentEmployee.DepartmentID
 
 	statusHistory := &models.StatusHistory{
 		ID:             primitive.NewObjectID(),
@@ -845,28 +801,14 @@ func (h *ServiceOrderHandler) AssignServiceOrder(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
-	// Get current employee (admin/super_admin can operate without Employee record)
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		if !currentUser.IsAdmin() {
-			utils.RespondWithForbidden(c, "")
-			return
-		}
-	}
-
 	// Determine updatedBy
-	var updatedBy primitive.ObjectID
-	if currentEmployee != nil {
-		updatedBy = currentEmployee.ID
-	} else {
-		updatedBy = currentUser.ID
-	}
+	updatedBy := currentEmployee.ID
 
 	// Get existing order
 	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)
@@ -925,28 +867,14 @@ func (h *ServiceOrderHandler) AddNote(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
-	// Get current employee (admin/super_admin can operate without Employee record)
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		if !currentUser.IsAdmin() {
-			utils.RespondWithForbidden(c, "")
-			return
-		}
-	}
-
 	// Determine createdBy
-	var noteCreatedBy primitive.ObjectID
-	if currentEmployee != nil {
-		noteCreatedBy = currentEmployee.ID
-	} else {
-		noteCreatedBy = currentUser.ID
-	}
+	noteCreatedBy := currentEmployee.ID
 
 	// Get existing order
 	order, err := h.serviceOrderRepo.GetServiceOrderByID(ctx, orderID)

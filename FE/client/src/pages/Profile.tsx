@@ -10,14 +10,26 @@ export default function Profile() {
   const { user } = useAuth();
 
   // Buscar dados do colaborador para obter o departamento
+  // Se o user.type for "employee", buscar pelo id ou email
   const { data: employeeData } = useQuery({
-    queryKey: ["employee", user?.id],
+    queryKey: ["employee", user?.id, user?.email],
     queryFn: async () => {
       if (!user?.id) return null;
+      // Se o user já é um employee (type === "employee"), buscar pelo id
+      if (user?.type === "employee") {
+        try {
+          return await api.getEmployee(user.id);
+        } catch {
+          // Se não encontrar pelo id, tentar buscar na lista pelo email
+          const employees = await api.listEmployees();
+          return employees.employees?.find((e: any) => e.email === user.email || e.id === user.id);
+        }
+      }
+      // Se não for employee, tentar buscar na lista pelo email (retrocompatibilidade)
       const employees = await api.listEmployees();
-      return employees.employees?.find((e: any) => e.userId === user.id);
+      return employees.employees?.find((e: any) => e.email === user.email || e.id === user.id);
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && user?.type !== "customer",
   });
 
   // Buscar dados do departamento se o colaborador tiver

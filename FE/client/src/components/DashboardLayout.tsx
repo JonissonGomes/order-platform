@@ -59,18 +59,28 @@ export default function DashboardLayout({
 
   // Get employee data to find profile
   const { data: employeeData, isLoading: isLoadingEmployee } = useQuery({
-    queryKey: ["employee", user?.id],
+    queryKey: ["employee", user?.id, user?.email],
     queryFn: async () => {
-      if (!user?.id || isAdmin) return null;
+      if (!user?.id || isAdmin || user?.type === "customer") return null;
       try {
+        // If user.type is "employee", try to get by id first
+        if (user?.type === "employee") {
+          try {
+            const employee = await api.getEmployee(user.id);
+            return employee.employee || null;
+          } catch {
+            // Fallback to list search
+          }
+        }
+        // Search in list by email or id
         const employees = await api.listEmployees();
-        return employees.employees?.find((e: Employee) => e.userId === user.id) || null;
+        return employees.employees?.find((e: Employee) => e.email === user.email || e.id === user.id) || null;
       } catch (error) {
         console.error("Error fetching employee data:", error);
         return null;
       }
     },
-    enabled: !isAdmin && !!user?.id,
+    enabled: !isAdmin && !!user?.id && user?.type !== "customer",
     retry: 1,
   });
 
@@ -291,12 +301,22 @@ function DashboardLayoutContent({
   const isAdmin = user?.role === "dono" || user?.role === "super_admin" || user?.role === "admin";
 
   const { data: employeeData, isLoading: isLoadingEmployee } = useQuery({
-    queryKey: ["employee", user?.id],
+    queryKey: ["employee", user?.id, user?.email],
     queryFn: async () => {
-      if (!user?.id || isAdmin) return null;
+      if (!user?.id || isAdmin || user?.type === "customer") return null;
       try {
+        // If user.type is "employee", try to get by id first
+        if (user?.type === "employee") {
+          try {
+            const employee = await api.getEmployee(user.id);
+            return employee.employee || null;
+          } catch {
+            // Fallback to list search
+          }
+        }
+        // Search in list by email or id
         const employees = await api.listEmployees();
-        return employees.employees?.find((e: Employee) => e.userId === user.id) || null;
+        return employees.employees?.find((e: Employee) => e.email === user.email || e.id === user.id) || null;
       } catch (error) {
         console.error("Error fetching employee data:", error);
         return null;

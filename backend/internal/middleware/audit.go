@@ -34,23 +34,18 @@ func AuditMiddleware(auditRepo *repository.AuditLogRepository, employeeRepo *rep
 			return
 		}
 
-		// Get user from context
-		user, exists := c.Get(UserContextKey)
-		if !exists || user == nil {
+		// Get user from context (Employee or Customer)
+		user := GetUserFromContext(c)
+		if user == nil {
 			return
 		}
 
-		u, ok := user.(*models.User)
-		if !ok {
-			return
-		}
-
-		// Get employee associated with user
 		ctx := c.Request.Context()
-		employee, err := employeeRepo.GetEmployeeByUserID(ctx, u.ID)
-		if err != nil || employee == nil {
-			// If no employee found, still log but with user info
-			logAuditAction(c, auditRepo, ctx, u, nil, nil)
+
+		// Check if it's an employee
+		employee, ok := user.(*models.Employee)
+		if !ok {
+			// If it's a customer, skip audit (customers don't perform admin actions)
 			return
 		}
 
@@ -60,7 +55,7 @@ func AuditMiddleware(auditRepo *repository.AuditLogRepository, employeeRepo *rep
 			// Department would be populated in handler if needed
 		}
 
-		logAuditAction(c, auditRepo, ctx, u, employee, department)
+		logAuditAction(c, auditRepo, ctx, employee, department)
 	}
 }
 
@@ -68,7 +63,6 @@ func logAuditAction(
 	c *gin.Context,
 	auditRepo *repository.AuditLogRepository,
 	ctx context.Context,
-	user *models.User,
 	employee *models.Employee,
 	department *models.Department,
 ) {
@@ -80,7 +74,7 @@ func logAuditAction(
 	case http.MethodDelete:
 		action = models.ActionDelete
 	case http.MethodPatch:
-		if c.Request.URL.Path[len(c.Request.URL.Path)-7:] == "/status" {
+		if len(c.Request.URL.Path) >= 7 && c.Request.URL.Path[len(c.Request.URL.Path)-7:] == "/status" {
 			action = models.ActionStatusChanged
 		}
 	}
@@ -94,22 +88,19 @@ func logAuditAction(
 		Action:    action,
 		Entity:    entity,
 		EntityID:  entityID,
-		UserID:    user.ID,
-		UserName:  user.Name,
-		UserEmail: user.Email,
-		UserRole:  models.EmployeeRole(user.Role), // Convert UserRole to EmployeeRole
+		UserID:    employee.ID,
+		UserName:  employee.Name,
+		UserEmail: employee.Email,
+		UserRole:  employee.Role,
 		IP:        c.ClientIP(),
 		UserAgent: c.Request.UserAgent(),
 	}
 
-	// Add employee and department info if available
-	if employee != nil {
-		auditLog.UserRole = employee.Role
-		if !employee.DepartmentID.IsZero() {
-			auditLog.DepartmentID = employee.DepartmentID
-			if department != nil {
-				auditLog.DepartmentName = department.Name
-			}
+	// Add department info if available
+	if !employee.DepartmentID.IsZero() {
+		auditLog.DepartmentID = employee.DepartmentID
+		if department != nil {
+			auditLog.DepartmentName = department.Name
 		}
 	}
 

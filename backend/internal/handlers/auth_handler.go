@@ -16,12 +16,14 @@ import (
 )
 
 type AuthHandler struct {
-	userRepo *repository.UserRepository
+	employeeRepo *repository.EmployeeRepository
+	customerRepo *repository.CustomerRepository
 }
 
-func NewAuthHandler(userRepo *repository.UserRepository) *AuthHandler {
+func NewAuthHandler(employeeRepo *repository.EmployeeRepository, customerRepo *repository.CustomerRepository) *AuthHandler {
 	return &AuthHandler{
-		userRepo: userRepo,
+		employeeRepo: employeeRepo,
+		customerRepo: customerRepo,
 	}
 }
 
@@ -36,7 +38,8 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-// Register creates a new user account
+// Register creates a new employee account (for internal use)
+// Note: Customer registration should use the public register endpoint
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -46,13 +49,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// Check if user already exists
-	existingUser, err := h.userRepo.GetUserByEmail(ctx, req.Email)
+	// Check if employee already exists
+	existingEmployee, err := h.employeeRepo.GetEmployeeByEmail(ctx, req.Email)
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}
-	if existingUser != nil {
+	if existingEmployee != nil {
 		utils.RespondWithConflict(c, utils.ErrUserAlreadyExists)
 		return
 	}
@@ -65,50 +68,52 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Determine role
-	role := models.RoleUser
+	var role models.EmployeeRole = models.EmployeeRoleAttendant
 
 	// Check if it's super admin email
 	if config.Get().SuperAdminEmail != "" && req.Email == config.Get().SuperAdminEmail {
-		// Validate max 3 super admins
-		superAdminCount, err := h.userRepo.CountSuperAdmins(ctx)
+		// Validate max 3 super admins (admins)
+		adminCount, err := h.employeeRepo.CountAdmins(ctx)
 		if err != nil {
 			utils.RespondWithInternalError(c)
 			return
 		}
-		if superAdminCount >= 3 {
+		if adminCount >= 3 {
 			utils.RespondWithForbidden(c, utils.ErrMaxSuperAdmins)
 			return
 		}
-		role = models.RoleSuperAdmin
+		role = models.EmployeeRoleAdmin
 	} else if config.Get().AdminEmail != "" && req.Email == config.Get().AdminEmail {
-		role = models.RoleAdmin
+		role = models.EmployeeRoleAdmin
 	} else {
-		// Check if this is the first user (becomes admin)
-		count, err := h.userRepo.CountUsers(ctx)
+		// Check if this is the first employee (becomes admin)
+		count, err := h.employeeRepo.CountEmployees(ctx)
 		if err == nil && count == 0 {
-			role = models.RoleAdmin
+			role = models.EmployeeRoleAdmin
 		}
 	}
 
-	// Create user
-	user := &models.User{
+	// Create employee
+	employee := &models.Employee{
 		Email:    req.Email,
 		Password: hashedPassword,
 		Name:     req.Name,
 		Role:     role,
+		IsActive: true,
 	}
 
-	if err := h.userRepo.CreateUser(ctx, user); err != nil {
+	if err := h.employeeRepo.CreateEmployee(ctx, employee); err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}
 
 	// Create session token
 	sessionPayload := auth.SessionPayload{
-		UserID: user.ID.Hex(),
-		Email:  user.Email,
-		Name:   user.Name,
-		Role:   string(user.Role),
+		UserID: employee.ID.Hex(),
+		Email:  employee.Email,
+		Name:   employee.Name,
+		Role:   string(employee.Role),
+		Type:   "employee",
 	}
 
 	sessionToken, err := auth.CreateSessionToken(sessionPayload, oneYear)
@@ -130,15 +135,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"user": gin.H{
-			"id":    user.ID.Hex(),
-			"email": user.Email,
-			"name":  user.Name,
-			"role":  user.Role,
+			"id":    employee.ID.Hex(),
+			"email": employee.Email,
+			"name":  employee.Name,
+			"role":  employee.Role,
+			"type":  "employee",
 		},
 	})
 }
 
-// Login authenticates a user
+// Login authenticates an employee or customer
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -148,32 +154,76 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// Get user by email
-	user, err := h.userRepo.GetUserByEmail(ctx, req.Email)
+	// Try to find as employee first
+	employee, err := h.employeeRepo.GetEmployeeByEmail(ctx, req.Email)
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}
-	if user == nil {
-		utils.RespondWithUnauthorized(c, utils.ErrInvalidCredentials)
-		return
-	}
 
-	// Check password
-	if !auth.CheckPasswordHash(req.Password, user.Password) {
-		utils.RespondWithUnauthorized(c, utils.ErrInvalidCredentials)
-		return
-	}
+	var userID string
+	var userName string
+	var userRole string
+	var userType string // "employee" or "customer"
 
-	// Update last signed in
-	_ = h.userRepo.UpdateLastSignedIn(ctx, user.ID)
+	if employee != nil {
+		// Check password
+		if !auth.CheckPasswordHash(req.Password, employee.Password) {
+			utils.RespondWithUnauthorized(c, utils.ErrInvalidCredentials)
+			return
+		}
+
+		// Check if suspended
+		if employee.IsSuspended {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Sua conta está suspensa. Entre em contato com o time de gestão de pessoas.",
+				"code":  "USER_SUSPENDED",
+			})
+			c.Abort()
+			return
+		}
+
+		// Update last signed in
+		_ = h.employeeRepo.UpdateLastSignedIn(ctx, employee.ID)
+
+		userID = employee.ID.Hex()
+		userName = employee.Name
+		userRole = string(employee.Role)
+		userType = "employee"
+	} else {
+		// Try to find as customer
+		customer, err := h.customerRepo.GetCustomerByEmail(ctx, req.Email)
+		if err != nil {
+			utils.RespondWithInternalError(c)
+			return
+		}
+		if customer == nil {
+			utils.RespondWithUnauthorized(c, utils.ErrInvalidCredentials)
+			return
+		}
+
+		// Check password
+		if !auth.CheckPasswordHash(req.Password, customer.Password) {
+			utils.RespondWithUnauthorized(c, utils.ErrInvalidCredentials)
+			return
+		}
+
+		// Update last signed in
+		_ = h.customerRepo.UpdateLastSignedIn(ctx, customer.ID)
+
+		userID = customer.ID.Hex()
+		userName = customer.Name
+		userRole = "customer"
+		userType = "customer"
+	}
 
 	// Create session token
 	sessionPayload := auth.SessionPayload{
-		UserID: user.ID.Hex(),
-		Email:  user.Email,
-		Name:   user.Name,
-		Role:   string(user.Role),
+		UserID: userID,
+		Email:  req.Email,
+		Name:   userName,
+		Role:   userRole,
+		Type:   userType, // Add type to session payload
 	}
 
 	sessionToken, err := auth.CreateSessionToken(sessionPayload, oneYear)
@@ -195,22 +245,47 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":    user.ID.Hex(),
-			"email": user.Email,
-			"name":  user.Name,
-			"role":  user.Role,
+			"id":    userID,
+			"email": req.Email,
+			"name":  userName,
+			"role":  userRole,
+			"type":  userType,
 		},
 	})
 }
 
-// GetMe returns the current authenticated user
+// GetMe returns the current authenticated user (Employee or Customer)
 func (h *AuthHandler) GetMe(c *gin.Context) {
 	user := middleware.GetUserFromContext(c)
 	if user == nil {
 		c.JSON(http.StatusOK, gin.H{"user": nil})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": user})
+
+	// Convert to appropriate response format
+	var response interface{}
+	if employee, ok := user.(*models.Employee); ok {
+		response = gin.H{
+			"id":    employee.ID.Hex(),
+			"email": employee.Email,
+			"name":  employee.Name,
+			"role":  employee.Role,
+			"type":  "employee",
+		}
+	} else if customer, ok := user.(*models.Customer); ok {
+		response = gin.H{
+			"id":    customer.ID.Hex(),
+			"email": customer.Email,
+			"name":  customer.Name,
+			"role":  "customer",
+			"type":  "customer",
+		}
+	} else {
+		c.JSON(http.StatusOK, gin.H{"user": nil})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"user": response})
 }
 
 // Logout logs out the current user
@@ -227,20 +302,20 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
-type UpdateUserRoleRequest struct {
-	Role models.UserRole `json:"role" binding:"required"`
+type UpdateEmployeeRoleRequest struct {
+	Role models.EmployeeRole `json:"role" binding:"required"`
 }
 
-// UpdateUserRole updates a user's role (Super Admin only)
-func (h *AuthHandler) UpdateUserRole(c *gin.Context) {
+// UpdateEmployeeRole updates an employee's role (Admin only)
+func (h *AuthHandler) UpdateEmployeeRole(c *gin.Context) {
 	id := c.Param("id")
-	userID, err := primitive.ObjectIDFromHex(id)
+	employeeID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid employee ID"})
 		return
 	}
 
-	var req UpdateUserRoleRequest
+	var req UpdateEmployeeRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -248,51 +323,56 @@ func (h *AuthHandler) UpdateUserRole(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// Validate super admin limit
-	if req.Role == models.RoleSuperAdmin {
-		superAdminCount, err := h.userRepo.CountSuperAdmins(ctx)
+	// Validate admin limit
+	if req.Role == models.EmployeeRoleAdmin {
+		adminCount, err := h.employeeRepo.CountAdmins(ctx)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate super admin count"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate admin count"})
 			return
 		}
 
-		// Check if the user being updated is already a super admin
-		existingUser, err := h.userRepo.GetUserByID(ctx, userID)
+		// Check if the employee being updated is already an admin
+		existingEmployee, err := h.employeeRepo.GetEmployeeByID(ctx, employeeID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get employee"})
 			return
 		}
-		if existingUser == nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		if existingEmployee == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Employee not found"})
 			return
 		}
 
-		// If user is not already a super admin, check limit
-		if existingUser.Role != models.RoleSuperAdmin && superAdminCount >= 3 {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Maximum of 3 super admins allowed in the system"})
+		// If employee is not already an admin, check limit
+		if existingEmployee.Role != models.EmployeeRoleAdmin && adminCount >= 3 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Maximum of 3 admins allowed in the system"})
 			return
 		}
 	}
 
-	// Update user role
-	if err := h.userRepo.UpdateUserRole(ctx, userID, req.Role); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user role"})
+	// Get existing employee
+	employee, err := h.employeeRepo.GetEmployeeByID(ctx, employeeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get employee"})
+		return
+	}
+	if employee == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Employee not found"})
 		return
 	}
 
-	// Get updated user
-	user, err := h.userRepo.GetUserByID(ctx, userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get updated user"})
+	// Update employee role
+	employee.Role = req.Role
+	if err := h.employeeRepo.UpdateEmployee(ctx, employeeID, employee); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update employee role"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"user": gin.H{
-			"id":    user.ID.Hex(),
-			"email": user.Email,
-			"name":  user.Name,
-			"role":  user.Role,
+		"employee": gin.H{
+			"id":    employee.ID.Hex(),
+			"email": employee.Email,
+			"name":  employee.Name,
+			"role":  employee.Role,
 		},
 	})
 }

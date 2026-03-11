@@ -10,23 +10,24 @@ import (
 	"order-platform/backend/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type PublicHandler struct {
 	customerRepo     *repository.CustomerRepository
 	serviceOrderRepo *repository.ServiceOrderRepository
-	userRepo         *repository.UserRepository
+	employeeRepo     *repository.EmployeeRepository
 }
 
 func NewPublicHandler(
 	customerRepo *repository.CustomerRepository,
 	serviceOrderRepo *repository.ServiceOrderRepository,
-	userRepo *repository.UserRepository,
+	employeeRepo *repository.EmployeeRepository,
 ) *PublicHandler {
 	return &PublicHandler{
 		customerRepo:     customerRepo,
 		serviceOrderRepo: serviceOrderRepo,
-		userRepo:         userRepo,
+		employeeRepo:     employeeRepo,
 	}
 }
 
@@ -226,13 +227,13 @@ func (h *PublicHandler) RegisterCustomer(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// Check if user already exists
-	existingUser, err := h.userRepo.GetUserByEmail(ctx, req.Email)
+	// Check if customer with email already exists
+	existingCustomerByEmail, err := h.customerRepo.GetCustomerByEmail(ctx, req.Email)
 	if err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}
-	if existingUser != nil {
+	if existingCustomerByEmail != nil {
 		utils.RespondWithConflict(c, "Email já cadastrado")
 		return
 	}
@@ -257,46 +258,33 @@ func (h *PublicHandler) RegisterCustomer(c *gin.Context) {
 		return
 	}
 
-	// Create user with role "user" (client)
-	user := &models.User{
-		Email:    req.Email,
-		Password: hashedPassword,
-		Name:     req.Name,
-		Role:     models.RoleUser,
-	}
-
-	if err := h.userRepo.CreateUser(ctx, user); err != nil {
-		utils.RespondWithInternalError(c)
-		return
-	}
-
-	// Create customer
+	// Create customer with authentication fields
 	customer := &models.Customer{
 		Name:                      req.Name,
 		CPF:                       req.CPF,
 		Phone:                     req.Phone,
 		Email:                     req.Email,
+		Password:                  hashedPassword,
 		Address:                   req.Address,
 		Notes:                     req.Notes,
 		MaintenanceIntervalMonths: 0,
 		IsTemporary:               false,
-		CreatedBy:                 user.ID, // Link to the user
-		UpdatedBy:                 user.ID,
+		CreatedBy:                 primitive.NilObjectID, // Public registration, no employee creator
+		UpdatedBy:                 primitive.NilObjectID,
 	}
 
 	if err := h.customerRepo.CreateCustomer(ctx, customer); err != nil {
-		// If customer creation fails, we should ideally rollback user creation
-		// For now, we'll just return an error
 		utils.RespondWithInternalError(c)
 		return
 	}
 
 	// Create session token
 	sessionPayload := auth.SessionPayload{
-		UserID: user.ID.Hex(),
-		Email:  user.Email,
-		Name:   user.Name,
-		Role:   string(user.Role),
+		UserID: customer.ID.Hex(),
+		Email:  customer.Email,
+		Name:   customer.Name,
+		Role:   "customer",
+		Type:   "customer",
 	}
 
 	oneYear := 365 * 24 * time.Hour
@@ -319,10 +307,11 @@ func (h *PublicHandler) RegisterCustomer(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"user": gin.H{
-			"id":    user.ID.Hex(),
-			"email": user.Email,
-			"name":  user.Name,
-			"role":  user.Role,
+			"id":    customer.ID.Hex(),
+			"email": customer.Email,
+			"name":  customer.Name,
+			"role":  "customer",
+			"type":  "customer",
 		},
 		"customer": gin.H{
 			"id":    customer.ID.Hex(),

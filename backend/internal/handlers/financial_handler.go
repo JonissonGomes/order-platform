@@ -25,32 +25,27 @@ func NewFinancialHandler(financialRepo *repository.FinancialRepository, employee
 }
 
 func (h *FinancialHandler) resolveActor(c *gin.Context) (primitive.ObjectID, error) {
-	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		return primitive.NilObjectID, nil
 	}
-	emp, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err == nil && emp != nil {
-		return emp.ID, nil
-	}
-	return currentUser.ID, nil
+	return currentEmployee.ID, nil
 }
 
 // ── Requests ─────────────────────────────────────────────────────────────────
 
 type CreateTransactionRequest struct {
-	Type          models.TransactionType     `json:"type" binding:"required"`
-	Category      models.TransactionCategory `json:"category" binding:"required"`
-	Description   string                     `json:"description" binding:"required"`
-	Amount        float64                    `json:"amount" binding:"required,gt=0"`
-	PaymentMethod string                     `json:"paymentMethod" binding:"required"`
-	ServiceOrderID string                    `json:"serviceOrderId,omitempty"`
-	StockItemID    string                    `json:"stockItemId,omitempty"`
-	ReferenceDate  string                    `json:"referenceDate,omitempty"` // ISO date
-	DueDate        string                    `json:"dueDate,omitempty"`
-	IsPaid         bool                      `json:"isPaid"`
-	Notes          string                    `json:"notes,omitempty"`
+	Type           models.TransactionType     `json:"type" binding:"required"`
+	Category       models.TransactionCategory `json:"category" binding:"required"`
+	Description    string                     `json:"description" binding:"required"`
+	Amount         float64                    `json:"amount" binding:"required,gt=0"`
+	PaymentMethod  string                     `json:"paymentMethod" binding:"required"`
+	ServiceOrderID string                     `json:"serviceOrderId,omitempty"`
+	StockItemID    string                     `json:"stockItemId,omitempty"`
+	ReferenceDate  string                     `json:"referenceDate,omitempty"` // ISO date
+	DueDate        string                     `json:"dueDate,omitempty"`
+	IsPaid         bool                       `json:"isPaid"`
+	Notes          string                     `json:"notes,omitempty"`
 }
 
 type UpdateTransactionRequest struct {

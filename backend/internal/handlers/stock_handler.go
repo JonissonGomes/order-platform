@@ -24,18 +24,13 @@ func NewStockHandler(stockRepo *repository.StockRepository, employeeRepo *reposi
 	return &StockHandler{stockRepo: stockRepo, employeeRepo: employeeRepo}
 }
 
-// resolveCreatedBy retorna o ObjectID do criador (employee ou user admin)
+// resolveCreatedBy retorna o ObjectID do criador (employee)
 func (h *StockHandler) resolveCreatedBy(c *gin.Context) (primitive.ObjectID, error) {
-	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		return primitive.NilObjectID, nil
 	}
-	emp, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err == nil && emp != nil {
-		return emp.ID, nil
-	}
-	return currentUser.ID, nil
+	return currentEmployee.ID, nil
 }
 
 // ── Items ────────────────────────────────────────────────────────────────────
@@ -149,7 +144,7 @@ func (h *StockHandler) ListItems(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"items": items,
+		"items":      items,
 		"pagination": gin.H{"page": page, "limit": limit, "total": total},
 	})
 }

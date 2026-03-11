@@ -18,20 +18,17 @@ import (
 )
 
 type EmployeeHandler struct {
-	userRepo       *repository.UserRepository
 	employeeRepo   *repository.EmployeeRepository
 	profileRepo    *repository.ProfileRepository
 	departmentRepo *repository.DepartmentRepository
 }
 
 func NewEmployeeHandler(
-	userRepo *repository.UserRepository,
 	employeeRepo *repository.EmployeeRepository,
 	profileRepo *repository.ProfileRepository,
 	departmentRepo *repository.DepartmentRepository,
 ) *EmployeeHandler {
 	return &EmployeeHandler{
-		userRepo:       userRepo,
 		employeeRepo:   employeeRepo,
 		profileRepo:    profileRepo,
 		departmentRepo: departmentRepo,
@@ -47,13 +44,9 @@ func (h *EmployeeHandler) populateEmployeeDepartment(ctx context.Context, emp *m
 	}
 }
 
-// populateEmployeeFromUser populates IsSuspended from the linked User record
+// populateEmployeeFromUser is no longer needed - IsSuspended is now directly on Employee
 func (h *EmployeeHandler) populateEmployeeFromUser(ctx context.Context, emp *models.Employee) {
-	if !emp.UserID.IsZero() {
-		if user, err := h.userRepo.GetUserByID(ctx, emp.UserID); err == nil && user != nil {
-			emp.IsSuspended = user.IsSuspended
-		}
-	}
+	// IsSuspended is now directly on Employee model, no need to populate from User
 }
 
 // mapRoleToUserRole maps EmployeeRole to UserRole for the associated User
@@ -93,45 +86,22 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
-		log.Printf("[CreateEmployee] No user in context")
-		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
-		return
-	}
 
-	log.Printf("[CreateEmployee] Current user: %s, Role: %s, IsAdmin: %v, IsSuperAdmin: %v",
-		currentUser.Email, currentUser.Role, currentUser.IsAdmin(), currentUser.IsSuperAdmin())
-
-	// Get current employee to use as createdBy
-	// Super admin can create employees even without an Employee record
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		// If user is super admin or admin, allow creation without Employee record
-		// This is needed because super_admin users may not have an Employee record
-		if !currentUser.IsAdmin() {
-			log.Printf("[CreateEmployee] Access denied - User is not admin or super admin")
-			utils.RespondWithForbidden(c, "É necessário ser administrador ou super administrador para criar colaboradores")
-			return
-		}
-		// For super admin/admin without Employee, we'll use User ID for createdBy
-		// This is acceptable as they have full permissions
-	}
-
-	// Check if user already exists
-	existingUser, err := h.userRepo.GetUserByEmail(ctx, req.Email)
-	if err != nil {
-		utils.RespondWithInternalError(c)
-		return
-	}
-	if existingUser != nil {
-		utils.RespondWithConflict(c, utils.ErrEmailAlreadyExists)
+	// Get current employee (must be authenticated as employee)
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
+		log.Printf("[CreateEmployee] Access denied - Not authenticated as employee")
+		utils.RespondWithForbidden(c, "É necessário ser um colaborador autenticado para criar outros colaboradores")
 		return
 	}
 
 	// Check if employee already exists for this email
-	existingEmployees, err := h.employeeRepo.ListEmployees(ctx, bson.M{"email": req.Email})
-	if err == nil && len(existingEmployees) > 0 {
+	existingEmployee, err := h.employeeRepo.GetEmployeeByEmail(ctx, req.Email)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if existingEmployee != nil {
 		utils.RespondWithConflict(c, utils.ErrEmailAlreadyExists)
 		return
 	}
@@ -139,19 +109,6 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 	// Hash password
 	hashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
-		utils.RespondWithInternalError(c)
-		return
-	}
-
-	// Create User first — role depends on employee function
-	user := &models.User{
-		Email:    req.Email,
-		Password: hashedPassword,
-		Name:     req.Name,
-		Role:     mapRoleToUserRole(req.Role), // admin/department_manager get "admin", others get "user"
-	}
-
-	if err := h.userRepo.CreateUser(ctx, user); err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}
@@ -179,30 +136,19 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 		return
 	}
 
-	// Determine createdBy - use Employee ID if available, otherwise use User ID for super admin
-	var createdBy primitive.ObjectID
-	var updatedBy primitive.ObjectID
-	if currentEmployee != nil {
-		createdBy = currentEmployee.ID
-		updatedBy = currentEmployee.ID
-	} else {
-		// For super admin without Employee, use User ID
-		createdBy = currentUser.ID
-		updatedBy = currentUser.ID
-	}
-
-	// Create Employee linked to User and Profile
+	// Create Employee with authentication fields directly
 	employee := &models.Employee{
-		UserID:       user.ID,
 		Name:         req.Name,
 		Email:        req.Email,
+		Password:     hashedPassword,
 		Phone:        req.Phone,
 		Role:         req.Role,
 		ProfileID:    profile.ID,
 		DepartmentID: departmentID,
 		IsActive:     true,
-		CreatedBy:    createdBy,
-		UpdatedBy:    updatedBy,
+		IsSuspended:  false,
+		CreatedBy:    currentEmployee.ID,
+		UpdatedBy:    currentEmployee.ID,
 	}
 
 	if err := h.employeeRepo.CreateEmployee(ctx, employee); err != nil {
@@ -215,7 +161,6 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"employee": gin.H{
 			"id":           employee.ID.Hex(),
-			"userId":       employee.UserID.Hex(),
 			"name":         employee.Name,
 			"email":        employee.Email,
 			"phone":        employee.Phone,
@@ -326,19 +271,10 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
-	}
-
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		// Admin and Super Admin can update employees even without an Employee record
-		if !currentUser.IsAdmin() {
-			utils.RespondWithForbidden(c, "")
-			return
-		}
 	}
 
 	// Get existing employee
@@ -359,10 +295,8 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 	if req.Phone != "" {
 		employee.Phone = req.Phone
 	}
-	roleChanged := false
 	if req.Role != "" && req.Role != employee.Role {
 		employee.Role = req.Role
-		roleChanged = true
 	}
 	if req.DepartmentID != nil {
 		if *req.DepartmentID == "" {
@@ -381,12 +315,8 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 		employee.IsActive = *req.IsActive
 	}
 
-	// Determine updatedBy - use Employee ID if available, otherwise use User ID for super admin
-	if currentEmployee != nil {
-		employee.UpdatedBy = currentEmployee.ID
-	} else {
-		employee.UpdatedBy = currentUser.ID
-	}
+	// Update updatedBy
+	employee.UpdatedBy = currentEmployee.ID
 	employee.UpdatedAt = time.Now()
 
 	if err := h.employeeRepo.UpdateEmployee(ctx, employeeID, employee); err != nil {
@@ -394,14 +324,7 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 
-	// Sync User.Role if employee role changed
-	if roleChanged {
-		newUserRole := mapRoleToUserRole(employee.Role)
-		_ = h.userRepo.UpdateUserRole(ctx, employee.UserID, newUserRole)
-	}
-
 	h.populateEmployeeDepartment(ctx, employee)
-	h.populateEmployeeFromUser(ctx, employee)
 	c.JSON(http.StatusOK, gin.H{"employee": employee})
 }
 
@@ -415,8 +338,8 @@ func (h *EmployeeHandler) SuspendEmployee(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
@@ -431,14 +354,12 @@ func (h *EmployeeHandler) SuspendEmployee(c *gin.Context) {
 		return
 	}
 
-	// Suspend: set employee inactive + suspend user
+	// Suspend: set employee inactive and suspended
 	employee.IsActive = false
+	employee.IsSuspended = true
+	employee.UpdatedBy = currentEmployee.ID
 	employee.UpdatedAt = time.Now()
 	if err := h.employeeRepo.UpdateEmployee(ctx, employeeID, employee); err != nil {
-		utils.RespondWithInternalError(c)
-		return
-	}
-	if err := h.userRepo.SetUserSuspended(ctx, employee.UserID, true); err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}
@@ -456,8 +377,8 @@ func (h *EmployeeHandler) UnsuspendEmployee(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
@@ -472,14 +393,12 @@ func (h *EmployeeHandler) UnsuspendEmployee(c *gin.Context) {
 		return
 	}
 
-	// Unsuspend: set employee active + remove suspension from user
+	// Unsuspend: set employee active and remove suspension
 	employee.IsActive = true
+	employee.IsSuspended = false
+	employee.UpdatedBy = currentEmployee.ID
 	employee.UpdatedAt = time.Now()
 	if err := h.employeeRepo.UpdateEmployee(ctx, employeeID, employee); err != nil {
-		utils.RespondWithInternalError(c)
-		return
-	}
-	if err := h.userRepo.SetUserSuspended(ctx, employee.UserID, false); err != nil {
 		utils.RespondWithInternalError(c)
 		return
 	}

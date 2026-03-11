@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"order-platform/backend/internal/models"
 
@@ -28,6 +29,11 @@ func NewCustomerRepository(db *mongo.Database) *CustomerRepository {
 		Options: options.Index().SetUnique(true).SetPartialFilterExpression(bson.M{"cpf": bson.M{"$ne": ""}}),
 	}
 	repo.collection.Indexes().CreateOne(context.Background(), indexModel)
+
+	// Índice para busca por email (autenticação - não único pois email é opcional)
+	repo.collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
+		Keys: bson.D{{Key: "email", Value: 1}},
+	})
 
 	return repo
 }
@@ -86,10 +92,10 @@ func (r *CustomerRepository) GetCustomerByPhone(ctx context.Context, phone strin
 	return &customer, nil
 }
 
-// GetCustomerByEmail retrieves a customer by email
+// GetCustomerByEmail retrieves a customer by email (for authentication)
 func (r *CustomerRepository) GetCustomerByEmail(ctx context.Context, email string) (*models.Customer, error) {
 	var customer models.Customer
-	filter := bson.M{"email": email}
+	filter := bson.M{"email": email, "password": bson.M{"$exists": true, "$ne": ""}} // Only customers with password can login
 
 	err := r.collection.FindOne(ctx, filter).Decode(&customer)
 	if err != nil {
@@ -100,6 +106,20 @@ func (r *CustomerRepository) GetCustomerByEmail(ctx context.Context, email strin
 	}
 
 	return &customer, nil
+}
+
+// UpdateLastSignedIn updates the last signed in timestamp
+func (r *CustomerRepository) UpdateLastSignedIn(ctx context.Context, customerID primitive.ObjectID) error {
+	filter := bson.M{"_id": customerID}
+	update := bson.M{
+		"$set": bson.M{
+			"lastSignedIn": time.Now(),
+			"updatedAt":    time.Now(),
+		},
+	}
+
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	return err
 }
 
 // UpdateCustomer updates a customer

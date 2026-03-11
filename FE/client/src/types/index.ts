@@ -17,16 +17,17 @@ export type EmployeeRole = "admin" | "department_manager" | "attendant" | "techn
 
 export interface Employee {
   id: string;
-  userId: string;
-  user?: User;
   name: string;
   email: string;
   phone?: string;
   role: EmployeeRole;
+  profileId?: string;
+  profile?: Profile;
   departmentId?: string;
   department?: Department;
   isActive: boolean;
   isSuspended?: boolean;
+  lastSignedIn?: string;
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -52,6 +53,7 @@ export interface Customer {
   address?: Address;
   isTemporary?: boolean;
   notes?: string;
+  lastSignedIn?: string;
   // Fidelização e manutenção periódica
   maintenanceIntervalMonths?: number; // 0 = sem alerta
   lastMaintenanceDate?: string;

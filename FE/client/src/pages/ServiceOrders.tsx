@@ -179,7 +179,9 @@ export default function ServiceOrders() {
               </DialogHeader>
               <div className="flex-1 overflow-y-auto px-6 py-6">
                 <CreateOrderForm
+                  userEmail={user?.email}
                   userId={user?.id}
+                  userType={user?.type}
                   onSuccess={() => { setIsCreateDialogOpen(false); loadOrders(); }}
                 />
               </div>
@@ -468,7 +470,7 @@ export default function ServiceOrders() {
 
 // ─── CreateOrderForm ─────────────────────────────────────────────────────────
 
-function CreateOrderForm({ userId, onSuccess }: { userId?: string; onSuccess: () => void }) {
+function CreateOrderForm({ userId, userEmail, userType, onSuccess }: { userId?: string; userEmail?: string; userType?: string; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -494,18 +496,27 @@ function CreateOrderForm({ userId, onSuccess }: { userId?: string; onSuccess: ()
     api.listDepartments({ isActive: true }).then((r) => {
       setDepartments(r.departments || []);
     }).catch(() => {});
-    if (userId) {
-      api.listEmployees().then((r) => {
-        const emp = (r.employees || []).find((e: Employee) => e.userId === userId);
-        if (emp) {
-          setCurrentEmployee(emp);
-          if (emp.departmentId) {
-            setFormData((prev) => ({ ...prev, departmentId: emp.departmentId! }));
-          }
+    if (userId && userType === "employee") {
+      // Try to get employee by id first
+      api.getEmployee(userId).then((r) => {
+        setCurrentEmployee(r.employee);
+        if (r.employee.departmentId) {
+          setFormData((prev) => ({ ...prev, departmentId: r.employee.departmentId! }));
         }
-      }).catch(() => {});
+      }).catch(() => {
+        // Fallback to list search by email or id
+        api.listEmployees().then((r) => {
+          const emp = (r.employees || []).find((e: Employee) => e.email === userEmail || e.id === userId);
+          if (emp) {
+            setCurrentEmployee(emp);
+            if (emp.departmentId) {
+              setFormData((prev) => ({ ...prev, departmentId: emp.departmentId! }));
+            }
+          }
+        }).catch(() => {});
+      });
     }
-  }, [userId]);
+  }, [userId, userEmail, userType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -55,17 +55,14 @@ func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	currentEmployee := middleware.GetEmployeeFromContext(c)
+	if currentEmployee == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
 	// Determine updatedBy
-	updatedBy := currentUser.ID
-	if emp, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID); err == nil && emp != nil {
-		updatedBy = emp.ID
-	}
+	updatedBy := currentEmployee.ID
 
 	settings := &models.Settings{
 		CompanyName:       req.CompanyName,
