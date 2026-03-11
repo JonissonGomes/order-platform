@@ -44,7 +44,6 @@ func (h *EmployeeHandler) populateEmployeeDepartment(ctx context.Context, emp *m
 	}
 }
 
-
 type CreateEmployeeRequest struct {
 	Email        string              `json:"email" binding:"required,email"`
 	Password     string              `json:"password" binding:"required,min=6"`
