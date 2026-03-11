@@ -1,4 +1,4 @@
-.PHONY: help setup setup-backend setup-frontend install-backend install-frontend dev dev-backend dev-frontend build build-backend build-frontend clean test test-backend test-frontend check-env check-make kill-port-backend kill-port-frontend kill-ports create-super-admin
+.PHONY: help setup setup-backend setup-frontend install-backend install-frontend dev dev-backend dev-frontend build build-backend build-frontend clean test test-backend test-frontend check-env check-make kill-port-backend kill-port-frontend kill-ports create-super-admin migrate-users
 
 # Detectar sistema operacional
 ifeq ($(OS),Windows_NT)
@@ -306,4 +306,16 @@ ifeq ($(OS),Windows_NT)
 	@cd $(BACKEND_DIR) && go run cmd/create-super-admin/main.go
 else
 	@cd $(BACKEND_DIR) && go run cmd/create-super-admin/main.go
+endif
+
+migrate-users: check-backend-env ## Migra dados de users para employees/customers
+	@echo "$(YELLOW)Migrando dados de users para employees/customers...$(NC)"
+	@echo "$(RED)⚠️  ATENÇÃO: Esta operação migra dados existentes.$(NC)"
+	@echo "$(RED)   Certifique-se de ter um backup antes de executar.$(NC)"
+ifeq ($(OS),Windows_NT)
+	@cd $(BACKEND_DIR) && go run cmd/migrate-users-to-employees/main.go
+else
+	@echo ""
+	@read -p "Deseja continuar? (s/N): " confirm && [ "$$confirm" = "s" ] || [ "$$confirm" = "S" ] || exit 1
+	@cd $(BACKEND_DIR) && go run cmd/migrate-users-to-employees/main.go
 endif

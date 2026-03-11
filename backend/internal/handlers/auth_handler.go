@@ -167,8 +167,39 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	var userType string // "employee" or "customer"
 
 	if employee != nil {
+		// Check if employee has password (should always have, but check for safety)
+		if employee.Password == "" {
+			// Log for debugging (remove in production)
+			if config.Get().Environment == "development" {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error": "Employee found but password is empty. Please check if password was saved correctly.",
+					"debug": gin.H{
+						"email":      req.Email,
+						"employeeId": employee.ID.Hex(),
+					},
+				})
+				return
+			}
+			utils.RespondWithUnauthorized(c, utils.ErrInvalidCredentials)
+			return
+		}
+
 		// Check password
-		if !auth.CheckPasswordHash(req.Password, employee.Password) {
+		passwordValid := auth.CheckPasswordHash(req.Password, employee.Password)
+		if !passwordValid {
+			// Log for debugging (remove in production)
+			if config.Get().Environment == "development" {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error": "Invalid password",
+					"debug": gin.H{
+						"email":          req.Email,
+						"employeeId":     employee.ID.Hex(),
+						"hasPassword":    employee.Password != "",
+						"passwordLength": len(employee.Password),
+					},
+				})
+				return
+			}
 			utils.RespondWithUnauthorized(c, utils.ErrInvalidCredentials)
 			return
 		}
