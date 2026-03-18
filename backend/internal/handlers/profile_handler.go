@@ -174,6 +174,7 @@ func (h *ProfileHandler) GetAvailableModules(c *gin.Context) {
 	modules := []string{
 		"/dashboard",
 		"/service-orders",
+		"/pre-orders",
 		"/customers",
 		"/departments",
 		"/employees",

@@ -35,6 +35,8 @@ import {
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { formatPhone } from "@/lib/formatters";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -46,6 +48,8 @@ export default function Home() {
     description: "" 
   });
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successPhone, setSuccessPhone] = useState("");
 
   const heroHighlights = [
     {
@@ -152,11 +156,27 @@ export default function Home() {
     },
   ];
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Formulário enviado:", contactForm);
-    setShowSuccessDialog(true);
-    setContactForm({ fullName: "", email: "", phone: "", equipment: "", description: "" });
+    try {
+      setIsSubmitting(true);
+      const payload = {
+        fullName: contactForm.fullName,
+        email: contactForm.email || undefined,
+        phone: contactForm.phone,
+        equipmentText: contactForm.equipment,
+        problemDescription: contactForm.description,
+      };
+
+      await api.createPreOrderFromLanding(payload);
+      setSuccessPhone(contactForm.phone);
+      setShowSuccessDialog(true);
+      setContactForm({ fullName: "", email: "", phone: "", equipment: "", description: "" });
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao enviar pré-ordem");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -374,10 +394,11 @@ export default function Home() {
                 className="h-11 border-white/10 bg-zinc-900/80 text-white placeholder:text-slate-500"
               />
               <Input
-                placeholder="Console/controle (opcional)"
+                placeholder="Console/controle"
                 value={contactForm.equipment}
                 onChange={(e) => setContactForm({ ...contactForm, equipment: e.target.value })}
                 name="equipment"
+                required
                 className="h-11 border-white/10 bg-zinc-900/80 text-white placeholder:text-slate-500"
               />
               <Textarea
@@ -392,8 +413,9 @@ export default function Home() {
             <Button 
               type="submit" 
               className="mt-6 h-11 w-full rounded-md bg-emerald-500 font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-70"
+              disabled={isSubmitting}
             >
-              Enviar Mensagem
+              {isSubmitting ? "Enviando..." : "Enviar Mensagem"}
             </Button>
           </form>
         </div>
@@ -515,9 +537,17 @@ export default function Home() {
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mx-auto mb-4">
               <ShieldCheck className="h-6 w-6 text-green-600" />
             </div>
-            <DialogTitle className="text-center">Mensagem Enviada!</DialogTitle>
+            <DialogTitle className="text-center">Pré-ordem Recebida!</DialogTitle>
             <DialogDescription className="text-center">
-              Sua mensagem foi enviada com sucesso. Entraremos em contato em breve.
+              Sua pré-ordem foi recebida com sucesso. Você pode consultar o status pelo seu telefone em{" "}
+              <button
+                className="text-blue-600 hover:underline font-semibold"
+                onClick={() => setLocation("/track")}
+                type="button"
+              >
+                Acompanhar Serviço
+              </button>
+              {successPhone ? <>{" "}({formatPhone(successPhone)})</> : null}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-center mt-4">

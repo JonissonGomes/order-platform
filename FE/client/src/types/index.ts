@@ -76,6 +76,8 @@ export type ServiceOrderStatus =
   | "delivered"
   | "cancelled";
 
+export type PreOrderStatus = "evaluating" | "approved" | "converted" | "cancelled";
+
 export interface Note {
   id: string;
   content: string;
@@ -179,6 +181,23 @@ export interface ServiceOrder {
   updatedBy: string;
   statusChangedBy?: string;
   statusChangedAt?: string;
+}
+
+export interface PreOrder {
+  id: string;
+  preOrderNumber: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  equipmentText: string;
+  problemDescription: string;
+  departmentId?: string;
+  departmentName?: string;
+  status: PreOrderStatus;
+  convertedToOSId?: string;
+  convertedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Department {
@@ -414,6 +433,19 @@ export interface UpdateServiceOrderStatusRequest {
   notes?: string;
   deliveryEvidenceUrl?: string;
   deliveryEvidenceId?: string;
+}
+
+export interface CreatePreOrderFromLandingRequest {
+  fullName: string;
+  email?: string;
+  phone: string;
+  equipmentText: string;
+  problemDescription: string;
+}
+
+export interface ApprovePreOrderStatusRequest {
+  status: PreOrderStatus; // expected "approved"
+  departmentId?: string;
 }
 
 export interface CreateDepartmentRequest {

@@ -103,6 +103,9 @@ func New(db *database.MongoDB) *gin.Engine {
 	supplierHandler := handlers.NewSupplierHandler(supplierRepo, employeeRepo, stockRepo)
 	notificationHandler := handlers.NewNotificationHandler(notificationRepo)
 
+	preOrderRepo := repository.NewPreOrderRepository(db.Database)
+	preOrderHandler := handlers.NewPreOrderHandler(preOrderRepo, customerRepo, departmentRepo, serviceOrderRepo)
+
 	// Initialize report service and handler
 	reportService := services.NewReportService(
 		serviceOrderRepo,
@@ -258,6 +261,16 @@ func New(db *database.MongoDB) *gin.Engine {
 			public.GET("/service-orders/:orderNumber", serviceOrderHandler.GetServiceOrderByOrderNumber)
 			public.POST("/service-orders/search", publicHandler.SearchServiceOrder)
 			public.POST("/register", publicHandler.RegisterCustomer)
+			public.POST("/pre-orders", preOrderHandler.CreatePreOrderPublic)
+			public.POST("/pre-orders/search", preOrderHandler.SearchPreOrdersPublic)
+		}
+
+		// Pre-orders routes (requires auth)
+		preOrders := api.Group("/pre-orders")
+		preOrders.Use(authMiddleware, middleware.RequireAuth(), auditMiddleware)
+		{
+			preOrders.GET("", preOrderHandler.ListPreOrders)
+			preOrders.PATCH("/:id/status", preOrderHandler.UpdatePreOrderStatusAndConvert)
 		}
 
 		// Stock routes (requires auth)

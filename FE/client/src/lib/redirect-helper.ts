@@ -64,6 +64,7 @@ export async function findFirstAccessibleModule(user: User): Promise<string | nu
     const modulePriority = [
       "/dashboard",
       "/service-orders",
+      "/pre-orders",
       "/customers",
       "/stock",
       "/financial",

@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { formatPhone, formatCPF } from "@/lib/formatters";
 import { StatusTimeline } from "@/components/StatusTimeline";
-import type { ServiceOrder, StatusHistory } from "@/types";
+import type { PreOrder, ServiceOrder, StatusHistory } from "@/types";
 import { Search, FileText, UserPlus, CheckCircle2, Clock, Bell, Loader2, Copy } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -24,6 +24,13 @@ const statusLabels: Record<string, string> = {
   waiting_parts: "Aguardando Peças",
 };
 
+const preOrderStatusLabels: Record<string, string> = {
+  evaluating: "Em Avaliação",
+  approved: "Aprovada",
+  converted: "Convertida",
+  cancelled: "Cancelada",
+};
+
 export default function PublicOrderTracking() {
   const [, setLocation] = useLocation();
   const [searchType, setSearchType] = useState<"orderNumber" | "cpf" | "phone" | "email">("orderNumber");
@@ -31,6 +38,7 @@ export default function PublicOrderTracking() {
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState<ServiceOrder | null>(null);
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
+  const [preOrders, setPreOrders] = useState<PreOrder[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [history, setHistory] = useState<StatusHistory[]>([]);
 
@@ -44,6 +52,7 @@ export default function PublicOrderTracking() {
       setLoading(true);
       setOrder(null);
       setOrders([]);
+      setPreOrders([]);
       setHistory([]);
 
       if (searchType === "orderNumber") {
@@ -65,18 +74,55 @@ export default function PublicOrderTracking() {
         const cleanValue = searchType === "cpf" || searchType === "phone"
           ? searchValue.replace(/\D/g, "")
           : searchValue.trim();
-        const response = await api.searchPublicServiceOrder({
-          [searchType]: cleanValue,
-        });
-        if (response.order) {
-          setOrder(response.order);
-        } else if (response.orders) {
-          setOrders(response.orders);
-          if (response.customer) {
-            setCustomerName(response.customer.name);
+
+        // Buscar OS (service-orders) e, se for telefone, buscar também pré-ordens.
+        if (searchType === "phone") {
+          const [serviceRes, preRes] = await Promise.allSettled([
+            api.searchPublicServiceOrder({ phone: cleanValue }),
+            api.searchPublicPreOrders({ phone: cleanValue }),
+          ]);
+
+          let foundOS = false;
+          let foundPreOrders = false;
+
+          // OS
+          if (serviceRes.status === "fulfilled") {
+            const response = serviceRes.value;
+            if (response.order) {
+              setOrder(response.order);
+              foundOS = true;
+            } else if (response.orders) {
+              setOrders(response.orders);
+              foundOS = (response.orders || []).length > 0;
+            }
+            if (response.customer?.name) setCustomerName(response.customer.name);
+          }
+
+          // Pré-ordens
+          if (preRes.status === "fulfilled") {
+            const found = preRes.value.preOrders || [];
+            setPreOrders(found);
+            foundPreOrders = found.length > 0;
+            if (preRes.value.customer?.name) setCustomerName(preRes.value.customer.name);
+          }
+
+          if (!foundOS && !foundPreOrders) {
+            toast.error("Nenhuma ordem ou pré-ordem encontrada");
           }
         } else {
-          toast.error("Nenhuma ordem encontrada");
+          const response = await api.searchPublicServiceOrder({
+            [searchType]: cleanValue,
+          });
+          if (response.order) {
+            setOrder(response.order);
+          } else if (response.orders) {
+            setOrders(response.orders);
+            if (response.customer) {
+              setCustomerName(response.customer.name);
+            }
+          } else {
+            toast.error("Nenhuma ordem encontrada");
+          }
         }
       }
     } catch (error: any) {
@@ -94,9 +140,9 @@ export default function PublicOrderTracking() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="w-full container mx-auto px-4 py-12 max-w-4xl">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Acompanhe sua Ordem</h1>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Acompanhe sua Solicitação</h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Digite o número da ordem, CPF ou telefone para consultar o status
+            Digite o número da ordem, CPF ou telefone para consultar o status (pré-ordem e OS)
           </p>
         </div>
 
@@ -486,6 +532,51 @@ export default function PublicOrderTracking() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Criado em:</span>
                       <span className="font-medium">{new Date(ord.createdAt).toLocaleDateString("pt-BR")}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {preOrders.length > 0 && (
+          <div className="space-y-4 mb-8">
+            {preOrders.map((po) => (
+              <Card key={po.preOrderNumber} className="shadow-lg">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-indigo-500 flex items-center justify-center">
+                        <Clock className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-lg">Pré-ordem: #{po.preOrderNumber}</span>
+                        </div>
+                        {po.customerPhone && (
+                          <p className="text-sm text-muted-foreground mt-1">Telefone: {formatPhone(po.customerPhone)}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Status</p>
+                      <p className="font-semibold text-base">{preOrderStatusLabels[po.status] || po.status}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Equipamento:</span>
+                      <span className="font-medium">{po.equipmentText}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Defeito:</span>
+                      <span className="font-medium">{po.problemDescription || "Não informado"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Criado em:</span>
+                      <span className="font-medium">{new Date(po.createdAt).toLocaleDateString("pt-BR")}</span>
                     </div>
                   </div>
                 </CardContent>

@@ -14,6 +14,7 @@ export interface Module {
 export const MODULE_NAMES: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/service-orders": "Ordens de Serviço",
+  "/pre-orders": "Pré-ordens",
   "/customers": "Clientes",
   "/departments": "Departamentos",
   "/employees": "Colaboradores",
@@ -44,6 +45,14 @@ export const MODULES: Module[] = [
     icon: "FileText",
     path: "/service-orders",
     permissions: ["service_orders.read", "service_orders.*"],
+  },
+  {
+    id: "pre_orders",
+    name: "pre_orders",
+    label: "Pré-ordens",
+    icon: "Clock",
+    path: "/pre-orders",
+    permissions: ["pre_orders.read", "pre_orders.*"],
   },
   {
     id: "customers",

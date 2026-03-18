@@ -21,12 +21,15 @@ import { handleHttpError, handleApiError } from "./errors";
 import type {
   Customer,
   ServiceOrder,
+  PreOrder,
   Department,
   Employee,
   EmployeeRole,
   CreateCustomerRequest,
   CreateServiceOrderRequest,
   UpdateServiceOrderStatusRequest,
+  CreatePreOrderFromLandingRequest,
+  ApprovePreOrderStatusRequest,
   CreateDepartmentRequest,
   StatusHistory,
   Profile,
@@ -341,6 +344,29 @@ export const api = {
     return fetchAPI<{ statusHistory: StatusHistory[] }>(`/api/service-orders/${id}/history`);
   },
 
+  // ── Pre-orders endpoints ───────────────────────────────────────────────────
+  async listPreOrders(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    departmentId?: string;
+  }): Promise<{ preOrders: PreOrder[]; pagination: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.departmentId) queryParams.append("departmentId", params.departmentId);
+    const query = queryParams.toString();
+    return fetchAPI<{ preOrders: PreOrder[]; pagination: any }>(`/api/pre-orders${query ? `?${query}` : ""}`);
+  },
+
+  async approvePreOrder(id: string, data: ApprovePreOrderStatusRequest): Promise<{ preOrder: PreOrder; order: ServiceOrder }> {
+    return fetchAPI<{ preOrder: PreOrder; order: ServiceOrder }>(`/api/pre-orders/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
   // Department endpoints
   async createDepartment(data: CreateDepartmentRequest): Promise<{ department: Department }> {
     return fetchAPI<{ department: Department }>("/api/departments", {
@@ -404,6 +430,25 @@ export const api = {
         body: JSON.stringify(data),
       }
     );
+  },
+
+  async searchPublicPreOrders(data: {
+    phone: string;
+  }): Promise<{ preOrders: PreOrder[]; customer?: { name: string } }> {
+    return fetchAPI<{ preOrders: PreOrder[]; customer?: { name: string } }>(
+      "/api/public/pre-orders/search",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  async createPreOrderFromLanding(data: CreatePreOrderFromLandingRequest): Promise<{ preOrder: any; message: string }> {
+    return fetchAPI<{ preOrder: any; message: string }>("/api/public/pre-orders", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   },
 
   // Profile endpoints

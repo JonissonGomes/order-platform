@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Profiles from "./pages/Profiles";
 import ServiceOrders from "./pages/ServiceOrders";
+import PreOrders from "./pages/PreOrders";
 import Customers from "./pages/Customers";
 import Departments from "./pages/Departments";
 import Employees from "./pages/Employees";
@@ -53,6 +54,7 @@ function Router() {
       <Route path={"/profile"} component={Profile} />
       <Route path={"/profiles"} component={Profiles} />
       <Route path={"/service-orders"} component={ServiceOrders} />
+      <Route path={"/pre-orders"} component={PreOrders} />
       <Route path={"/customers"} component={Customers} />
       <Route path={"/departments"} component={Departments} />
       <Route path={"/employees"} component={Employees} />

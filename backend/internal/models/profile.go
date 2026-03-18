@@ -43,6 +43,7 @@ func DefaultProfiles() []*Profile {
 				"departments.update",
 				"customers.*",
 				"service_orders.*",
+				"pre_orders.*",
 				"reports.department",
 			},
 			EditPermissions: []string{
@@ -50,6 +51,7 @@ func DefaultProfiles() []*Profile {
 				"departments",
 				"customers",
 				"service_orders",
+				"pre_orders",
 			},
 			DeletePermissions: []string{
 				"employees",
@@ -66,7 +68,11 @@ func DefaultProfiles() []*Profile {
 				"employees.update",
 				"departments.read",
 				"service_orders.*",
+				"pre_orders.*",
 				"reports.department",
+			},
+			EditPermissions: []string{
+				"pre_orders",
 			},
 			IsDefault: true,
 			IsActive:  true,
@@ -82,9 +88,13 @@ func DefaultProfiles() []*Profile {
 				"service_orders.status.pending",
 				"service_orders.status.evaluating",
 				"service_orders.status.approved",
+				"pre_orders.*",
 			},
 			IsDefault: true,
 			IsActive:  true,
+			EditPermissions: []string{
+				"pre_orders",
+			},
 		},
 		{
 			Name:        "Técnico",
