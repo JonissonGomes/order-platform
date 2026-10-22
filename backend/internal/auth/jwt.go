@@ -14,6 +14,7 @@ type SessionPayload struct {
 	Email  string `json:"email"`
 	Name   string `json:"name"`
 	Role   string `json:"role"`
+	Type   string `json:"type"` // "employee" or "customer"
 }
 
 type Claims struct {
@@ -21,6 +22,7 @@ type Claims struct {
 	Email  string `json:"email"`
 	Name   string `json:"name"`
 	Role   string `json:"role"`
+	Type   string `json:"type,omitempty"` // "employee" or "customer", optional for backward compatibility
 	jwt.RegisteredClaims
 }
 
@@ -42,6 +44,7 @@ func CreateSessionToken(payload SessionPayload, expiresIn time.Duration) (string
 		Email:  payload.Email,
 		Name:   payload.Name,
 		Role:   payload.Role,
+		Type:   payload.Type,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -80,5 +83,6 @@ func VerifySessionToken(tokenString string) (*SessionPayload, error) {
 		Email:  claims.Email,
 		Name:   claims.Name,
 		Role:   claims.Role,
+		Type:   claims.Type, // Will be empty for old tokens, which is fine
 	}, nil
 }

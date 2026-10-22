@@ -10,6 +10,7 @@ type Department struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Name        string             `bson:"name" json:"name"`
 	Description string             `bson:"description,omitempty" json:"description,omitempty"`
+	Address     *Address           `bson:"address,omitempty" json:"address,omitempty"`     // Localização do departamento
 	ManagerID   primitive.ObjectID `bson:"managerId,omitempty" json:"managerId,omitempty"` // Employee ID
 	Manager     *Employee          `bson:"-" json:"manager,omitempty"`
 	IsActive    bool               `bson:"isActive" json:"isActive"`

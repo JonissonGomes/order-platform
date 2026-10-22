@@ -4,12 +4,15 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"order-platform/backend/internal/config"
 	"order-platform/backend/internal/database"
+	"order-platform/backend/internal/jobs"
 	"order-platform/backend/internal/repository"
 	"order-platform/backend/internal/router"
 	"order-platform/backend/internal/server"
+	"order-platform/backend/internal/services"
 )
 
 func main() {
@@ -27,14 +30,32 @@ func main() {
 	}
 	defer db.Disconnect()
 
-	// Initialize default profiles (CCD-Connect pattern)
-	profileRepo := repository.NewProfileRepository(db.Database)
 	ctx := context.Background()
+
+	// Garantir que todos os perfis padrão existam no banco (upsert por nome)
+	// Seguro chamar sempre — não sobrescreve perfis já customizados
+	profileRepo := repository.NewProfileRepository(db.Database)
 	if err := profileRepo.InitializeDefaultProfiles(ctx); err != nil {
-		log.Printf("Warning: Failed to initialize default profiles: %v", err)
-	} else {
-		log.Println("Default profiles initialized successfully")
+		log.Fatalf("Falha ao inicializar perfis padrão: %v", err)
 	}
+
+	// Initialize alert job (runs every hour)
+	notificationRepo := repository.NewNotificationRepository(db.Database)
+	serviceOrderRepo := repository.NewServiceOrderRepository(db.Database)
+	customerRepo := repository.NewCustomerRepository(db.Database)
+	stockRepo := repository.NewStockRepository(db.Database)
+	employeeRepo := repository.NewEmployeeRepository(db.Database)
+
+	// Initialize notification service (email and SMS services are optional)
+	var emailService *services.EmailService
+	var smsService *services.SMSService
+	// TODO: Initialize email and SMS services from config if available
+
+	notificationService := services.NewNotificationService(notificationRepo, emailService, smsService)
+	alertService := services.NewAlertService(notificationService, serviceOrderRepo, customerRepo, stockRepo, employeeRepo)
+	alertJob := jobs.NewAlertJob(alertService, 1*time.Hour)
+	alertJob.Start(ctx)
+	log.Println("Alert job started (runs every hour)")
 
 	// Initialize router
 	r := router.New(db)

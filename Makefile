@@ -1,4 +1,4 @@
-.PHONY: help setup setup-backend setup-frontend install-backend install-frontend dev dev-backend dev-frontend build build-backend build-frontend clean test test-backend test-frontend check-env check-make kill-port-backend kill-port-frontend kill-ports create-super-admin
+.PHONY: help setup setup-backend setup-frontend install-backend install-frontend dev dev-backend dev-frontend build build-backend build-frontend clean test test-backend test-frontend check-env check-make kill-port-backend kill-port-frontend kill-ports create-super-admin migrate-users
 
 # Detectar sistema operacional
 ifeq ($(OS),Windows_NT)
@@ -133,7 +133,7 @@ ifeq ($(OS),Windows_NT)
 	@echo "$(YELLOW)Iniciando backend e frontend em janelas separadas...$(NC)"
 	@$(DEV_CMD) "cd $(BACKEND_DIR) && go run cmd/server/main.go"
 	@$(TIMEOUT_CMD)
-	@$(DEV_CMD) "cd $(FRONTEND_DIR) && (pnpm dev || npm run dev)"
+	@$(DEV_CMD) "cd $(FRONTEND_DIR) && (pnpm dev 2>nul || npx vite)"
 	@echo "$(GREEN)✓ Backend e Frontend iniciados em janelas separadas$(NC)"
 	@echo "$(BLUE)Backend: http://localhost:8080$(NC)"
 	@echo "$(BLUE)Frontend: http://localhost:3000$(NC)"
@@ -143,7 +143,7 @@ else
 	@echo "$(YELLOW)Ou execute 'make dev-backend' e 'make dev-frontend' em terminais separados$(NC)"
 	@cd $(BACKEND_DIR) && go run cmd/server/main.go &
 	@sleep 2
-	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm dev || npm run dev)
+	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm dev || npx vite)
 endif
 
 kill-port-backend: ## Mata processos usando a porta 8080 (backend)
@@ -185,11 +185,11 @@ dev-backend: kill-port-backend ## Inicia apenas o backend em modo desenvolviment
 	@cd $(BACKEND_DIR) && go run cmd/server/main.go
 
 dev-frontend: kill-port-frontend ## Inicia apenas o frontend em modo desenvolvimento
-	@echo "$(YELLOW)Iniciando frontend React...$(NC)"
+	@echo "$(YELLOW)Iniciando frontend React (Vite)...$(NC)"
 ifeq ($(OS),Windows_NT)
-	@cd $(FRONTEND_DIR) && (pnpm dev || npm run dev)
+	@cd $(FRONTEND_DIR) && (pnpm dev 2>nul || npx vite)
 else
-	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm dev || npm run dev)
+	@cd $(FRONTEND_DIR) && (command -v pnpm >/dev/null 2>&1 && pnpm dev || npx vite)
 endif
 
 build: build-backend build-frontend ## Build de backend e frontend para produção
@@ -306,4 +306,16 @@ ifeq ($(OS),Windows_NT)
 	@cd $(BACKEND_DIR) && go run cmd/create-super-admin/main.go
 else
 	@cd $(BACKEND_DIR) && go run cmd/create-super-admin/main.go
+endif
+
+migrate-users: check-backend-env ## Migra dados de users para employees/customers
+	@echo "$(YELLOW)Migrando dados de users para employees/customers...$(NC)"
+	@echo "$(RED)⚠️  ATENÇÃO: Esta operação migra dados existentes.$(NC)"
+	@echo "$(RED)   Certifique-se de ter um backup antes de executar.$(NC)"
+ifeq ($(OS),Windows_NT)
+	@cd $(BACKEND_DIR) && go run cmd/migrate-users-to-employees/main.go
+else
+	@echo ""
+	@read -p "Deseja continuar? (s/N): " confirm && [ "$$confirm" = "s" ] || [ "$$confirm" = "S" ] || exit 1
+	@cd $(BACKEND_DIR) && go run cmd/migrate-users-to-employees/main.go
 endif

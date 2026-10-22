@@ -1,11 +1,15 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Sidebar,
   SidebarContent,
@@ -21,16 +25,18 @@ import {
 } from "@/components/ui/sidebar";
 import { LOGIN_PATH } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { LogOut, PanelLeft, AlertTriangle, PhoneCall } from "lucide-react";
+import { CSSProperties, useEffect, useRef, useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
-
-const menuItems = [
-  { icon: LayoutDashboard, label: "Page 1", path: "/" },
-  { icon: Users, label: "Page 2", path: "/some-path" },
-];
+import { MODULES } from "@/types/modules";
+import * as Icons from "lucide-react";
+import { NotificationBell } from "./NotificationBell";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import type { Employee } from "@/types";
+import { permissionMatchesModule } from "@/lib/permission-mapper";
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;
@@ -46,7 +52,156 @@ export default function DashboardLayout({
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
-  const { loading, user } = useAuth();
+  const { loading, user, isSuspended } = useAuth();
+  
+  // Check if user is admin/dono
+  const isAdmin = user?.role === "dono" || user?.role === "super_admin" || user?.role === "admin";
+
+  // Get employee data to find profile
+  const { data: employeeData, isLoading: isLoadingEmployee } = useQuery({
+    queryKey: ["employee", user?.id, user?.email],
+    queryFn: async () => {
+      if (!user?.id || isAdmin || user?.type === "customer") return null;
+      try {
+        // If user.type is "employee", try to get by id first
+        if (user?.type === "employee") {
+          try {
+            const employee = await api.getEmployee(user.id);
+            return employee.employee || null;
+          } catch {
+            // Fallback to list search
+          }
+        }
+        // Search in list by email or id
+        const employees = await api.listEmployees();
+        return employees.employees?.find((e: Employee) => e.email === user.email || e.id === user.id) || null;
+      } catch (error) {
+        console.error("Error fetching employee data:", error);
+        return null;
+      }
+    },
+    enabled: !isAdmin && !!user?.id && user?.type !== "customer",
+    retry: 1,
+  });
+
+  // Map role to profile name - works for all roles
+  const getProfileName = (): string | null => {
+    if (user?.role === "dono" || user?.role === "super_admin") {
+      return "Dono";
+    }
+    if (user?.role === "admin") {
+      return "Administrador";
+    }
+    // For non-admin users, try to get role from employeeData
+    if (employeeData?.role) {
+      const roleMap: Record<string, string> = {
+        "admin": "Administrador",
+        "department_manager": "Gerente",
+        "attendant": "Atendente",
+        "technician": "Técnico",
+        "user": "Cliente",
+      };
+      return roleMap[employeeData.role] || null;
+    }
+    // If employeeData is not found but user has role "user", it might be a customer
+    if (user?.role === "user" && !isLoadingEmployee) {
+      return "Cliente";
+    }
+    return null;
+  };
+
+  const profileName = getProfileName();
+
+  // Get profile permissions from database
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ["profile", profileName],
+    queryFn: async () => {
+      if (!profileName) return null;
+      try {
+        return await api.getProfileByName(profileName);
+      } catch (error) {
+        console.error(`Error fetching profile "${profileName}":`, error);
+        return null;
+      }
+    },
+    enabled: !isAdmin && !!profileName,
+    retry: 1,
+  });
+
+  // Get visible modules based on actual profile permissions
+  const visibleModules = useMemo(() => {
+    if (!user?.role) return [];
+    
+    // If admin/dono, show all modules except customer modules
+    if (isAdmin) {
+      return MODULES.filter((module) => !module.path.startsWith("/cliente/"));
+    }
+
+    // If we're still loading employee data, wait
+    if (isLoadingEmployee && !employeeData) {
+      return []; // Still loading
+    }
+
+    // If we have a profileName but profile is still loading, wait
+    if (profileName && isLoadingProfile) {
+      return []; // Still loading profile
+    }
+
+    // If we have a profileName but no profile was found, return empty (profile doesn't exist)
+    if (profileName && !profile?.profile) {
+      console.warn(`Profile "${profileName}" not found in database`);
+      return []; // Profile not found
+    }
+
+    // If we don't have a profileName yet and we're not loading, user might not have a profile
+    if (!profileName && !isLoadingEmployee) {
+      console.warn(`No profile name found for user role: ${user.role}`);
+      return []; // No profile mapping found
+    }
+
+    // If no profile found and we're not admin, return empty
+    if (!profile?.profile) {
+      return []; // Profile not found
+    }
+
+    // Filter modules based on actual profile permissions
+    const userPermissions = profile.profile.permissions || [];
+    const filtered = MODULES.filter((module) => {
+      // Excluir módulos do cliente do menu lateral (apenas clientes devem ver)
+      if (module.path.startsWith("/cliente/")) {
+        return false;
+      }
+      
+      // Check if user has any of the required permissions for this module
+      // First check if user has wildcard permission
+      if (userPermissions.includes("*")) {
+        return true;
+      }
+      
+      // Check each module permission against user permissions
+      return module.permissions.some((modulePerm) => {
+        // Check if any user permission matches this module permission
+        return userPermissions.some((userPerm) => {
+          // Direct match
+          if (userPerm === modulePerm) return true;
+          
+          // Wildcard match (user has "service_orders.*" and module needs "service_orders.read")
+          if (userPerm.endsWith(".*")) {
+            const userPrefix = userPerm.slice(0, -2);
+            if (modulePerm.startsWith(userPrefix + ".")) return true;
+          }
+          
+          // Module path match (user has "service_orders.read" and module path is "/service-orders")
+          if (permissionMatchesModule(userPerm, module.path)) return true;
+          
+          return false;
+        });
+      });
+    });
+
+    console.log(`[DashboardLayout] User: ${user?.email}, Profile: ${profileName}, Permissions:`, userPermissions, "Visible modules:", filtered.map(m => m.path));
+    return filtered;
+  }, [user?.role, isAdmin, profile?.profile, profileName, profile, employeeData, isLoadingEmployee, isLoadingProfile]);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -56,16 +211,48 @@ export default function DashboardLayout({
     return <DashboardLayoutSkeleton />
   }
 
+  if (isSuspended) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center gap-6 p-8 max-w-md w-full text-center">
+          <div className="p-5 rounded-full bg-destructive/10">
+            <AlertTriangle className="h-14 w-14 text-destructive" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight">Conta Suspensa</h1>
+            <p className="text-muted-foreground">
+              Sua conta foi suspensa e você não possui acesso ao sistema no momento.
+            </p>
+          </div>
+          <div className="w-full rounded-lg border bg-muted/50 p-4 text-sm text-muted-foreground space-y-2">
+            <div className="flex items-center gap-2 justify-center font-medium text-foreground">
+              <PhoneCall className="h-4 w-4" />
+              <span>Entre em contato com o RH</span>
+            </div>
+            <p>Para reativar o seu acesso, entre em contato com o time de Gestão de Pessoas ou o seu gestor responsável.</p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => { window.location.href = LOGIN_PATH; }}
+            className="w-full"
+          >
+            Voltar para o Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-6">
             <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Sign in to continue
+              Faça login para continuar
             </h1>
             <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
+              O acesso ao painel requer autenticação. Clique abaixo para fazer login.
             </p>
           </div>
           <Button
@@ -75,7 +262,7 @@ export default function DashboardLayout({
             size="lg"
             className="w-full shadow-lg hover:shadow-xl transition-all"
           >
-            Sign in
+            Entrar
           </Button>
         </div>
       </div>
@@ -111,9 +298,152 @@ function DashboardLayoutContent({
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+
+  // Reuse the same permission logic
+  const isAdmin = user?.role === "dono" || user?.role === "super_admin" || user?.role === "admin";
+
+  const { data: employeeData, isLoading: isLoadingEmployee } = useQuery({
+    queryKey: ["employee", user?.id, user?.email],
+    queryFn: async () => {
+      if (!user?.id || isAdmin || user?.type === "customer") return null;
+      try {
+        // If user.type is "employee", try to get by id first
+        if (user?.type === "employee") {
+          try {
+            const employee = await api.getEmployee(user.id);
+            return employee.employee || null;
+          } catch {
+            // Fallback to list search
+          }
+        }
+        // Search in list by email or id
+        const employees = await api.listEmployees();
+        return employees.employees?.find((e: Employee) => e.email === user.email || e.id === user.id) || null;
+      } catch (error) {
+        console.error("Error fetching employee data:", error);
+        return null;
+      }
+    },
+    enabled: !isAdmin && !!user?.id,
+    retry: 1,
+  });
+
+  const getProfileName = (): string | null => {
+    if (user?.role === "dono" || user?.role === "super_admin") return "Dono";
+    if (user?.role === "admin") return "Administrador";
+    if (employeeData?.role) {
+      const roleMap: Record<string, string> = {
+        "admin": "Administrador",
+        "department_manager": "Gerente",
+        "attendant": "Atendente",
+        "technician": "Técnico",
+        "user": "Cliente",
+      };
+      return roleMap[employeeData.role] || null;
+    }
+    if (user?.role === "user" && !isLoadingEmployee) {
+      return "Cliente";
+    }
+    return null;
+  };
+
+  const profileName = getProfileName();
+
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ["profile", profileName],
+    queryFn: async () => {
+      if (!profileName) return null;
+      try {
+        return await api.getProfileByName(profileName);
+      } catch (error) {
+        console.error(`Error fetching profile "${profileName}":`, error);
+        return null;
+      }
+    },
+    enabled: !isAdmin && !!profileName,
+    retry: 1,
+  });
+
+  const visibleModules = useMemo(() => {
+    if (!user?.role) return [];
+    // If admin/dono, show all modules except customer modules
+    if (isAdmin) return MODULES.filter((module) => !module.path.startsWith("/cliente/"));
+    
+    // If we're still loading employee data, wait
+    if (isLoadingEmployee && !employeeData) {
+      return []; // Still loading
+    }
+
+    // If we have a profileName but profile is still loading, wait
+    if (profileName && isLoadingProfile) {
+      return []; // Still loading profile
+    }
+
+    // If we have a profileName but no profile was found, return empty
+    if (profileName && !profile?.profile) {
+      console.warn(`Profile "${profileName}" not found in database`);
+      return []; // Profile not found
+    }
+
+    // If we don't have a profileName yet and we're not loading, user might not have a profile
+    if (!profileName && !isLoadingEmployee) {
+      console.warn(`No profile name found for user role: ${user.role}`);
+      return []; // No profile mapping found
+    }
+
+    // If no profile found and we're not admin, return empty
+    if (!profile?.profile) {
+      return []; // Profile not found
+    }
+
+    const userPermissions = profile.profile.permissions || [];
+    const filtered = MODULES.filter((module) => {
+      // Excluir módulos do cliente do menu lateral (apenas clientes devem ver)
+      if (module.path.startsWith("/cliente/")) {
+        return false;
+      }
+      
+      // Check if user has any of the required permissions for this module
+      // First check if user has wildcard permission
+      if (userPermissions.includes("*")) {
+        return true;
+      }
+      
+      // Check each module permission against user permissions
+      return module.permissions.some((modulePerm) => {
+        // Check if any user permission matches this module permission
+        return userPermissions.some((userPerm) => {
+          // Direct match
+          if (userPerm === modulePerm) return true;
+          
+          // Wildcard match (user has "service_orders.*" and module needs "service_orders.read")
+          if (userPerm.endsWith(".*")) {
+            const userPrefix = userPerm.slice(0, -2);
+            if (modulePerm.startsWith(userPrefix + ".")) return true;
+          }
+          
+          // Module path match (user has "service_orders.read" and module path is "/service-orders")
+          if (permissionMatchesModule(userPerm, module.path)) return true;
+          
+          return false;
+        });
+      });
+    });
+
+    console.log(`[DashboardLayoutContent] User: ${user?.email}, Profile: ${profileName}, Permissions:`, userPermissions, "Visible modules:", filtered.map(m => m.path));
+    return filtered;
+  }, [user?.role, isAdmin, profile?.profile, profileName, profile, employeeData, isLoadingEmployee, isLoadingProfile]);
+
+  const activeMenuItem = visibleModules.find(module => module.path === location);
+
+  const handleLogout = async () => {
+    setShowLogoutDialog(false);
+    await logout();
+    setLocation(LOGIN_PATH);
+  };
 
   useEffect(() => {
     if (isCollapsed) {
@@ -180,20 +510,21 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0">
             <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
-                const isActive = location === item.path;
+              {visibleModules.map(module => {
+                const isActive = location === module.path;
+                const IconComponent = (Icons as any)[module.icon] || Icons.LayoutDashboard;
                 return (
-                  <SidebarMenuItem key={item.path}>
+                  <SidebarMenuItem key={module.path}>
                     <SidebarMenuButton
                       isActive={isActive}
-                      onClick={() => setLocation(item.path)}
-                      tooltip={item.label}
+                      onClick={() => setLocation(module.path)}
+                      tooltip={module.label}
                       className={`h-10 transition-all font-normal`}
                     >
-                      <item.icon
+                      <IconComponent
                         className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
                       />
-                      <span>{item.label}</span>
+                      <span>{module.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -202,34 +533,58 @@ function DashboardLayoutContent({
           </SidebarContent>
 
           <SidebarFooter className="p-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium">
-                      {user?.name?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">
+            <div className={`flex items-center gap-2 w-full ${isCollapsed ? "justify-center" : ""}`}>
+              <button
+                onClick={() => setLocation("/profile")}
+                className="shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg transition-colors"
+                title="Ver perfil"
+              >
+                <Avatar className="h-9 w-9 border cursor-pointer hover:opacity-80 transition-opacity">
+                  <AvatarFallback className="text-xs font-medium">
+                    {user?.name?.charAt(0).toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <button
+                    onClick={() => setLocation("/profile")}
+                    className="flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg p-1 -ml-1 hover:bg-accent transition-colors"
+                    title="Ver perfil"
+                  >
+                    <p className="text-sm font-medium truncate leading-none cursor-pointer">
                       {user?.name || "-"}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1.5">
+                    <p className="text-xs text-muted-foreground truncate mt-1.5 cursor-pointer">
                       {user?.email || "-"}
                     </p>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="cursor-pointer text-destructive focus:text-destructive"
+                  </button>
+                  <NotificationBell />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowLogoutDialog(true)}
+                    className="shrink-0 h-9 w-9"
+                    title="Sair"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="sr-only">Sair</span>
+                  </Button>
+                </div>
+              )}
+              {isCollapsed && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowLogoutDialog(true)}
+                  className="shrink-0 h-9 w-9"
+                  title="Sair"
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sign out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <LogOut className="h-4 w-4" />
+                  <span className="sr-only">Sair</span>
+                </Button>
+              )}
+            </div>
           </SidebarFooter>
         </Sidebar>
         <div
@@ -257,8 +612,28 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4 w-full min-w-0">{children}</main>
       </SidebarInset>
+
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Saída</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja sair? Você será redirecionado para a página de login.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLogout}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sair
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

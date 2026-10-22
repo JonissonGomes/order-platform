@@ -66,7 +66,7 @@ function getUserFriendlyMessage(errorType: ErrorType, customMessage?: string): s
       return "Você não tem permissão para realizar esta ação.";
     
     case ErrorType.NOT_FOUND:
-      return "O recurso solicitado não foi encontrado.";
+      return ""; // Não mostrar mensagem para 404 - silenciar
     
     case ErrorType.VALIDATION:
       return customMessage || "Os dados fornecidos são inválidos. Verifique e tente novamente.";

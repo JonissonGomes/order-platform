@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"order-platform/backend/internal/models"
 
@@ -22,18 +23,34 @@ func NewCustomerRepository(db *mongo.Database) *CustomerRepository {
 		collection: db.Collection(customersCollection),
 	}
 
-	// Criar índice único para CPF
+	// Criar índice único para CPF (apenas para CPFs não vazios)
 	indexModel := mongo.IndexModel{
 		Keys:    bson.D{{Key: "cpf", Value: 1}},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true).SetPartialFilterExpression(bson.M{"cpf": bson.M{"$ne": ""}}),
 	}
 	repo.collection.Indexes().CreateOne(context.Background(), indexModel)
+
+	// Índice para busca por email (autenticação - não único pois email é opcional)
+	repo.collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
+		Keys: bson.D{{Key: "email", Value: 1}},
+	})
 
 	return repo
 }
 
 // CreateCustomer creates a new customer
 func (r *CustomerRepository) CreateCustomer(ctx context.Context, customer *models.Customer) error {
+	// Generate ID if not set
+	if customer.ID.IsZero() {
+		customer.ID = primitive.NewObjectID()
+	}
+	// Set timestamps if not already set
+	if customer.CreatedAt.IsZero() {
+		customer.CreatedAt = time.Now()
+	}
+	if customer.UpdatedAt.IsZero() {
+		customer.UpdatedAt = time.Now()
+	}
 	_, err := r.collection.InsertOne(ctx, customer)
 	return err
 }
@@ -86,6 +103,37 @@ func (r *CustomerRepository) GetCustomerByPhone(ctx context.Context, phone strin
 	return &customer, nil
 }
 
+// GetCustomerByEmail retrieves a customer by email (for authentication)
+func (r *CustomerRepository) GetCustomerByEmail(ctx context.Context, email string) (*models.Customer, error) {
+	var customer models.Customer
+	filter := bson.M{"email": email, "password": bson.M{"$exists": true, "$ne": ""}} // Only customers with password can login
+
+	err := r.collection.FindOne(ctx, filter).Decode(&customer)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &customer, nil
+}
+
+// UpdateLastSignedIn updates the last signed in timestamp
+func (r *CustomerRepository) UpdateLastSignedIn(ctx context.Context, customerID primitive.ObjectID) error {
+	now := time.Now()
+	filter := bson.M{"_id": customerID}
+	update := bson.M{
+		"$set": bson.M{
+			"lastSignedIn": &now,
+			"updatedAt":    time.Now(),
+		},
+	}
+
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	return err
+}
+
 // UpdateCustomer updates a customer
 func (r *CustomerRepository) UpdateCustomer(ctx context.Context, id primitive.ObjectID, customer *models.Customer) error {
 	filter := bson.M{"_id": id}
@@ -116,4 +164,16 @@ func (r *CustomerRepository) ListCustomers(ctx context.Context, skip, limit int6
 // CountCustomers counts customers matching the filter
 func (r *CustomerRepository) CountCustomers(ctx context.Context, filter bson.M) (int64, error) {
 	return r.collection.CountDocuments(ctx, filter)
+}
+
+// Collection returns the MongoDB collection for aggregation queries
+func (r *CustomerRepository) Collection() *mongo.Collection {
+	return r.collection
+}
+
+// DeleteCustomer deletes a customer
+func (r *CustomerRepository) DeleteCustomer(ctx context.Context, id primitive.ObjectID) error {
+	filter := bson.M{"_id": id}
+	_, err := r.collection.DeleteOne(ctx, filter)
+	return err
 }

@@ -6,7 +6,27 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import CustomerLogin from "./pages/CustomerLogin";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import Profile from "./pages/Profile";
+import Profiles from "./pages/Profiles";
+import ServiceOrders from "./pages/ServiceOrders";
+import PreOrders from "./pages/PreOrders";
+import Customers from "./pages/Customers";
+import Departments from "./pages/Departments";
+import Employees from "./pages/Employees";
+import PublicOrderTracking from "./pages/PublicOrderTracking";
+import CustomerDashboard from "./pages/CustomerDashboard";
+import CustomerProfile from "./pages/CustomerProfile";
+import CustomerOrdersHistory from "./pages/CustomerOrdersHistory";
+import PrintServiceOrder from "./pages/PrintServiceOrder";
+import Stock from "./pages/Stock";
+import Financial from "./pages/Financial";
+import SettingsPage from "./pages/Settings";
+import Reports from "./pages/Reports";
+import Notifications from "./pages/Notifications";
+import NoAccess from "./pages/NoAccess";
 
 /**
  * Router da Aplicação
@@ -25,7 +45,27 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/login"} component={Login} />
+      <Route path={"/cliente/login"} component={CustomerLogin} />
+      <Route path={"/cliente/dashboard"} component={CustomerDashboard} />
+      <Route path={"/cliente/perfil"} component={CustomerProfile} />
+      <Route path={"/cliente/ordens"} component={CustomerOrdersHistory} />
+      <Route path={"/register"} component={Register} />
       <Route path={"/dashboard"} component={Dashboard} />
+      <Route path={"/profile"} component={Profile} />
+      <Route path={"/profiles"} component={Profiles} />
+      <Route path={"/service-orders"} component={ServiceOrders} />
+      <Route path={"/pre-orders"} component={PreOrders} />
+      <Route path={"/customers"} component={Customers} />
+      <Route path={"/departments"} component={Departments} />
+      <Route path={"/employees"} component={Employees} />
+      <Route path={"/stock"} component={Stock} />
+      <Route path={"/financial"} component={Financial} />
+      <Route path={"/settings"} component={SettingsPage} />
+      <Route path={"/reports"} component={Reports} />
+      <Route path={"/notifications"} component={Notifications} />
+      <Route path={"/track"} component={PublicOrderTracking} />
+      <Route path={"/print/order/:id"} component={PrintServiceOrder} />
+      <Route path={"/no-access"} component={NoAccess} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

@@ -135,3 +135,15 @@ func (r *ServiceOrderRepository) GetServiceOrdersByCustomerID(ctx context.Contex
 
 	return orders, nil
 }
+
+// DeleteServiceOrder deletes a service order
+func (r *ServiceOrderRepository) DeleteServiceOrder(ctx context.Context, id primitive.ObjectID) error {
+	filter := bson.M{"_id": id}
+	_, err := r.collection.DeleteOne(ctx, filter)
+	return err
+}
+
+// Collection returns the MongoDB collection for aggregation queries
+func (r *ServiceOrderRepository) Collection() *mongo.Collection {
+	return r.collection
+}
