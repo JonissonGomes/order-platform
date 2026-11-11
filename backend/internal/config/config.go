@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -24,87 +25,28 @@ type Config struct {
 
 var cfg *Config
 
-// Load loads configuration from environment variables
+// Load loads configuration from environment variables (and optional local .env in development).
 func Load() error {
-	// Get current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Printf("Warning: Could not get working directory: %v", err)
-		wd = "."
-	}
+	environment := getEnv("NODE_ENV", getEnv("GO_ENV", "development"))
+	onRender := getEnv("RENDER", "") == "true"
 
-	// Try to load .env file from multiple possible locations
-	// This handles different execution contexts (direct run, make, etc.)
-	envPaths := []string{
-		".env",                                     // Current working directory (most common when running from backend/)
-		filepath.Join(wd, ".env"),                  // Absolute path from current dir
-		filepath.Join(wd, "backend", ".env"),       // From project root
-		filepath.Join(wd, "..", ".env"),            // One level up
-		filepath.Join(wd, "..", "backend", ".env"), // From internal/config directory
-		"backend/.env",                             // Relative from project root
-		"../.env",                                  // Relative from internal/config
-		"./backend/.env",                           // Alternative relative path
-	}
-
-	// Also try to find backend directory by looking for go.mod
-	// This is more reliable when running from different directories
-	if wd != "" {
-		// Try to find backend directory by checking if we're in it or above it
-		if _, err := os.Stat(filepath.Join(wd, "go.mod")); err == nil {
-			// We're in the backend directory
-			envPaths = append([]string{".env"}, envPaths...)
-		} else if _, err := os.Stat(filepath.Join(wd, "backend", "go.mod")); err == nil {
-			// We're in the project root
-			envPaths = append([]string{filepath.Join("backend", ".env")}, envPaths...)
-		}
-	}
-
-	// Try each path until one works
-	var envLoaded bool
-	for _, path := range envPaths {
-		absPath, _ := filepath.Abs(path)
-		// Check if file exists before trying to load
-		if _, err := os.Stat(path); err == nil {
-			if err := godotenv.Load(path); err == nil {
-				envLoaded = true
-				log.Printf("Loaded .env file from: %s", absPath)
-				break
-			} else {
-				// Log the specific error for debugging
-				log.Printf("Failed to load .env from %s: %v", absPath, err)
-			}
-		}
-	}
-
-	// If no .env file found, log a warning with debug info
-	if !envLoaded {
-		log.Printf("Warning: .env file not found. Current working directory: %s", wd)
-		log.Println("Tried paths:")
-		for _, path := range envPaths {
-			absPath, _ := filepath.Abs(path)
-			if _, err := os.Stat(path); err == nil {
-				log.Printf("  - %s (exists but failed to load)", absPath)
-			} else {
-				log.Printf("  - %s (not found)", absPath)
-			}
-		}
-		log.Println("Using environment variables directly.")
+	// Em produção / Render as variáveis vêm do painel — não exigir arquivo .env.
+	if environment != "production" && !onRender {
+		loadDotEnv()
+	} else {
+		log.Println("Using platform environment variables (no .env file expected).")
 	}
 
 	corsOriginsStr := getEnv("CORS_ORIGINS", "")
 	var corsOrigins []string
 	if corsOriginsStr != "" {
-		// Split by comma and trim spaces
-		origins := strings.Split(corsOriginsStr, ",")
-		for _, origin := range origins {
+		for _, origin := range strings.Split(corsOriginsStr, ",") {
 			trimmed := strings.TrimSpace(origin)
 			if trimmed != "" {
 				corsOrigins = append(corsOrigins, trimmed)
 			}
 		}
 	}
-	// If CORS_ORIGINS is not set, corsOrigins will be empty
-	// The CORS middleware will handle this appropriately
 
 	cfg = &Config{
 		Port:            getEnv("PORT", "8080"),
@@ -115,19 +57,58 @@ func Load() error {
 		SuperAdminEmail: getEnv("SUPER_ADMIN_EMAIL", ""),
 		ForgeAPIURL:     getEnv("BUILT_IN_FORGE_API_URL", ""),
 		ForgeAPIKey:     getEnv("BUILT_IN_FORGE_API_KEY", ""),
-		Environment:     getEnv("NODE_ENV", "development"),
+		Environment:     environment,
 		CORSOrigins:     corsOrigins,
 	}
 
-	// Validate required variables
+	var missing []string
 	if cfg.DatabaseURL == "" {
-		return ErrMissingDatabaseURL
+		missing = append(missing, "DATABASE_URL")
 	}
 	if cfg.JWTSecret == "" {
-		return ErrMissingJWTSecret
+		missing = append(missing, "JWT_SECRET")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf(
+			"variáveis obrigatórias ausentes: %s — configure-as no painel Environment do Render (não use arquivo .env no deploy)",
+			strings.Join(missing, ", "),
+		)
 	}
 
 	return nil
+}
+
+func loadDotEnv() {
+	wd, err := os.Getwd()
+	if err != nil {
+		wd = "."
+	}
+
+	envPaths := []string{
+		".env",
+		filepath.Join(wd, ".env"),
+		filepath.Join(wd, "backend", ".env"),
+		filepath.Join(wd, "..", ".env"),
+		filepath.Join(wd, "..", "backend", ".env"),
+		"backend/.env",
+		"../.env",
+		"./backend/.env",
+	}
+
+	for _, path := range envPaths {
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		if err := godotenv.Load(path); err != nil {
+			log.Printf("Failed to load .env from %s: %v", path, err)
+			continue
+		}
+		absPath, _ := filepath.Abs(path)
+		log.Printf("Loaded .env file from: %s", absPath)
+		return
+	}
+
+	log.Println("No local .env found; using process environment variables.")
 }
 
 // Get returns the current configuration
