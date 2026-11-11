@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ZtsLogo } from "@/components/zts/ZtsLogo";
 import { api } from "@/lib/api";
+import { ROUTES } from "@/routes";
 import { AlertCircle, Loader2, LogIn } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { useLocation } from "wouter";
@@ -27,7 +28,7 @@ export default function Login() {
     try {
       await api.login({ email, password });
       // Recarrega para atualizar o estado de autenticação (cookie de sessão)
-      window.location.href = "/dashboard";
+      window.location.href = ROUTES.DASHBOARD;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login. Tente novamente.");
     } finally {

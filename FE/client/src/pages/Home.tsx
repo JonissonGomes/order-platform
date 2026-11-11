@@ -1,11 +1,14 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ZtsLogo } from "@/components/zts/ZtsLogo";
+import { ROUTES } from "@/routes";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
   Cable,
   Clock,
   Laptop,
+  LayoutDashboard,
   MapPin,
   MessageSquare,
   Phone,
@@ -13,7 +16,7 @@ import {
   Smartphone,
   Wrench,
 } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useLocation } from "wouter";
 
 // Three.js apenas no momento de marca da home, carregado sob demanda
@@ -34,8 +37,20 @@ const BENEFITS = [
   { icon: MessageSquare, title: "Acompanhamento online", text: "Consulte a OS no portal com o número e o telefone." },
 ];
 
+function isAdminRole(role?: string | null) {
+  return role === "admin" || role === "super_admin";
+}
+
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { user, loading } = useAuth();
+
+  // Admin logado não permanece na landing — vai direto ao painel
+  useEffect(() => {
+    if (!loading && user && isAdminRole(user.role)) {
+      setLocation(ROUTES.DASHBOARD);
+    }
+  }, [loading, user, setLocation]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,9 +59,20 @@ export default function Home() {
           <ZtsLogo tone="light" subtitle="Assistência técnica" />
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-white/10"
-              onClick={() => setLocation("/portal")}>
+              onClick={() => setLocation(ROUTES.PORTAL)}>
               Acompanhar OS
             </Button>
+            {user && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="font-semibold shadow-md ring-2 ring-white/20"
+                onClick={() => setLocation(ROUTES.DASHBOARD)}
+              >
+                <LayoutDashboard className="mr-1.5 h-4 w-4" />
+                Acessar área
+              </Button>
+            )}
           </div>
         </div>
       </header>
