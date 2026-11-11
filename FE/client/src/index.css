@@ -177,6 +177,14 @@
     @apply text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground;
   }
 
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Grade técnica sutil para fundos de marca */
   .zts-grid-bg {
     background-image:

@@ -84,7 +84,7 @@ export default function OrderNew() {
 
   return (
     <form
-      className="max-w-4xl mx-auto"
+      className="max-w-[40rem]"
       onSubmit={e => {
         e.preventDefault();
         if (valid) create.mutate();

@@ -99,8 +99,10 @@ export function QuickSale({ disabled }: { disabled: boolean }) {
       <BarcodeInput onScan={addByBarcode} disabled={disabled} autoFocus={false} />
 
       {cart.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-4 text-center">
-          {disabled ? "Abra o caixa (e tenha permissão de venda) para vender." : "Bipe os produtos para montar a venda."}
+        <p className="text-xs text-muted-foreground py-2">
+          {disabled
+            ? "Abra o caixa (e tenha permissão de venda) para vender."
+            : "Bipe os produtos para montar a venda."}
         </p>
       ) : (
         <div className="border rounded-sm overflow-hidden">
@@ -134,22 +136,25 @@ export function QuickSale({ disabled }: { disabled: boolean }) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+      <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div>
           <p className="zts-eyebrow">Total</p>
           <p className="text-xl font-semibold tabular-nums">{formatCurrency(total)}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-[7.5rem_1fr] gap-2 w-full sm:w-auto sm:flex sm:items-center">
           <Select value={method} onValueChange={v => setMethod(v as PaymentMethod)}>
-            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
             <SelectContent>
               {Object.entries(PAYMENT_LABELS).map(([k, label]) => (
                 <SelectItem key={k} value={k}>{label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button disabled={disabled || cart.length === 0 || total <= 0 || checkout.isPending}
-            onClick={() => checkout.mutate()}>
+          <Button
+            className="w-full sm:w-auto"
+            disabled={disabled || cart.length === 0 || total <= 0 || checkout.isPending}
+            onClick={() => checkout.mutate()}
+          >
             {checkout.isPending ? "Registrando…" : "Finalizar venda"}
           </Button>
         </div>

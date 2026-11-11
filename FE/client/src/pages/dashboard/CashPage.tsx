@@ -7,6 +7,12 @@ import { PageHeader } from "@/components/zts/PageHeader";
 import { useCashMovements, useCashSession } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 
+/**
+ * Fluxo do caixa:
+ * 1) status / abrir-fechar no topo
+ * 2) venda rápida (ação principal) + lançamentos auxiliares
+ * 3) histórico da sessão em largura total
+ */
 export default function CashPage() {
   const { can } = usePermissions();
   const current = useCashSession();
@@ -15,37 +21,33 @@ export default function CashPage() {
   const movements = useCashMovements(session?.id);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="space-y-4">
       <PageHeader title="Caixa" description="Abertura, vendas de balcão, sangrias e fechamento." />
 
       {current.error && (
-        <div className="mb-4">
-          <ErrorState message={current.error.message} onRetry={() => current.refetch()} />
-        </div>
+        <ErrorState message={current.error.message} onRetry={() => current.refetch()} />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3 space-y-4">
-          <QuickSale disabled={!isOpen || !can("cash.sale")} />
-          <div>
-            <h2 className="zts-eyebrow mb-2">Lançamentos da sessão</h2>
-            <CashMovementsList
-              movements={movements.data ?? []}
-              loading={current.isPending || movements.isLoading}
-            />
-          </div>
-        </div>
-        <div className="lg:col-span-2 space-y-4">
-          <CashSessionPanel
-            session={session}
-            summary={current.data?.summary}
-            loading={current.isPending}
-            canOpen={can("cash.open")}
-            canClose={can("cash.close")}
-          />
-          <CashEntryForm disabled={!isOpen} />
-        </div>
+      <CashSessionPanel
+        session={session}
+        summary={current.data?.summary}
+        loading={current.isPending}
+        canOpen={can("cash.open")}
+        canClose={can("cash.close")}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,22rem)] lg:items-start">
+        <QuickSale disabled={!isOpen || !can("cash.sale")} />
+        <CashEntryForm disabled={!isOpen} />
       </div>
+
+      <section>
+        <h2 className="zts-eyebrow mb-2">Lançamentos da sessão</h2>
+        <CashMovementsList
+          movements={movements.data ?? []}
+          loading={current.isPending || movements.isLoading}
+        />
+      </section>
     </div>
   );
 }

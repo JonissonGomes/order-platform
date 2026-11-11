@@ -2,7 +2,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
+import { ListPagination } from "@/components/zts/ListPagination";
 import { PageHeader } from "@/components/zts/PageHeader";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { useProfiles } from "@/hooks/queries";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
 import type { Permission } from "@/types";
@@ -24,9 +26,11 @@ function groupPermissions(perms: Permission[]): [string, string[]][] {
 
 export default function ProfilesPage() {
   const { data, isPending, error, refetch } = useProfiles();
+  const list = data ?? [];
+  const { page, pageCount, total, pageSize, pageItems, setPage } = useClientPagination(list, 6);
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div>
       <PageHeader title="Perfis de acesso" description="Permissões de cada perfil. O menu e as telas respeitam estas regras." />
 
       {isPending ? (
@@ -35,36 +39,39 @@ export default function ProfilesPage() {
         </div>
       ) : error ? (
         <ErrorState message={error.message} onRetry={() => refetch()} />
-      ) : (data ?? []).length === 0 ? (
+      ) : list.length === 0 ? (
         <EmptyState icon={ShieldCheck} title="Nenhum perfil encontrado" />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {data!.map(profile => (
-            <Card key={profile.id} className="gap-3 py-4">
-              <CardHeader className="px-4">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-sm">{profile.name}</CardTitle>
-                  {profile.isDefault && (
-                    <Badge variant="outline" className="rounded-sm text-[0.6875rem]">Padrão</Badge>
-                  )}
-                </div>
-                {profile.description && <CardDescription>{profile.description}</CardDescription>}
-              </CardHeader>
-              <CardContent className="px-4 space-y-2">
-                {groupPermissions(profile.permissions ?? []).map(([label, actions]) => (
-                  <div key={label} className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs font-medium w-32 shrink-0">{label}</span>
-                    {actions.map(a => (
-                      <Badge key={a} variant="secondary" className="rounded-sm font-mono text-[0.6875rem]">
-                        {a === "*" ? "todas" : a}
-                      </Badge>
-                    ))}
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            {pageItems.map(profile => (
+              <Card key={profile.id} className="gap-3 py-4">
+                <CardHeader className="px-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-sm">{profile.name}</CardTitle>
+                    {profile.isDefault && (
+                      <Badge variant="outline" className="rounded-sm text-[0.6875rem]">Padrão</Badge>
+                    )}
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  {profile.description && <CardDescription>{profile.description}</CardDescription>}
+                </CardHeader>
+                <CardContent className="px-4 space-y-2">
+                  {groupPermissions(profile.permissions ?? []).map(([label, actions]) => (
+                    <div key={label} className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-medium w-32 shrink-0">{label}</span>
+                      {actions.map(a => (
+                        <Badge key={a} variant="secondary" className="rounded-sm font-mono text-[0.6875rem]">
+                          {a === "*" ? "todas" : a}
+                        </Badge>
+                      ))}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <ListPagination page={page} pageCount={pageCount} total={total} pageSize={pageSize} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

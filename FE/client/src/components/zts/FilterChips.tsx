@@ -1,3 +1,4 @@
+import { ScrollRow } from "@/components/zts/ScrollRow";
 import { cn } from "@/lib/utils";
 
 export interface ChipOption<T extends string> {
@@ -15,7 +16,7 @@ interface FilterChipsProps<T extends string> {
   showAll?: boolean;
 }
 
-/** Filtros em formato de chip retangular (rounded-sm, sem pill). */
+/** Chips em faixa horizontal com setas inline (esquerda/direita). */
 export function FilterChips<T extends string>({
   options,
   value,
@@ -26,8 +27,9 @@ export function FilterChips<T extends string>({
   const items: ChipOption<T | "all">[] = showAll
     ? [{ value: "all", label: allLabel }, ...options]
     : options;
+
   return (
-    <div className="flex flex-wrap gap-1.5" role="tablist">
+    <ScrollRow>
       {items.map(item => {
         const active = item.value === value;
         return (
@@ -38,7 +40,7 @@ export function FilterChips<T extends string>({
             aria-selected={active}
             onClick={() => onChange(item.value)}
             className={cn(
-              "h-7 px-2.5 text-xs font-medium rounded-sm border transition-colors",
+              "h-8 shrink-0 px-3 text-xs font-medium rounded-sm border transition-colors",
               active
                 ? "bg-foreground text-background border-foreground"
                 : "bg-card text-muted-foreground hover:text-foreground hover:border-foreground/40"
@@ -51,6 +53,6 @@ export function FilterChips<T extends string>({
           </button>
         );
       })}
-    </div>
+    </ScrollRow>
   );
 }

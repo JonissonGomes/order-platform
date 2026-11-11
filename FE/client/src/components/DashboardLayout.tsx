@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { PageShell } from "@/components/zts/PageShell";
 import { HOME_PATH } from "@/const";
 import { usePermissions } from "@/hooks/usePermissions";
 import { hasPermission, requiredPermissionFor } from "@/lib/permissions";
@@ -14,7 +15,7 @@ import { motion } from "framer-motion";
 function AccessDenied() {
   const [, setLocation] = useLocation();
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 py-16 sm:py-24 text-center px-4">
       <ShieldAlert className="h-10 w-10 text-muted-foreground" />
       <h2 className="text-lg font-semibold">Acesso restrito</h2>
       <p className="text-sm text-muted-foreground max-w-sm">
@@ -39,14 +40,14 @@ function Content({ children }: { children: ReactNode }) {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.15 }}
-      className="flex-1 p-4 md:p-6"
+      className="flex-1 min-w-0 px-3 py-4 sm:px-5 sm:py-6 md:px-6"
     >
-      {allowed ? children : <AccessDenied />}
+      <PageShell>{allowed ? children : <AccessDenied />}</PageShell>
     </motion.main>
   );
 }
 
-/** Shell ZTS Cell: sidebar escura filtrada por permissão + área de conteúdo. */
+/** Shell ZTS Cell: drawer no mobile, sidebar no desktop; conteúdo com largura máxima. */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { loading, user, logout } = useAuth({
     redirectOnUnauthenticated: true,
@@ -64,12 +65,22 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SidebarProvider style={{ "--sidebar-width": "16rem" } as CSSProperties}>
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "16.5rem",
+          "--sidebar-width-mobile": "19rem",
+          /* Rail de ícones um pouco mais largo + respiro à direita quando colapsado */
+          "--sidebar-width-icon": "3.75rem",
+        } as CSSProperties
+      }
+    >
       <DashboardSidebar onLogout={handleLogout} />
-      <SidebarInset className="bg-background">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-card px-3">
-          <SidebarTrigger className="h-8 w-8 rounded-sm" />
-          <span className="text-sm font-medium">{activeLabel}</span>
+      <SidebarInset className="bg-background min-w-0 overflow-x-hidden">
+        <header className="sticky top-0 z-30 flex h-12 sm:h-14 items-center gap-2 border-b bg-card/95 backdrop-blur-sm px-2 sm:px-3 supports-[padding:max(0px)]:pt-[env(safe-area-inset-top)]">
+          {/* Desktop: toggle pelo logo ZTS na sidebar. Mobile: botão no topo. */}
+          <SidebarTrigger className="h-9 w-9 rounded-sm shrink-0 md:hidden" />
+          <span className="text-sm font-medium truncate">{activeLabel}</span>
         </header>
         <Content>{children}</Content>
       </SidebarInset>

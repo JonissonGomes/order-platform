@@ -20,6 +20,7 @@ interface CashSessionPanelProps {
   canClose: boolean;
 }
 
+/** Faixa de status do caixa: KPIs + abrir/fechar em formulário compacto. */
 export function CashSessionPanel({ session, summary, loading, canOpen, canClose }: CashSessionPanelProps) {
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState("");
@@ -44,54 +45,86 @@ export function CashSessionPanel({ session, summary, loading, canOpen, canClose 
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (loading) return <Skeleton className="h-36" />;
+  if (loading) return <Skeleton className="h-24" />;
 
   const isOpen = session?.status === "open";
   const expected = summary?.expectedCash ?? session?.openingFloat ?? 0;
   const canAct = isOpen ? canClose : canOpen;
 
   return (
-    <Card className="gap-3 py-4 px-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {isOpen ? <Unlock className="h-4 w-4 text-emerald-600" /> : <Lock className="h-4 w-4 text-muted-foreground" />}
+    <Card className="gap-3 py-3 px-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {isOpen ? (
+            <Unlock className="h-4 w-4 text-emerald-600 shrink-0" />
+          ) : (
+            <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+          )}
           <h2 className="text-sm font-semibold">{isOpen ? "Caixa aberto" : "Caixa fechado"}</h2>
+          {isOpen && session && (
+            <span className="text-xs text-muted-foreground truncate">
+              desde {formatDateTime(session.openedAt)}
+            </span>
+          )}
         </div>
-        {isOpen && session && (
-          <span className="text-xs text-muted-foreground">desde {formatDateTime(session.openedAt)}</span>
-        )}
       </div>
 
       {isOpen && session && (
-        <div className="grid grid-cols-3 gap-3 text-sm">
-          <div><p className="zts-eyebrow">Fundo</p><p className="tabular-nums">{formatCurrency(session.openingFloat)}</p></div>
-          <div><p className="zts-eyebrow">Entradas</p><p className="tabular-nums">{formatCurrency(summary?.totalIn)}</p></div>
-          <div><p className="zts-eyebrow">Dinheiro esperado</p><p className="tabular-nums font-semibold">{formatCurrency(expected)}</p></div>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 text-sm max-w-xl">
+          <div>
+            <p className="zts-eyebrow">Fundo</p>
+            <p className="tabular-nums">{formatCurrency(session.openingFloat)}</p>
+          </div>
+          <div>
+            <p className="zts-eyebrow">Entradas</p>
+            <p className="tabular-nums">{formatCurrency(summary?.totalIn)}</p>
+          </div>
+          <div>
+            <p className="zts-eyebrow">Dinheiro esperado</p>
+            <p className="tabular-nums font-semibold">{formatCurrency(expected)}</p>
+          </div>
         </div>
       )}
 
       {canAct ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label={isOpen ? "Dinheiro contado no fechamento (R$)" : "Fundo de troco (R$)"} htmlFor="cash-amount"
-            hint={isOpen && amount ? `Diferença: ${formatCurrency(parseMoney(amount) - expected)}` : undefined}>
-            <Input id="cash-amount" inputMode="decimal" placeholder="0,00" value={amount}
-              onChange={e => setAmount(e.target.value)} />
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end max-w-2xl">
+          <FormField
+            className="sm:w-44"
+            label={isOpen ? "Dinheiro contado (R$)" : "Fundo de troco (R$)"}
+            htmlFor="cash-amount"
+            hint={isOpen && amount ? `Diferença: ${formatCurrency(parseMoney(amount) - expected)}` : undefined}
+          >
+            <Input
+              id="cash-amount"
+              inputMode="decimal"
+              placeholder="0,00"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+            />
           </FormField>
-          <FormField label="Observações" htmlFor="cash-notes">
+          <FormField className="sm:flex-1 sm:min-w-[12rem]" label="Observações" htmlFor="cash-notes">
             <Input id="cash-notes" value={notes} onChange={e => setNotes(e.target.value)} />
           </FormField>
-          <div className="sm:col-span-2">
-            {isOpen ? (
-              <Button variant="destructive" size="sm" disabled={!amount || close.isPending}
-                onClick={() => close.mutate()}>
-                Fechar caixa
-              </Button>
-            ) : (
-              <Button size="sm" disabled={!amount || open.isPending} onClick={() => open.mutate()}>
-                Abrir caixa
-              </Button>
-            )}
-          </div>
+          {isOpen ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="sm:mb-0.5"
+              disabled={!amount || close.isPending}
+              onClick={() => close.mutate()}
+            >
+              Fechar caixa
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="sm:mb-0.5"
+              disabled={!amount || open.isPending}
+              onClick={() => open.mutate()}
+            >
+              Abrir caixa
+            </Button>
+          )}
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">

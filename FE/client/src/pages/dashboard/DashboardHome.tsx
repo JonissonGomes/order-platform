@@ -51,7 +51,7 @@ export default function DashboardHome() {
   const allFailed = orders.isError && products.isError && session.isError;
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       <PageHeader
         title="Resumo"
         description={`Olá, ${user?.name?.split(" ")[0] ?? "equipe"}. Veja como está o balcão hoje.`}
@@ -70,7 +70,8 @@ export default function DashboardHome() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-5">
+      {/* Mobile: 1 coluna (como no mock). ≥sm: 2. ≥lg: 4. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-5">
         <KpiCard label="OS em aberto" icon={ClipboardList} loading={orders.isPending}
           value={stats.open} hint="Aguardando ação da equipe" />
         <KpiCard label="Prontas p/ retirada" icon={PackageCheck} loading={orders.isPending}
@@ -85,9 +86,9 @@ export default function DashboardHome() {
 
       <div className="grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3 gap-3 py-4">
-          <CardHeader className="px-4 flex-row items-center justify-between">
+          <CardHeader className="px-4 flex-row items-center justify-between gap-2">
             <CardTitle className="text-sm">Ordens recentes</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => setLocation("/dashboard/ordens")}>
+            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setLocation("/dashboard/ordens")}>
               Ver todas
             </Button>
           </CardHeader>

@@ -3,16 +3,21 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartCard } from "@/components/zts/ChartCard";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
+import { FiltersDialog } from "@/components/zts/FiltersDialog";
 import { KpiCard } from "@/components/zts/KpiCard";
+import { ListPagination } from "@/components/zts/ListPagination";
 import { PageHeader } from "@/components/zts/PageHeader";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { useServiceOrders } from "@/hooks/queries";
 import { formatDate } from "@/lib/format";
 import { buildWarranties, type WarrantyInfo } from "@/lib/reports";
 import type { ServiceOrder } from "@/types";
 import { BadgeCheck, ShieldOff, TimerReset } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+
+type WarrantyFilter = "active" | "soon" | "expired";
 
 const HEADERS = ["OS", "Cliente", "Aparelho", "Garantia até", "Situação"];
 
@@ -26,15 +31,46 @@ const BUCKETS = [
 export default function WarrantiesPage() {
   const { data, isPending, error, refetch } = useServiceOrders({ status: "delivered" });
   const [selected, setSelected] = useState<ServiceOrder | null>(null);
+  const [filter, setFilter] = useState<WarrantyFilter[]>([]);
 
   const warranties = useMemo(() => buildWarranties(data ?? []), [data]);
   const active = warranties.filter(w => w.active);
   const expiringSoon = active.filter(w => w.daysLeft <= 7);
   const chart = BUCKETS.map(b => ({ name: b.name, value: warranties.filter(b.test).length }));
 
+  const filtered = useMemo(() => {
+    if (filter.length === 0) return warranties;
+    return warranties.filter(w => {
+      const kind: WarrantyFilter = !w.active ? "expired" : w.daysLeft <= 7 ? "soon" : "active";
+      return filter.includes(kind);
+    });
+  }, [warranties, filter]);
+
+  const { page, pageCount, total, pageSize, pageItems, setPage, resetPage } =
+    useClientPagination(filtered);
+
+  useEffect(() => {
+    resetPage();
+  }, [filter, resetPage]);
+
   return (
-    <div className="max-w-6xl mx-auto">
-      <PageHeader title="Garantias" description="Ordens entregues e o prazo de garantia restante." />
+    <div>
+      <PageHeader
+        title="Garantias"
+        description="Ordens entregues e o prazo de garantia restante."
+        actions={
+          <FiltersDialog
+            title="Situação da garantia"
+            value={filter}
+            onApply={setFilter}
+            options={[
+              { value: "active", label: "Ativas (> 7 dias)", count: active.length - expiringSoon.length },
+              { value: "soon", label: "Vencem em 7 dias", count: expiringSoon.length },
+              { value: "expired", label: "Vencidas", count: warranties.length - active.length },
+            ]}
+          />
+        }
+      />
 
       <div className="grid gap-3 sm:grid-cols-3 mb-5">
         <KpiCard label="Garantias ativas" icon={BadgeCheck} loading={isPending} value={active.length} />
@@ -60,34 +96,37 @@ export default function WarrantiesPage() {
         <TableSkeleton columns={HEADERS.length} headers={HEADERS} rows={4} />
       ) : error ? (
         <ErrorState message={error.message} onRetry={() => refetch()} />
-      ) : warranties.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState icon={BadgeCheck} title="Nenhuma garantia registrada"
           description="Ordens entregues com garantia aparecerão aqui." />
       ) : (
-        <div className="border rounded-md bg-card overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
-            </TableHeader>
-            <TableBody>
-              {warranties.map(w => (
-                <TableRow key={w.order.id} className="cursor-pointer" onClick={() => setSelected(w.order)}>
-                  <TableCell className="font-mono text-xs font-medium">#{w.order.orderNumber}</TableCell>
-                  <TableCell>{w.order.customer?.name ?? "—"}</TableCell>
-                  <TableCell>{w.order.productBrand} {w.order.productModel}</TableCell>
-                  <TableCell>{formatDate(w.endsAt.toISOString())}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`rounded-sm ${w.active
-                      ? w.daysLeft <= 7 ? "border-amber-300 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "bg-muted text-muted-foreground"}`}>
-                      {w.active ? `${w.daysLeft} dia(s) restantes` : "Vencida"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <>
+          <div className="border rounded-md bg-card overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
+              </TableHeader>
+              <TableBody>
+                {pageItems.map(w => (
+                  <TableRow key={w.order.id} className="cursor-pointer" onClick={() => setSelected(w.order)}>
+                    <TableCell className="font-mono text-xs font-medium">#{w.order.orderNumber}</TableCell>
+                    <TableCell>{w.order.customer?.name ?? "—"}</TableCell>
+                    <TableCell>{w.order.productBrand} {w.order.productModel}</TableCell>
+                    <TableCell>{formatDate(w.endsAt.toISOString())}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`rounded-sm ${w.active
+                        ? w.daysLeft <= 7 ? "border-amber-300 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : "bg-muted text-muted-foreground"}`}>
+                        {w.active ? `${w.daysLeft} dia(s) restantes` : "Vencida"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ListPagination page={page} pageCount={pageCount} total={total} pageSize={pageSize} onPageChange={setPage} />
+        </>
       )}
       <OrderDetailSheet order={selected} onOpenChange={open => !open && setSelected(null)} />
     </div>

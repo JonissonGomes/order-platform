@@ -63,35 +63,59 @@ export function CashEntryForm({ disabled }: { disabled: boolean }) {
   return (
     <Card className="gap-3 py-4 px-4">
       <h2 className="text-sm font-semibold">Outros lançamentos</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-2.5">
         <FormField label="Tipo">
           <Select value={kind} onValueChange={v => setKind(v as CashMovementKind)} disabled={blocked}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {available.map(o => <SelectItem key={o.kind} value={o.kind}>{o.label}</SelectItem>)}
+              {available.map(o => (
+                <SelectItem key={o.kind} value={o.kind}>
+                  {o.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </FormField>
         <FormField label="Forma de pagamento">
           <Select value={method} onValueChange={v => setMethod(v as PaymentMethod)} disabled={blocked}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {Object.entries(PAYMENT_LABELS).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
+              {Object.entries(PAYMENT_LABELS).map(([k, l]) => (
+                <SelectItem key={k} value={k}>
+                  {l}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </FormField>
         <FormField label="Valor (R$)" htmlFor="entry-amount">
-          <Input id="entry-amount" inputMode="decimal" value={amount} disabled={blocked}
-            onChange={e => setAmount(e.target.value)} />
+          <Input
+            id="entry-amount"
+            inputMode="decimal"
+            value={amount}
+            disabled={blocked}
+            onChange={e => setAmount(e.target.value)}
+          />
         </FormField>
         <FormField label="Descrição" htmlFor="entry-desc">
-          <Input id="entry-desc" value={description} disabled={blocked}
-            onChange={e => setDescription(e.target.value)} />
+          <Input
+            id="entry-desc"
+            value={description}
+            disabled={blocked}
+            onChange={e => setDescription(e.target.value)}
+          />
         </FormField>
-      </div>
-      <div>
-        <Button size="sm" variant="outline" disabled={blocked || parseMoney(amount) <= 0 || add.isPending}
-          onClick={() => add.mutate()}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full"
+          disabled={blocked || parseMoney(amount) <= 0 || add.isPending}
+          onClick={() => add.mutate()}
+        >
           Lançar
         </Button>
       </div>

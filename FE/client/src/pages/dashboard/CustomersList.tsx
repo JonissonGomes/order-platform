@@ -13,13 +13,15 @@ import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FormField } from "@/components/zts/FormField";
 import { PageHeader } from "@/components/zts/PageHeader";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
+import { ListPagination } from "@/components/zts/ListPagination";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { qk, useCustomers } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
 import { digitsOnly, formatDate, formatPhone } from "@/lib/format";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const HEADERS = ["Nome", "Telefone", "CPF", "E-mail", "Cadastro"];
@@ -97,8 +99,15 @@ export default function CustomersList() {
     );
   }, [data, search]);
 
+  const { page, pageCount, total, pageSize, pageItems, setPage, resetPage } =
+    useClientPagination(filtered);
+
+  useEffect(() => {
+    resetPage();
+  }, [search, resetPage]);
+
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       <PageHeader
         title="Clientes"
         description="Base de clientes da assistência e do balcão."
@@ -123,24 +132,27 @@ export default function CustomersList() {
       ) : filtered.length === 0 ? (
         <EmptyState icon={Users} title="Nenhum cliente encontrado" />
       ) : (
-        <div className="border rounded-md bg-card overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map(c => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell>{formatPhone(c.phone)}</TableCell>
-                  <TableCell className="font-mono text-xs">{c.cpf || "—"}</TableCell>
-                  <TableCell>{c.email || "—"}</TableCell>
-                  <TableCell>{formatDate(c.createdAt)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <>
+          <div className="border rounded-md bg-card overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
+              </TableHeader>
+              <TableBody>
+                {pageItems.map(c => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>{formatPhone(c.phone)}</TableCell>
+                    <TableCell className="font-mono text-xs">{c.cpf || "—"}</TableCell>
+                    <TableCell>{c.email || "—"}</TableCell>
+                    <TableCell>{formatDate(c.createdAt)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ListPagination page={page} pageCount={pageCount} total={total} pageSize={pageSize} onPageChange={setPage} />
+        </>
       )}
       <NewCustomerDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>

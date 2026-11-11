@@ -41,23 +41,23 @@ export default function BillingPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       <PageHeader
         title="Faturamento"
         description="Receita das ordens entregues no período; formas de pagamento vêm da sessão de caixa atual."
         actions={<FilterChips showAll={false} options={PERIODS.map(p => ({ ...p }))} value={period}
-          onChange={v => v !== "all" && setPeriod(v)} />}
+          onChange={v => v !== "all" && setPeriod(v as "7" | "30" | "90")} />}
       />
 
-      <div className="grid gap-3 sm:grid-cols-3 mb-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-5">
         <KpiCard label="Faturamento" icon={TrendingUp} loading={loading} value={formatCurrency(report.total)} hint={`Últimos ${days} dias`} />
         <KpiCard label="Ordens entregues" icon={Receipt} loading={loading} value={report.count} hint={`Últimos ${days} dias`} />
         <KpiCard label="Ticket médio" icon={ShoppingBag} loading={loading}
-          value={formatCurrency(report.count ? report.total / report.count : 0)} />
+          value={formatCurrency(report.count ? report.total / report.count : 0)} hint={`Últimos ${days} dias`} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <ChartCard title="Receita por dia" className="lg:col-span-2" loading={loading} empty={report.total === 0}>
+      <div className="grid gap-4 lg:grid-cols-3 min-w-0">
+        <ChartCard title="Receita por dia" className="lg:col-span-2 min-w-0" loading={loading} empty={report.total === 0}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={report.series}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />

@@ -12,9 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
+import { FiltersDialog } from "@/components/zts/FiltersDialog";
 import { FormField } from "@/components/zts/FormField";
+import { ListPagination } from "@/components/zts/ListPagination";
 import { PageHeader } from "@/components/zts/PageHeader";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { qk, useDepartments, useEmployees, useProfiles } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
@@ -22,7 +25,7 @@ import { formatPhone } from "@/lib/format";
 import type { CreateEmployeeRequest, EmployeeRole } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, UserCog } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const ROLE_LABELS: Record<EmployeeRole, string> = {
@@ -128,50 +131,88 @@ export default function EmployeesPage() {
   const { can } = usePermissions();
   const { data, isPending, error, refetch } = useEmployees();
   const [open, setOpen] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<EmployeeRole[]>([]);
+  const list = data ?? [];
+
+  const roleCounts = useMemo(() => {
+    const map: Partial<Record<EmployeeRole, number>> = {};
+    list.forEach(e => {
+      map[e.role] = (map[e.role] ?? 0) + 1;
+    });
+    return map;
+  }, [list]);
+
+  const filtered = useMemo(
+    () => (roleFilter.length === 0 ? list : list.filter(e => roleFilter.includes(e.role))),
+    [list, roleFilter]
+  );
+
+  const { page, pageCount, total, pageSize, pageItems, setPage, resetPage } =
+    useClientPagination(filtered);
+
+  useEffect(() => {
+    resetPage();
+  }, [roleFilter, resetPage]);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       <PageHeader
         title="Colaboradores"
         description="Equipe, perfis de acesso e setores."
         actions={
-          can("employees.create") && (
-            <Button size="sm" onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" /> Novo colaborador
-            </Button>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            <FiltersDialog
+              title="Função"
+              description="Filtre colaboradores por função."
+              value={roleFilter}
+              onApply={setRoleFilter}
+              options={(Object.keys(ROLE_LABELS) as EmployeeRole[]).map(role => ({
+                value: role,
+                label: ROLE_LABELS[role],
+                count: roleCounts[role] ?? 0,
+              }))}
+            />
+            {can("employees.create") && (
+              <Button size="sm" onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4" /> Novo colaborador
+              </Button>
+            )}
+          </div>
         }
       />
       {isPending ? (
         <TableSkeleton columns={HEADERS.length} headers={HEADERS} />
       ) : error ? (
         <ErrorState message={error.message} onRetry={() => refetch()} />
-      ) : (data ?? []).length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState icon={UserCog} title="Nenhum colaborador cadastrado" />
       ) : (
-        <div className="border rounded-md bg-card overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
-            </TableHeader>
-            <TableBody>
-              {data!.map(e => (
-                <TableRow key={e.id}>
-                  <TableCell className="font-medium">{e.name}</TableCell>
-                  <TableCell>{e.email}</TableCell>
-                  <TableCell>{ROLE_LABELS[e.role] ?? e.role}</TableCell>
-                  <TableCell>{e.profile?.name ?? "—"}</TableCell>
-                  <TableCell>{e.department?.name ?? "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`rounded-sm ${e.isActive ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "bg-muted text-muted-foreground"}`}>
-                      {e.isActive ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <>
+          <div className="border rounded-md bg-card overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
+              </TableHeader>
+              <TableBody>
+                {pageItems.map(e => (
+                  <TableRow key={e.id}>
+                    <TableCell className="font-medium">{e.name}</TableCell>
+                    <TableCell>{e.email}</TableCell>
+                    <TableCell>{ROLE_LABELS[e.role] ?? e.role}</TableCell>
+                    <TableCell>{e.profile?.name ?? "—"}</TableCell>
+                    <TableCell>{e.department?.name ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`rounded-sm ${e.isActive ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "bg-muted text-muted-foreground"}`}>
+                        {e.isActive ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ListPagination page={page} pageCount={pageCount} total={total} pageSize={pageSize} onPageChange={setPage} />
+        </>
       )}
       <NewEmployeeDialog open={open} onOpenChange={setOpen} />
     </div>

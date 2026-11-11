@@ -31,7 +31,7 @@ export default function PerformancePage() {
   }, [data]);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       <PageHeader title="Desempenho" description="Produtividade da bancada e fluxo das ordens de serviço." />
 
       <div className="grid gap-3 sm:grid-cols-3 mb-5">

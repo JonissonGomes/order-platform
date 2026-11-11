@@ -3,17 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
-import { FilterChips } from "@/components/zts/FilterChips";
+import { FiltersDialog } from "@/components/zts/FiltersDialog";
+import { ListPagination } from "@/components/zts/ListPagination";
 import { PageHeader } from "@/components/zts/PageHeader";
 import { StatusBadge } from "@/components/zts/StatusBadge";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { useServiceOrders } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUS_LIST } from "@/lib/orderStatus";
 import type { ServiceOrder, ServiceOrderStatus } from "@/types";
 import { ClipboardList, FilePlus2, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 
 const HEADERS = ["OS", "Cliente", "Aparelho", "Status", "Previsão", "Orçamento"];
@@ -22,7 +24,7 @@ export default function OrdersList() {
   const [, setLocation] = useLocation();
   const { can } = usePermissions();
   const { data, isPending, error, refetch } = useServiceOrders();
-  const [status, setStatus] = useState<ServiceOrderStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<ServiceOrderStatus[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<ServiceOrder | null>(null);
 
@@ -35,7 +37,7 @@ export default function OrdersList() {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return (data ?? [])
-      .filter(o => status === "all" || o.status === status)
+      .filter(o => statusFilter.length === 0 || statusFilter.includes(o.status))
       .filter(
         o =>
           !term ||
@@ -43,10 +45,17 @@ export default function OrdersList() {
             .filter(Boolean)
             .some(v => String(v).toLowerCase().includes(term))
       );
-  }, [data, status, search]);
+  }, [data, statusFilter, search]);
+
+  const { page, pageCount, total, pageSize, pageItems, setPage, resetPage } =
+    useClientPagination(filtered);
+
+  useEffect(() => {
+    resetPage();
+  }, [search, statusFilter, resetPage]);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       <PageHeader
         title="Ordens de serviço"
         description="Acompanhe e atualize os aparelhos na bancada."
@@ -59,15 +68,21 @@ export default function OrdersList() {
         }
       />
 
-      <div className="space-y-3 mb-4">
-        <div className="relative max-w-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} className="pl-8"
-            placeholder="Buscar por OS, cliente, aparelho ou IMEI" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8"
+            placeholder="Buscar por OS, cliente, aparelho ou IMEI"
+          />
         </div>
-        <FilterChips
-          value={status}
-          onChange={setStatus}
+        <FiltersDialog
+          title="Status da OS"
+          description="Marque os status que deseja ver na lista."
+          value={statusFilter}
+          onApply={setStatusFilter}
           options={ORDER_STATUS_LIST.map(s => ({
             value: s,
             label: ORDER_STATUS[s].label,
@@ -81,28 +96,44 @@ export default function OrdersList() {
       ) : error ? (
         <ErrorState message={error.message} onRetry={() => refetch()} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={ClipboardList} title="Nenhuma ordem encontrada"
-          description="Ajuste os filtros ou crie uma nova ordem de serviço." />
+        <EmptyState
+          icon={ClipboardList}
+          title="Nenhuma ordem encontrada"
+          description="Ajuste os filtros ou crie uma nova ordem de serviço."
+        />
       ) : (
-        <div className="border rounded-md bg-card overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map(o => (
-                <TableRow key={o.id} className="cursor-pointer" onClick={() => setSelected(o)}>
-                  <TableCell className="font-mono text-xs font-medium">#{o.orderNumber}</TableCell>
-                  <TableCell>{o.customer?.name ?? "—"}</TableCell>
-                  <TableCell>{o.productBrand} {o.productModel}</TableCell>
-                  <TableCell><StatusBadge status={o.status} /></TableCell>
-                  <TableCell>{formatDate(o.expectedAt)}</TableCell>
-                  <TableCell className="tabular-nums">{formatCurrency(o.estimatedCost)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <>
+          <div className="border rounded-md bg-card overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
+              </TableHeader>
+              <TableBody>
+                {pageItems.map(o => (
+                  <TableRow key={o.id} className="cursor-pointer" onClick={() => setSelected(o)}>
+                    <TableCell className="font-mono text-xs font-medium">#{o.orderNumber}</TableCell>
+                    <TableCell>{o.customer?.name ?? "—"}</TableCell>
+                    <TableCell>
+                      {o.productBrand} {o.productModel}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={o.status} />
+                    </TableCell>
+                    <TableCell>{formatDate(o.expectedAt)}</TableCell>
+                    <TableCell className="tabular-nums">{formatCurrency(o.estimatedCost)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ListPagination
+            page={page}
+            pageCount={pageCount}
+            total={total}
+            pageSize={pageSize}
+            onPageChange={setPage}
+          />
+        </>
       )}
 
       <OrderDetailSheet order={selected} onOpenChange={open => !open && setSelected(null)} />
