@@ -348,15 +348,18 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     toolChoice || tool_choice,
     tools
   );
-  if (normalizedToolChoice && normalizedToolChoice !== "auto" && normalizedToolChoice !== "none") {
-    if (normalizedToolChoice !== "auto" && "function" in normalizedToolChoice) {
-      payload.toolConfig = {
-        functionCallingConfig: {
-          mode: "ANY",
-          allowedFunctionNames: [normalizedToolChoice.function.name],
-        }
-      };
-    }
+  if (
+    normalizedToolChoice &&
+    normalizedToolChoice !== "auto" &&
+    normalizedToolChoice !== "none" &&
+    "function" in normalizedToolChoice
+  ) {
+    payload.toolConfig = {
+      functionCallingConfig: {
+        mode: "ANY",
+        allowedFunctionNames: [normalizedToolChoice.function.name],
+      },
+    };
   }
 
   // Handle response format

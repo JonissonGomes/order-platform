@@ -50,7 +50,7 @@ func AuditMiddleware(auditRepo *repository.AuditLogRepository, employeeRepo *rep
 		employee, err := employeeRepo.GetEmployeeByUserID(ctx, u.ID)
 		if err != nil || employee == nil {
 			// If no employee found, still log but with user info
-			logAuditAction(c, auditRepo, ctx, u, nil, nil)
+			logAuditAction(c, auditRepo, u, nil, nil)
 			return
 		}
 
@@ -60,18 +60,11 @@ func AuditMiddleware(auditRepo *repository.AuditLogRepository, employeeRepo *rep
 			// Department would be populated in handler if needed
 		}
 
-		logAuditAction(c, auditRepo, ctx, u, employee, department)
+		logAuditAction(c, auditRepo, u, employee, department)
 	}
 }
 
-func logAuditAction(
-	c *gin.Context,
-	auditRepo *repository.AuditLogRepository,
-	ctx context.Context,
-	user *models.User,
-	employee *models.Employee,
-	department *models.Department,
-) {
+func logAuditAction(c *gin.Context, auditRepo *repository.AuditLogRepository, user *models.User, employee *models.Employee, department *models.Department) {
 	// Determine action type
 	action := models.ActionUpdate
 	switch c.Request.Method {

@@ -34,22 +34,22 @@ func NewEmployeeHandler(
 }
 
 type CreateEmployeeRequest struct {
-	Email        string             `json:"email" binding:"required,email"`
-	Password     string             `json:"password" binding:"required,min=6"`
-	Name         string             `json:"name" binding:"required"`
-	Phone        string             `json:"phone,omitempty"`
+	Email        string              `json:"email" binding:"required,email"`
+	Password     string              `json:"password" binding:"required,min=6"`
+	Name         string              `json:"name" binding:"required"`
+	Phone        string              `json:"phone,omitempty"`
 	Role         models.EmployeeRole `json:"role" binding:"required"`
-	ProfileID    string             `json:"profileId,omitempty"` // Se vazio, usa o perfil padrão do role
-	DepartmentID string             `json:"departmentId,omitempty"`
+	ProfileID    string              `json:"profileId,omitempty"` // Se vazio, usa o perfil padrão do role
+	DepartmentID string              `json:"departmentId,omitempty"`
 }
 
 type UpdateEmployeeRequest struct {
-	Name         string             `json:"name,omitempty"`
-	Phone        string             `json:"phone,omitempty"`
+	Name         string              `json:"name,omitempty"`
+	Phone        string              `json:"phone,omitempty"`
 	Role         models.EmployeeRole `json:"role,omitempty"`
-	ProfileID    string             `json:"profileId,omitempty"`
-	DepartmentID string             `json:"departmentId,omitempty"`
-	IsActive     *bool              `json:"isActive,omitempty"`
+	ProfileID    string              `json:"profileId,omitempty"`
+	DepartmentID string              `json:"departmentId,omitempty"`
+	IsActive     *bool               `json:"isActive,omitempty"`
 }
 
 // CreateEmployee creates a new employee (creates User + Employee)
@@ -248,9 +248,10 @@ func (h *EmployeeHandler) ListEmployees(c *gin.Context) {
 
 	// Filter by active status
 	if active := c.Query("isActive"); active != "" {
-		if active == "true" {
+		switch active {
+		case "true":
 			filter["isActive"] = true
-		} else if active == "false" {
+		case "false":
 			filter["isActive"] = false
 		}
 	}
