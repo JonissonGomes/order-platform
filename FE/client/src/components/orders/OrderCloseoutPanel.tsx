@@ -12,7 +12,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { qk, useProducts } from "@/hooks/queries";
 import { api } from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatIntegerInput, formatMoneyInput, moneyToInput, parseMoney } from "@/lib/format";
 import type { ServiceOrder } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
@@ -33,7 +33,7 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
   const [report, setReport] = useState(order.technicalReport ?? "");
   const [resolution, setResolution] = useState(order.resolution ?? "");
   const [laborOnly, setLaborOnly] = useState(Boolean(order.laborOnly));
-  const [laborCost, setLaborCost] = useState(String(order.laborCost ?? 0));
+  const [laborCost, setLaborCost] = useState(moneyToInput(order.laborCost ?? 0));
   const [productId, setProductId] = useState("");
   const [qty, setQty] = useState("1");
 
@@ -41,7 +41,7 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
     setReport(order.technicalReport ?? "");
     setResolution(order.resolution ?? "");
     setLaborOnly(Boolean(order.laborOnly));
-    setLaborCost(String(order.laborCost ?? 0));
+    setLaborCost(moneyToInput(order.laborCost ?? 0));
   }, [order.id, order.technicalReport, order.resolution, order.laborOnly, order.laborCost]);
 
   const activeProducts = useMemo(
@@ -61,7 +61,7 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
         technicalReport: report.trim(),
         resolution: resolution.trim(),
         laborOnly,
-        laborCost: Number(laborCost.replace(",", ".")) || 0,
+        laborCost: parseMoney(laborCost),
       }),
     onSuccess: () => {
       invalidate();
@@ -74,7 +74,7 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
     mutationFn: () =>
       api.serviceOrders.addPart(order.id, {
         productId,
-        qty: Math.max(1, Number(qty) || 1),
+        qty: Math.max(1, Number(formatIntegerInput(qty)) || 1),
       }),
     onSuccess: () => {
       setProductId("");
@@ -96,7 +96,7 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
   });
 
   const subtotal = partsSubtotal(order);
-  const labor = Number(laborCost.replace(",", ".")) || 0;
+  const labor = parseMoney(laborCost);
   const total = (order.parts?.length ? subtotal : 0) + labor;
   const hasParts = (order.parts?.length ?? 0) > 0;
 
@@ -139,10 +139,11 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
         <Label htmlFor={`labor-${order.id}`}>Mão de obra (R$)</Label>
         <Input
           id={`labor-${order.id}`}
-          inputMode="decimal"
+          inputMode="numeric"
           value={laborCost}
-          onChange={e => setLaborCost(e.target.value)}
+          onChange={e => setLaborCost(formatMoneyInput(e.target.value))}
           disabled={!canEdit}
+          placeholder="0,00"
           className="bg-card"
         />
       </div>
@@ -242,7 +243,7 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
                 <Input
                   inputMode="numeric"
                   value={qty}
-                  onChange={e => setQty(e.target.value)}
+                  onChange={e => setQty(formatIntegerInput(e.target.value, 4))}
                   className="bg-card"
                 />
               </div>

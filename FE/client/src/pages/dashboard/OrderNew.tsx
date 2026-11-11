@@ -1,7 +1,6 @@
 import { ChecklistField } from "@/components/orders/ChecklistField";
 import {
   CustomerPicker,
-  EMPTY_NEW_CUSTOMER,
   type CustomerValue,
 } from "@/components/orders/CustomerPicker";
 import { Button } from "@/components/ui/button";
@@ -11,13 +10,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/zts/FormField";
 import { PageHeader } from "@/components/zts/PageHeader";
+import { SuggestInput } from "@/components/zts/SuggestInput";
 import { qk, useDepartments } from "@/hooks/queries";
 import { api } from "@/lib/api";
-import { digitsOnly, parseMoney } from "@/lib/format";
+import { brandsForType, modelsForBrand } from "@/lib/deviceCatalog";
+import {
+  digitsOnly,
+  formatImeiInput,
+  formatIntegerInput,
+  formatMoneyInput,
+  parseMoney,
+} from "@/lib/format";
 import { DEFAULT_CHECKLIST, DEVICE_TYPES, SERVICE_TYPES } from "@/lib/orderStatus";
 import type { CreateServiceOrderRequest } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
@@ -28,13 +35,29 @@ export default function OrderNew() {
 
   const [customer, setCustomer] = useState<CustomerValue>({ mode: "existing", id: "" });
   const [device, setDevice] = useState({
-    productType: "Smartphone", productBrand: "", productModel: "", imei: "",
-    serviceType: "", problemDescription: "", departmentId: "",
+    productType: "Smartphone",
+    productBrand: "",
+    productModel: "",
+    imei: "",
+    serviceType: "",
+    problemDescription: "",
+    departmentId: "",
   });
   const [checklist, setChecklist] = useState<string[]>([]);
-  const [budget, setBudget] = useState({ estimatedCost: "", depositAmount: "", warrantyDays: "90", expectedAt: "" });
+  const [budget, setBudget] = useState({
+    estimatedCost: "",
+    depositAmount: "",
+    warrantyDays: "90",
+    expectedAt: "",
+  });
 
   const setDev = (patch: Partial<typeof device>) => setDevice(d => ({ ...d, ...patch }));
+
+  const brandOptions = useMemo(() => brandsForType(device.productType), [device.productType]);
+  const modelOptions = useMemo(
+    () => modelsForBrand(device.productType, device.productBrand),
+    [device.productType, device.productBrand]
+  );
 
   const create = useMutation({
     mutationFn: async () => {
@@ -84,7 +107,7 @@ export default function OrderNew() {
 
   return (
     <form
-      className="max-w-[40rem]"
+      className="mx-auto w-full max-w-[40rem]"
       onSubmit={e => {
         e.preventDefault();
         if (valid) create.mutate();
@@ -102,33 +125,62 @@ export default function OrderNew() {
           <CardHeader className="px-4"><CardTitle className="text-sm">2. Aparelho e defeito</CardTitle></CardHeader>
           <CardContent className="px-4 grid gap-3 sm:grid-cols-3">
             <FormField label="Tipo">
-              <Select value={device.productType} onValueChange={v => setDev({ productType: v })}>
+              <Select
+                value={device.productType}
+                onValueChange={v => setDev({ productType: v, productBrand: "", productModel: "" })}
+              >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>{DEVICE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </FormField>
-            <FormField label="Marca *" htmlFor="brand">
-              <Input id="brand" value={device.productBrand} onChange={e => setDev({ productBrand: e.target.value })} />
+            <FormField label="Marca *" htmlFor="brand" hint="Selecione ou digite">
+              <SuggestInput
+                id="brand"
+                value={device.productBrand}
+                options={brandOptions}
+                placeholder="Ex.: Samsung"
+                onChange={v => setDev({ productBrand: v, productModel: "" })}
+              />
             </FormField>
-            <FormField label="Modelo *" htmlFor="model">
-              <Input id="model" value={device.productModel} onChange={e => setDev({ productModel: e.target.value })} />
+            <FormField label="Modelo *" htmlFor="model" hint="Filtrado pela marca — digite se não achar">
+              <SuggestInput
+                id="model"
+                value={device.productModel}
+                options={modelOptions}
+                placeholder="Ex.: Galaxy A54"
+                onChange={v => setDev({ productModel: v })}
+              />
             </FormField>
-            <FormField label="IMEI / Nº de série" htmlFor="imei" className="sm:col-span-2">
-              <Input id="imei" value={device.imei} className="font-mono"
-                onChange={e => setDev({ imei: e.target.value })} />
+            <FormField label="IMEI / Nº de série (opcional)" htmlFor="imei" className="sm:col-span-2">
+              <Input
+                id="imei"
+                value={device.imei}
+                className="font-mono"
+                onChange={e => setDev({ imei: formatImeiInput(e.target.value) })}
+              />
             </FormField>
-            <FormField label="Serviço">
-              <Select value={device.serviceType} onValueChange={v => setDev({ serviceType: v })}>
+            <FormField label="Serviço (opcional)">
+              <Select
+                value={device.serviceType || undefined}
+                onValueChange={v => setDev({ serviceType: v })}
+              >
                 <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>{SERVICE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </FormField>
             <FormField label="Defeito relatado *" htmlFor="problem" className="sm:col-span-3">
-              <Textarea id="problem" rows={3} value={device.problemDescription}
-                onChange={e => setDev({ problemDescription: e.target.value })} />
+              <Textarea
+                id="problem"
+                rows={3}
+                value={device.problemDescription}
+                onChange={e => setDev({ problemDescription: e.target.value })}
+              />
             </FormField>
-            <FormField label="Setor responsável" className="sm:col-span-3">
-              <Select value={device.departmentId} onValueChange={v => setDev({ departmentId: v })}>
+            <FormField label="Setor responsável (opcional)" className="sm:col-span-3">
+              <Select
+                value={device.departmentId || undefined}
+                onValueChange={v => setDev({ departmentId: v })}
+              >
                 <SelectTrigger className="w-full sm:w-64"><SelectValue placeholder="Padrão" /></SelectTrigger>
                 <SelectContent>
                   {(departments.data ?? []).map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
@@ -139,28 +191,52 @@ export default function OrderNew() {
         </Card>
 
         <Card className="gap-3 py-4">
-          <CardHeader className="px-4"><CardTitle className="text-sm">3. Checklist de entrada</CardTitle></CardHeader>
-          <CardContent className="px-4"><ChecklistField options={DEFAULT_CHECKLIST} value={checklist} onChange={setChecklist} /></CardContent>
+          <CardHeader className="px-4">
+            <CardTitle className="text-sm">3. Checklist de entrada (opcional)</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4">
+            <ChecklistField options={DEFAULT_CHECKLIST} value={checklist} onChange={setChecklist} />
+          </CardContent>
         </Card>
 
         <Card className="gap-3 py-4">
-          <CardHeader className="px-4"><CardTitle className="text-sm">4. Orçamento e prazo</CardTitle></CardHeader>
+          <CardHeader className="px-4">
+            <CardTitle className="text-sm">4. Orçamento e prazo</CardTitle>
+          </CardHeader>
           <CardContent className="px-4 grid gap-3 sm:grid-cols-4">
-            <FormField label="Orçamento (R$)" htmlFor="est">
-              <Input id="est" inputMode="decimal" placeholder="0,00" value={budget.estimatedCost}
-                onChange={e => setBudget(b => ({ ...b, estimatedCost: e.target.value }))} />
+            <FormField label="Orçamento (R$) (opcional)" htmlFor="est">
+              <Input
+                id="est"
+                inputMode="numeric"
+                placeholder="0,00"
+                value={budget.estimatedCost}
+                onChange={e => setBudget(b => ({ ...b, estimatedCost: formatMoneyInput(e.target.value) }))}
+              />
             </FormField>
-            <FormField label="Sinal (R$)" htmlFor="dep">
-              <Input id="dep" inputMode="decimal" placeholder="0,00" value={budget.depositAmount}
-                onChange={e => setBudget(b => ({ ...b, depositAmount: e.target.value }))} />
+            <FormField label="Sinal (R$) (opcional)" htmlFor="dep">
+              <Input
+                id="dep"
+                inputMode="numeric"
+                placeholder="0,00"
+                value={budget.depositAmount}
+                onChange={e => setBudget(b => ({ ...b, depositAmount: formatMoneyInput(e.target.value) }))}
+              />
             </FormField>
-            <FormField label="Garantia (dias)" htmlFor="war">
-              <Input id="war" inputMode="numeric" value={budget.warrantyDays}
-                onChange={e => setBudget(b => ({ ...b, warrantyDays: e.target.value }))} />
+            <FormField label="Garantia (dias) (opcional)" htmlFor="war">
+              <Input
+                id="war"
+                inputMode="numeric"
+                value={budget.warrantyDays}
+                onChange={e => setBudget(b => ({ ...b, warrantyDays: formatIntegerInput(e.target.value, 4) }))}
+              />
             </FormField>
-            <FormField label="Previsão de entrega" htmlFor="exp">
-              <Input id="exp" type="datetime-local" value={budget.expectedAt}
-                onChange={e => setBudget(b => ({ ...b, expectedAt: e.target.value }))} />
+            <FormField label="Previsão de entrega (opcional)" htmlFor="exp">
+              <Input
+                id="exp"
+                type="datetime-local"
+                value={budget.expectedAt}
+                onChange={e => setBudget(b => ({ ...b, expectedAt: e.target.value }))}
+              />
             </FormField>
           </CardContent>
         </Card>

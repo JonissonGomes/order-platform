@@ -6,7 +6,7 @@ import { FormField } from "@/components/zts/FormField";
 import { qk } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
-import { parseMoney } from "@/lib/format";
+import { formatMoneyInput, parseMoney } from "@/lib/format";
 import type { CashMovementKind, CashMovementType, PaymentMethod } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -95,10 +95,11 @@ export function CashEntryForm({ disabled }: { disabled: boolean }) {
         <FormField label="Valor (R$)" htmlFor="entry-amount">
           <Input
             id="entry-amount"
-            inputMode="decimal"
+            inputMode="numeric"
+            placeholder="0,00"
             value={amount}
             disabled={blocked}
-            onChange={e => setAmount(e.target.value)}
+            onChange={e => setAmount(formatMoneyInput(e.target.value))}
           />
         </FormField>
         <FormField label="Descrição" htmlFor="entry-desc">

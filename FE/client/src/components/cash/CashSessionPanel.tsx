@@ -6,7 +6,7 @@ import { FormField } from "@/components/zts/FormField";
 import { qk } from "@/hooks/queries";
 import { api } from "@/lib/api";
 import { PAYMENT_LABELS } from "@/components/cash/QuickSale";
-import { formatCurrency, formatDateTime, parseMoney } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatMoneyInput, parseMoney } from "@/lib/format";
 import type { CashSession, CashSummary, PaymentMethod } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Lock, Unlock } from "lucide-react";
@@ -111,10 +111,10 @@ export function CashSessionPanel({ session, summary, loading, canOpen, canClose 
           >
             <Input
               id="cash-amount"
-              inputMode="decimal"
+              inputMode="numeric"
               placeholder="0,00"
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onChange={e => setAmount(formatMoneyInput(e.target.value))}
             />
           </FormField>
           <FormField className="sm:flex-1 sm:min-w-[12rem]" label="Observações" htmlFor="cash-notes">

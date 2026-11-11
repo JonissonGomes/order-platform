@@ -9,14 +9,20 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/zts/FormField";
+import { SuggestInput } from "@/components/zts/SuggestInput";
 import { qk } from "@/hooks/queries";
 import { api } from "@/lib/api";
-import { parseMoney } from "@/lib/format";
+import {
+  formatIntegerInput,
+  formatMoneyInput,
+  moneyToInput,
+  parseMoney,
+} from "@/lib/format";
 import { generateStoreProductCode, normalizeProductCode } from "@/lib/productCode";
+import { PRODUCT_CATEGORIES } from "@/lib/productCategories";
 import type { Product } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const EMPTY = {
@@ -25,8 +31,8 @@ const EMPTY = {
   category: "",
   cost: "",
   price: "",
-  qty: "0",
-  minQty: "0",
+  qty: "1",
+  minQty: "2",
 };
 
 interface ProductFormDialogProps {
@@ -46,10 +52,7 @@ export function ProductFormDialog({
 }: ProductFormDialogProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(EMPTY);
-  const [codeLocked, setCodeLocked] = useState(false);
   const set = (patch: Partial<typeof EMPTY>) => setForm(f => ({ ...f, ...patch }));
-
-  const originalCode = product?.barcode?.trim() || product?.sku?.trim() || "";
 
   useEffect(() => {
     if (!open) return;
@@ -58,12 +61,11 @@ export function ProductFormDialog({
         name: product.name,
         barcode: product.barcode || product.sku || "",
         category: product.category ?? "",
-        cost: String(product.cost),
-        price: String(product.price),
+        cost: moneyToInput(product.cost),
+        price: moneyToInput(product.price),
         qty: String(product.qty),
         minQty: String(product.minQty),
       });
-      setCodeLocked(false);
       return;
     }
     const fromScan = initialBarcode ? normalizeProductCode(initialBarcode) : "";
@@ -71,17 +73,22 @@ export function ProductFormDialog({
       ...EMPTY,
       barcode: fromScan || generateStoreProductCode(),
     });
-    setCodeLocked(Boolean(fromScan));
   }, [open, product, initialBarcode]);
 
-  const codeChanged =
-    Boolean(product) &&
-    normalizeProductCode(form.barcode) !== "" &&
-    normalizeProductCode(form.barcode) !== normalizeProductCode(originalCode);
+  const qtyNum = Number(form.qty) || 0;
+  const codePreview = useMemo(() => {
+    const code = normalizeProductCode(form.barcode) || generateStoreProductCode();
+    return code;
+  }, [form.barcode]);
 
   const save = useMutation({
     mutationFn: () => {
-      const code = normalizeProductCode(form.barcode) || generateStoreProductCode();
+      // Código sempre automático no cadastro (ou o bipado); não exige campo visível.
+      const code =
+        normalizeProductCode(form.barcode) ||
+        (product
+          ? normalizeProductCode(product.barcode || product.sku || "") || generateStoreProductCode()
+          : generateStoreProductCode());
       const payload = {
         name: form.name.trim(),
         barcode: code,
@@ -93,7 +100,7 @@ export function ProductFormDialog({
       };
       return product
         ? api.products.update(product.id, payload)
-        : api.products.create({ ...payload, qty: Number(form.qty) || 0 });
+        : api.products.create({ ...payload, qty: Math.max(0, qtyNum) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.products });
@@ -103,7 +110,8 @@ export function ProductFormDialog({
     onError: (e: Error) => {
       const msg = e.message || "";
       if (/já existe|conflict|409/i.test(msg)) {
-        toast.error("Este código já está em uso. Gere outro ou informe um diferente.");
+        toast.error("Código interno em conflito. Tente salvar novamente.");
+        set({ barcode: generateStoreProductCode() });
         return;
       }
       toast.error(msg || "Não foi possível salvar");
@@ -116,7 +124,8 @@ export function ProductFormDialog({
         <DialogHeader>
           <DialogTitle>{product ? "Editar produto" : "Novo produto"}</DialogTitle>
           <DialogDescription>
-            Bipe o código da embalagem ou use o código gerado pela loja para etiquetar.
+            Informe nome, categoria, valores e quantidade. O código interno é gerado automaticamente
+            {product ? "." : " com base no cadastro de estoque."}
           </DialogDescription>
         </DialogHeader>
 
@@ -126,83 +135,67 @@ export function ProductFormDialog({
           </FormField>
 
           <FormField
-            label="Código do produto *"
-            htmlFor="p-bar"
+            label="Categoria"
+            htmlFor="p-cat"
             className="sm:col-span-2"
-            hint={
-              codeChanged
-                ? "Você alterou o código. Reimprima a etiqueta — códigos antigos deixam de funcionar na venda."
-                : codeLocked
-                  ? "Código lido do leitor. Toque em Trocar para editar ou gerar outro."
-                  : "Pode bipar, digitar ou gerar um código da loja."
-            }
+            hint="Sugestões da loja — você também pode digitar outra."
           >
-            <div className="flex gap-2">
-              <Input
-                id="p-bar"
-                className="font-mono"
-                value={form.barcode}
-                disabled={codeLocked}
-                onChange={e => set({ barcode: e.target.value })}
-              />
-              {codeLocked ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => setCodeLocked(false)}>
-                  Trocar
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 gap-1.5"
-                  onClick={() => set({ barcode: generateStoreProductCode() })}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Gerar
-                </Button>
-              )}
-            </div>
-          </FormField>
-
-          <FormField label="Categoria" htmlFor="p-cat" className="sm:col-span-2">
-            <Input
+            <SuggestInput
               id="p-cat"
               value={form.category}
-              placeholder="Capas, películas, cabos…"
-              onChange={e => set({ category: e.target.value })}
+              options={[...PRODUCT_CATEGORIES]}
+              placeholder="Ex.: Capas e cases"
+              onChange={v => set({ category: v })}
             />
           </FormField>
 
-          <FormField label="Valor de compra (R$)" htmlFor="p-cost">
+          <FormField label="Valor de compra (R$)" htmlFor="p-cost" hint="Custo interno / estoque">
             <Input
               id="p-cost"
-              inputMode="decimal"
+              inputMode="numeric"
               value={form.cost}
-              onChange={e => set({ cost: e.target.value })}
-              placeholder="Custo interno / estoque"
+              onChange={e => set({ cost: formatMoneyInput(e.target.value) })}
+              placeholder="0,00"
             />
           </FormField>
-          <FormField label="Valor final — cliente (R$)" htmlFor="p-price">
+          <FormField label="Valor final — cliente (R$)" htmlFor="p-price" hint="Lançado na OS / venda">
             <Input
               id="p-price"
-              inputMode="decimal"
+              inputMode="numeric"
               value={form.price}
-              onChange={e => set({ price: e.target.value })}
-              placeholder="Lançado na OS / venda"
+              onChange={e => set({ price: formatMoneyInput(e.target.value) })}
+              placeholder="0,00"
             />
           </FormField>
 
           <FormField
-            label="Quantidade"
+            label="Quantidade em estoque"
             htmlFor="p-qty"
-            hint={product ? "Use “Movimentar” para alterar o estoque." : undefined}
+            hint={
+              product
+                ? "Use “Movimentar” para alterar o estoque."
+                : qtyNum > 0
+                  ? `${qtyNum} unidade${qtyNum === 1 ? "" : "s"} · código gerado automaticamente para etiquetar`
+                  : "Informe a quantidade inicial do lote"
+            }
           >
             <Input
               id="p-qty"
               inputMode="numeric"
               value={form.qty}
               disabled={Boolean(product)}
-              onChange={e => set({ qty: e.target.value })}
+              onChange={e => {
+                const nextQty = formatIntegerInput(e.target.value);
+                // Novo cadastro: garante um código interno fresco ao definir o lote.
+                if (!product) {
+                  set({
+                    qty: nextQty,
+                    barcode: form.barcode || generateStoreProductCode(),
+                  });
+                  return;
+                }
+                set({ qty: nextQty });
+              }}
             />
           </FormField>
           <FormField label="Avisar quando ficar abaixo de" htmlFor="p-min">
@@ -210,9 +203,14 @@ export function ProductFormDialog({
               id="p-min"
               inputMode="numeric"
               value={form.minQty}
-              onChange={e => set({ minQty: e.target.value })}
+              onChange={e => set({ minQty: formatIntegerInput(e.target.value) })}
             />
           </FormField>
+
+          <p className="sm:col-span-2 text-xs text-muted-foreground font-mono">
+            Código interno: {codePreview || "—"}
+            {initialBarcode ? " (lido no bip)" : " (automático)"}
+          </p>
         </div>
 
         <DialogFooter>

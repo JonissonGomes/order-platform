@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormField } from "@/components/zts/FormField";
 import { useCustomers } from "@/hooks/queries";
-import { formatPhone } from "@/lib/format";
+import { formatCpf, formatPhone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
 
@@ -45,7 +45,7 @@ export function CustomerPicker({ value, onChange }: CustomerPickerProps) {
 
   return (
     <div className="space-y-3">
-      <div className="inline-flex border rounded-sm overflow-hidden">
+      <div className="flex flex-wrap gap-2">
         {MODES.map(m => (
           <button
             key={m.key}
@@ -56,8 +56,10 @@ export function CustomerPicker({ value, onChange }: CustomerPickerProps) {
                 : { mode: "existing", id: "" })
             }
             className={cn(
-              "px-3 h-8 text-xs font-medium",
-              value.mode === m.key ? "bg-foreground text-background" : "bg-card text-muted-foreground"
+              "px-3.5 h-9 text-xs font-medium rounded-sm border transition-colors",
+              value.mode === m.key
+                ? "bg-foreground text-background border-foreground"
+                : "bg-card text-muted-foreground border-border hover:bg-muted/60"
             )}
           >
             {m.label}
@@ -102,10 +104,15 @@ export function CustomerPicker({ value, onChange }: CustomerPickerProps) {
             <Input id="c-phone" value={value.data.phone} inputMode="tel"
               onChange={e => setNew({ phone: formatPhone(e.target.value) })} />
           </FormField>
-          <FormField label="CPF" htmlFor="c-cpf">
-            <Input id="c-cpf" value={value.data.cpf} onChange={e => setNew({ cpf: e.target.value })} />
+          <FormField label="CPF (opcional)" htmlFor="c-cpf">
+            <Input
+              id="c-cpf"
+              inputMode="numeric"
+              value={value.data.cpf}
+              onChange={e => setNew({ cpf: formatCpf(e.target.value) })}
+            />
           </FormField>
-          <FormField label="E-mail" htmlFor="c-email" className="sm:col-span-2">
+          <FormField label="E-mail (opcional)" htmlFor="c-email" className="sm:col-span-2">
             <Input id="c-email" type="email" value={value.data.email}
               onChange={e => setNew({ email: e.target.value })} />
           </FormField>

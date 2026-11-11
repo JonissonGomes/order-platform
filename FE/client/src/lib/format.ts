@@ -56,3 +56,47 @@ export function parseMoney(value: string): number {
   const n = Number(normalized.replace(/[^\d.-]/g, ""));
   return Number.isFinite(n) ? n : 0;
 }
+
+/**
+ * Máscara monetária pt-BR enquanto digita (centavos).
+ * Ex.: "1" → "0,01"; "1234" → "12,34".
+ */
+export function formatMoneyInput(raw: string): string {
+  const digits = digitsOnly(raw).slice(0, 12);
+  if (!digits) return "";
+  const value = Number(digits) / 100;
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/** Formata um número já conhecido para o campo monetário. */
+export function moneyToInput(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "";
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/** Inteiro ≥ 0; remove não-dígitos e zeros à esquerda excessivos. */
+export function formatIntegerInput(raw: string, maxDigits = 7): string {
+  const digits = digitsOnly(raw).slice(0, maxDigits);
+  if (!digits) return "";
+  return String(Number(digits));
+}
+
+/** CPF com máscara 000.000.000-00. */
+export function formatCpf(value: string): string {
+  const d = digitsOnly(value).slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+/** IMEI/série: só dígitos/letras, maiúsculas, sem espaços. */
+export function formatImeiInput(value: string): string {
+  return value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 20);
+}
