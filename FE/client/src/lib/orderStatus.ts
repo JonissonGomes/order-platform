@@ -76,4 +76,5 @@ export const DEFAULT_CHECKLIST = [
   "Biometria / Face ID",
   "Sinais de oxidação",
   "Bandeja de chip presente",
+  "Outros",
 ];

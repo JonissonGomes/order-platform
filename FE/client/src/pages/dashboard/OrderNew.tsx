@@ -107,7 +107,7 @@ export default function OrderNew() {
 
   return (
     <form
-      className="mx-auto w-full max-w-[40rem]"
+      className="mx-auto w-full max-w-[48rem]"
       onSubmit={e => {
         e.preventDefault();
         if (valid) create.mutate();
@@ -123,7 +123,7 @@ export default function OrderNew() {
 
         <Card className="gap-3 py-4">
           <CardHeader className="px-4"><CardTitle className="text-sm">2. Aparelho e defeito</CardTitle></CardHeader>
-          <CardContent className="px-4 grid gap-3 sm:grid-cols-3">
+          <CardContent className="px-4 grid gap-3 sm:grid-cols-3 overflow-visible">
             <FormField label="Tipo">
               <Select
                 value={device.productType}
@@ -133,7 +133,7 @@ export default function OrderNew() {
                 <SelectContent>{DEVICE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </FormField>
-            <FormField label="Marca *" htmlFor="brand" hint="Selecione ou digite">
+            <FormField label="Marca *" htmlFor="brand">
               <SuggestInput
                 id="brand"
                 value={device.productBrand}
@@ -142,7 +142,7 @@ export default function OrderNew() {
                 onChange={v => setDev({ productBrand: v, productModel: "" })}
               />
             </FormField>
-            <FormField label="Modelo *" htmlFor="model" hint="Filtrado pela marca — digite se não achar">
+            <FormField label="Modelo *" htmlFor="model">
               <SuggestInput
                 id="model"
                 value={device.productModel}
@@ -203,8 +203,8 @@ export default function OrderNew() {
           <CardHeader className="px-4">
             <CardTitle className="text-sm">4. Orçamento e prazo</CardTitle>
           </CardHeader>
-          <CardContent className="px-4 grid gap-3 sm:grid-cols-4">
-            <FormField label="Orçamento (R$) (opcional)" htmlFor="est">
+          <CardContent className="px-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
+            <FormField label="Orçamento (R$) — opcional" htmlFor="est">
               <Input
                 id="est"
                 inputMode="numeric"
@@ -213,7 +213,7 @@ export default function OrderNew() {
                 onChange={e => setBudget(b => ({ ...b, estimatedCost: formatMoneyInput(e.target.value) }))}
               />
             </FormField>
-            <FormField label="Sinal (R$) (opcional)" htmlFor="dep">
+            <FormField label="Sinal (R$) — opcional" htmlFor="dep">
               <Input
                 id="dep"
                 inputMode="numeric"
@@ -222,7 +222,7 @@ export default function OrderNew() {
                 onChange={e => setBudget(b => ({ ...b, depositAmount: formatMoneyInput(e.target.value) }))}
               />
             </FormField>
-            <FormField label="Garantia (dias) (opcional)" htmlFor="war">
+            <FormField label="Garantia (dias) — opcional" htmlFor="war">
               <Input
                 id="war"
                 inputMode="numeric"
@@ -230,7 +230,7 @@ export default function OrderNew() {
                 onChange={e => setBudget(b => ({ ...b, warrantyDays: formatIntegerInput(e.target.value, 4) }))}
               />
             </FormField>
-            <FormField label="Previsão de entrega (opcional)" htmlFor="exp">
+            <FormField label="Previsão — opcional" htmlFor="exp">
               <Input
                 id="exp"
                 type="datetime-local"
