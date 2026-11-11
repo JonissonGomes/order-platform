@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"order-platform/backend/internal/bootstrap"
 	"order-platform/backend/internal/config"
 	"order-platform/backend/internal/database"
 	"order-platform/backend/internal/handlers"
@@ -58,6 +59,7 @@ func New(db *database.MongoDB) *gin.Engine {
 	auditLogRepo := repository.NewAuditLogRepository(db.Database)
 
 	initializeDefaults(profileRepo, branchRepo)
+	bootstrap.EnsureAdminsFromEnv(context.Background(), userRepo, employeeRepo, profileRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, employeeRepo, profileRepo)

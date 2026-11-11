@@ -11,16 +11,20 @@ import (
 )
 
 type Config struct {
-	Port            string
-	DatabaseURL     string
-	DatabaseName    string
-	JWTSecret       string
-	AdminEmail      string
-	SuperAdminEmail string
-	ForgeAPIURL     string
-	ForgeAPIKey     string
-	Environment     string
-	CORSOrigins     []string
+	Port              string
+	DatabaseURL       string
+	DatabaseName      string
+	JWTSecret         string
+	AdminEmail        string
+	AdminPassword     string // só bootstrap: cria admin se o e-mail ainda não existir
+	AdminName         string
+	SuperAdminEmail   string
+	SuperAdminPassword string // só bootstrap: cria super admin se o e-mail ainda não existir
+	SuperAdminName    string
+	ForgeAPIURL       string
+	ForgeAPIKey       string
+	Environment       string
+	CORSOrigins       []string
 }
 
 var cfg *Config
@@ -49,16 +53,20 @@ func Load() error {
 	}
 
 	cfg = &Config{
-		Port:            getEnv("PORT", "8080"),
-		DatabaseURL:     getEnv("DATABASE_URL", ""),
-		DatabaseName:    getEnv("DATABASE_NAME", "order_platform"),
-		JWTSecret:       getEnv("JWT_SECRET", ""),
-		AdminEmail:      getEnv("ADMIN_EMAIL", ""),
-		SuperAdminEmail: getEnv("SUPER_ADMIN_EMAIL", ""),
-		ForgeAPIURL:     getEnv("BUILT_IN_FORGE_API_URL", ""),
-		ForgeAPIKey:     getEnv("BUILT_IN_FORGE_API_KEY", ""),
-		Environment:     environment,
-		CORSOrigins:     corsOrigins,
+		Port:               getEnv("PORT", "8080"),
+		DatabaseURL:        getEnv("DATABASE_URL", ""),
+		DatabaseName:       getEnv("DATABASE_NAME", "order_platform"),
+		JWTSecret:          getEnv("JWT_SECRET", ""),
+		AdminEmail:         getEnv("ADMIN_EMAIL", ""),
+		AdminPassword:      getEnv("ADMIN_PASSWORD", ""),
+		AdminName:          getEnv("ADMIN_NAME", "Administrador"),
+		SuperAdminEmail:    getEnv("SUPER_ADMIN_EMAIL", ""),
+		SuperAdminPassword: getEnv("SUPER_ADMIN_PASSWORD", ""),
+		SuperAdminName:     getEnv("SUPER_ADMIN_NAME", "Super Admin"),
+		ForgeAPIURL:        getEnv("BUILT_IN_FORGE_API_URL", ""),
+		ForgeAPIKey:        getEnv("BUILT_IN_FORGE_API_KEY", ""),
+		Environment:        environment,
+		CORSOrigins:        corsOrigins,
 	}
 
 	var missing []string
