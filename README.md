@@ -294,11 +294,12 @@ O arquivo `.env` é criado automaticamente a partir de `FE/.env.example` quando 
 Edite `FE/.env` com suas credenciais reais após o setup.
 
 **Variáveis importantes:**
-- `VITE_API_URL`: URL do backend Go
+- `ZTS_API_BASE_URL`: URL do backend Go
   - **Desenvolvimento (Opcional):** 
     - Deixe vazio ou não configure: o frontend usará `/api` que será redirecionado pelo proxy do Vite para `http://localhost:8080` (recomendado)
     - Ou configure `http://localhost:8080`: o frontend fará requisições diretas ao backend
   - **Produção (OBRIGATÓRIO):** `https://api.meusite.com` (URL completa do seu backend)
+- `ZTS_GOOGLE_MAPS_API_KEY` (opcional): chave do Google Maps, se usar mapa no client
 
 **Nota:** Os arquivos `.env.example` contêm templates com todas as variáveis necessárias. Eles são copiados para `.env` automaticamente durante o setup.
 
@@ -313,13 +314,13 @@ A integração entre frontend e backend funciona da seguinte forma:
 
 1. **Desenvolvimento:**
    - O Vite (servidor de desenvolvimento do frontend) está configurado com um proxy que redireciona todas as requisições `/api/*` para o backend Go
-   - **Opção 1 (Recomendada):** Deixe `VITE_API_URL` vazia ou não configure. O frontend usará `/api` que será redirecionado pelo proxy do Vite para `http://localhost:8080`
-   - **Opção 2:** Configure `VITE_API_URL=http://localhost:8080` no frontend. O frontend fará requisições diretas ao backend (sem proxy)
+   - **Opção 1 (Recomendada):** Deixe `ZTS_API_BASE_URL` vazia ou não configure. O frontend usará `/api` que será redirecionado pelo proxy do Vite para `http://localhost:8080`
+   - **Opção 2:** Configure `ZTS_API_BASE_URL=http://localhost:8080` no frontend. O frontend fará requisições diretas ao backend (sem proxy)
    - **Configure `CORS_ORIGINS` no `.env` do backend** com: `http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173`
 
 2. **Produção:**
-   - **Configure obrigatoriamente** a variável `VITE_API_URL` no frontend com a URL completa do seu backend em produção
-     - Exemplo: `VITE_API_URL=https://api.meusite.com`
+   - **Configure obrigatoriamente** a variável `ZTS_API_BASE_URL` no frontend com a URL completa do seu backend em produção
+     - Exemplo: `ZTS_API_BASE_URL=https://api.meusite.com`
    - **Configure obrigatoriamente** a variável `CORS_ORIGINS` no backend com as URLs permitidas (separadas por vírgula)
      - Exemplo: `CORS_ORIGINS=https://meusite.com,https://www.meusite.com`
    - O frontend usará a URL configurada diretamente para fazer requisições à API (sem proxy)

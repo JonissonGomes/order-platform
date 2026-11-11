@@ -7,6 +7,8 @@ const plugins = [react(), tailwindcss()];
 
 export default defineConfig({
   plugins,
+  // Expõe ao client apenas variáveis com prefixo ZTS_ (não usa o padrão VITE_)
+  envPrefix: "ZTS_",
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -29,12 +31,12 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        // Use VITE_API_URL if set, otherwise default to localhost:8080
-        target: process.env.VITE_API_URL || "http://localhost:8080",
+        target: process.env.ZTS_API_BASE_URL || "http://localhost:8080",
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path, // Keep /api prefix
+        rewrite: (path) => path,
       },
     },
   },
 });
+

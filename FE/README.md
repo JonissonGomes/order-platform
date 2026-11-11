@@ -69,25 +69,11 @@ pnpm install
    Crie um arquivo `.env` na raiz do diretório `FE/` com as seguintes variáveis:
 
 ```env
-# Frontend Environment Variables
-# Não há variáveis obrigatórias para o frontend
-# As variáveis abaixo são opcionais
+# URL base da API Go (sem barra no final)
+ZTS_API_BASE_URL=http://localhost:8080
 
-# Gemini API (opcional - para recursos de IA no servidor Node.js)
-# Obtenha sua chave em: https://aistudio.google.com/app/apikey
-BUILT_IN_FORGE_API_KEY=sua-chave-gemini-api
-# Ou use GEMINI_API_KEY como alternativa
-GEMINI_API_KEY=sua-chave-gemini-api
-
-# Google Maps API (opcional - frontend para Mapas)
-VITE_FRONTEND_FORGE_API_URL=https://maps.googleapis.com/maps/api
-VITE_FRONTEND_FORGE_API_KEY=sua-chave-google-maps-api
-
-# Porta do Servidor (opcional, padrão: 3000)
-PORT=3000
-
-# Ambiente
-NODE_ENV=development
+# Google Maps (opcional)
+# ZTS_GOOGLE_MAPS_API_KEY=sua-chave-google-maps
 ```
 
 4. **Configure o backend Go**:
@@ -171,26 +157,14 @@ O sistema utiliza autenticação JWT com email e senha. O frontend faz chamadas 
 
 As requisições incluem cookies automaticamente para manter a sessão.
 
-### Inteligência Artificial (Gemini Flash 2.0)
+### Variáveis de Ambiente (client)
 
-O projeto utiliza o Google Gemini Flash 2.0 para recursos de IA. Para configurar:
+Somente variáveis com prefixo `ZTS_` entram no bundle do browser (`envPrefix` no Vite). Veja `FE/.env.example`:
 
-1. Obtenha uma chave de API em [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Configure a variável `BUILT_IN_FORGE_API_KEY` ou `GEMINI_API_KEY` no arquivo `.env`
-3. A API será usada automaticamente pelo servidor Node.js para recursos de IA
+- `ZTS_API_BASE_URL` — URL da API Go
+- `ZTS_GOOGLE_MAPS_API_KEY` — opcional, mapas
 
-O modelo utilizado é `gemini-2.0-flash-exp` com suporte a:
-- Chat com contexto
-- Geração de texto
-- Análise de imagens
-- Funções/tools
-
-### Variáveis de Ambiente
-
-- **Desenvolvimento**: As variáveis são carregadas do arquivo `.env` na raiz de `FE/`
-- **Produção**: Configure as variáveis de ambiente no seu servidor/hosting
-
-⚠️ **Importante**: Nunca commite o arquivo `.env` com credenciais reais. Use `.env.example` como template.
+⚠️ **Importante**: Nunca commite o arquivo `.env` com credenciais reais. Use `.env.example` como template. Na Vercel, configure `ZTS_API_BASE_URL` apontando para o Render. Valores `ZTS_*` são públicos no JS do client — não coloque segredos.
 
 ## 🏗️ Arquitetura
 

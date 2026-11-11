@@ -1,19 +1,20 @@
 // Cliente HTTP base para a API Go (cookies HTTP-only, credentials: include)
 //
-// VITE_API_URL:
+// ZTS_API_BASE_URL:
 //   - Dev: http://localhost:8080 (ou vazio para usar o proxy /api do Vite)
 //   - Prod: https://api.seusite.com (CORS_ORIGINS deve conter a origem do frontend)
 import { handleApiError, handleHttpError } from "./errors";
 
 const FALLBACK_API_URL = import.meta.env.DEV ? "" : "http://localhost:8080";
 
-export const API_BASE_URL: string = import.meta.env.VITE_API_URL ?? FALLBACK_API_URL;
+export const API_BASE_URL: string =
+  import.meta.env.ZTS_API_BASE_URL ?? FALLBACK_API_URL;
 
-if (!import.meta.env.VITE_API_URL) {
+if (!import.meta.env.ZTS_API_BASE_URL) {
   console.warn(
-    "⚠️ VITE_API_URL não está configurado. " +
+    "⚠️ ZTS_API_BASE_URL não está configurado. " +
       `Usando "${API_BASE_URL || "(proxy /api do Vite)"}". ` +
-      "Configure no .env do frontend: VITE_API_URL=http://localhost:8080 (dev) ou https://api.seusite.com (prod)."
+      "Configure no .env do frontend: ZTS_API_BASE_URL=http://localhost:8080 (dev) ou https://api.seusite.com (prod)."
   );
 }
 
