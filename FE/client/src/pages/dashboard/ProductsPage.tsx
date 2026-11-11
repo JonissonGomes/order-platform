@@ -1,4 +1,5 @@
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
+import { ProductLabelDialog } from "@/components/products/ProductLabelDialog";
 import { StockAdjustDialog } from "@/components/products/StockAdjustDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,13 +17,13 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import type { Product } from "@/types";
-import { Package, Plus, Search } from "lucide-react";
+import { Package, Plus, Search, Tag } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type StockFilter = "ok" | "low" | "out";
 
-const HEADERS = ["Produto", "Código de barras", "Categoria", "Custo", "Preço", "Estoque", ""];
+const HEADERS = ["Produto", "Código", "Categoria", "Custo", "Venda", "Estoque", ""];
 
 export default function ProductsPage() {
   const { can } = usePermissions();
@@ -35,6 +36,7 @@ export default function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [newBarcode, setNewBarcode] = useState<string | undefined>();
   const [adjusting, setAdjusting] = useState<Product | null>(null);
+  const [labeling, setLabeling] = useState<Product | null>(null);
 
   const stockCounts = useMemo(() => {
     const list = data ?? [];
@@ -50,7 +52,10 @@ export default function ProductsPage() {
     return (data ?? []).filter(p => {
       const stock: StockFilter = p.qty <= 0 ? "out" : p.qty <= p.minQty ? "low" : "ok";
       if (stockFilter.length > 0 && !stockFilter.includes(stock)) return false;
-      return !term || [p.name, p.sku, p.barcode, p.category].some(v => v?.toLowerCase().includes(term));
+      return (
+        !term ||
+        [p.name, p.sku, p.barcode, p.category].some(v => v?.toLowerCase().includes(term))
+      );
     });
   }, [data, search, stockFilter]);
 
@@ -67,7 +72,7 @@ export default function ProductsPage() {
     setFormOpen(true);
   };
 
-  // Leitor USB envia o código + Enter: busca no estoque; se não achar, oferece cadastro.
+  // Leitor USB: busca no estoque; se não achar, oferece cadastro com o código lido.
   const handleScan = useCallback(
     async (code: string) => {
       try {
@@ -80,7 +85,7 @@ export default function ProductsPage() {
         throw new Error("not-found");
       } catch {
         if (canWrite) {
-          toast.info(`Código ${code} não cadastrado. Preencha os dados do produto.`);
+          toast.info(`Código ${code} não cadastrado. Complete o cadastro.`);
           openNew(code);
         } else {
           toast.error(`Produto com código ${code} não encontrado.`);
@@ -94,7 +99,7 @@ export default function ProductsPage() {
     <div>
       <PageHeader
         title="Produtos e estoque"
-        description="Acessórios e peças. Bipe um código para localizar ou movimentar."
+        description="Acessórios e peças. Bipe um código para localizar, vender ou cadastrar."
         actions={
           canWrite && (
             <Button size="sm" onClick={() => openNew()}>
@@ -109,8 +114,12 @@ export default function ProductsPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-8" placeholder="Buscar por nome, SKU ou categoria"
-              value={search} onChange={e => setSearch(e.target.value)} />
+            <Input
+              className="pl-8"
+              placeholder="Buscar por nome, código ou categoria"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
           <FiltersDialog
             title="Estoque"
@@ -131,41 +140,65 @@ export default function ProductsPage() {
       ) : error ? (
         <ErrorState message={error.message} onRetry={() => refetch()} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={Package} title="Nenhum produto cadastrado"
-          description="Cadastre produtos ou bipe um código de barras para começar." />
+        <EmptyState
+          icon={Package}
+          title="Nenhum produto cadastrado"
+          description="Cadastre um produto ou bipe um código para começar."
+        />
       ) : (
         <>
           <div className="border rounded-md bg-card overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
+                <TableRow>
+                  {HEADERS.map(h => (
+                    <TableHead key={h}>{h}</TableHead>
+                  ))}
+                </TableRow>
               </TableHeader>
               <TableBody>
                 {pageItems.map(p => {
                   const low = p.qty <= p.minQty;
+                  const code = p.barcode || p.sku || "—";
                   return (
                     <TableRow key={p.id}>
                       <TableCell>
                         <p className="font-medium">{p.name}</p>
-                        {p.sku && <p className="text-xs text-muted-foreground font-mono">{p.sku}</p>}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{p.barcode || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{code}</TableCell>
                       <TableCell>{p.category || "—"}</TableCell>
                       <TableCell className="tabular-nums">{formatCurrency(p.cost)}</TableCell>
                       <TableCell className="tabular-nums">{formatCurrency(p.price)}</TableCell>
                       <TableCell>
                         <span className="tabular-nums font-medium mr-2">{p.qty}</span>
                         {low && (
-                          <Badge variant="outline" className="rounded-sm border-amber-300 bg-amber-50 text-amber-800">
+                          <Badge
+                            variant="outline"
+                            className="rounded-sm border-amber-300 bg-amber-50 text-amber-800"
+                          >
                             Baixo
                           </Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
-                        {canAdjust && <Button variant="ghost" size="sm" onClick={() => setAdjusting(p)}>Movimentar</Button>}
+                        <Button variant="ghost" size="sm" onClick={() => setLabeling(p)}>
+                          <Tag className="h-3.5 w-3.5" /> Etiqueta
+                        </Button>
+                        {canAdjust && (
+                          <Button variant="ghost" size="sm" onClick={() => setAdjusting(p)}>
+                            Movimentar
+                          </Button>
+                        )}
                         {canWrite && (
-                          <Button variant="ghost" size="sm"
-                            onClick={() => { setEditing(p); setFormOpen(true); }}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditing(p);
+                              setNewBarcode(undefined);
+                              setFormOpen(true);
+                            }}
+                          >
                             Editar
                           </Button>
                         )}
@@ -176,12 +209,27 @@ export default function ProductsPage() {
               </TableBody>
             </Table>
           </div>
-          <ListPagination page={page} pageCount={pageCount} total={total} pageSize={pageSize} onPageChange={setPage} />
+          <ListPagination
+            page={page}
+            pageCount={pageCount}
+            total={total}
+            pageSize={pageSize}
+            onPageChange={setPage}
+          />
         </>
       )}
 
-      <ProductFormDialog open={formOpen} onOpenChange={setFormOpen} product={editing} initialBarcode={newBarcode} />
+      <ProductFormDialog
+        open={formOpen}
+        onOpenChange={open => {
+          setFormOpen(open);
+          if (!open) setNewBarcode(undefined);
+        }}
+        product={editing}
+        initialBarcode={newBarcode}
+      />
       <StockAdjustDialog product={adjusting} onOpenChange={open => !open && setAdjusting(null)} />
+      <ProductLabelDialog product={labeling} onOpenChange={open => !open && setLabeling(null)} />
     </div>
   );
 }

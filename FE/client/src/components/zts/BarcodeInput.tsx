@@ -17,7 +17,7 @@ interface BarcodeInputProps {
  */
 export function BarcodeInput({
   onScan,
-  placeholder = "Bipar ou digitar código de barras e pressionar Enter",
+  placeholder = "Bipar ou digitar o código e pressionar Enter",
   disabled,
   autoFocus = true,
 }: BarcodeInputProps) {
