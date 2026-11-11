@@ -137,21 +137,55 @@ export function buildOrderReceiptHtml(order: ServiceOrder): string {
 </html>`;
 }
 
-/** Abre janela de impressão do comprovante (busca detalhe completo da OS). */
-export async function printOrderReceipt(orderId: string): Promise<void> {
-  const order = await api.serviceOrders.get(orderId);
-  const win = window.open("", "_blank", "noopener,width=720,height=900");
+/**
+ * Abre a janela de impressão de forma síncrona (deve rodar no clique do usuário).
+ * Sem `noopener`: com noopener o navegador devolve `null` e o recibo não abre.
+ */
+export function openReceiptPrintWindow(): Window {
+  const win = window.open("", "_blank", "width=720,height=900");
   if (!win) {
     throw new Error("Permita pop-ups para imprimir o comprovante.");
   }
-  win.document.write(buildOrderReceiptHtml(order));
-  win.document.close();
-  win.focus();
-  window.setTimeout(() => {
+  win.document.write(
+    `<!doctype html><title>Comprovante</title><body style="font-family:system-ui;padding:24px;color:#64748b">Gerando comprovante…</body>`
+  );
+  return win;
+}
+
+/** Preenche a janela já aberta e dispara a impressão. Só permite OS entregue. */
+export async function fillAndPrintReceipt(win: Window, orderId: string): Promise<void> {
+  try {
+    const order = await api.serviceOrders.get(orderId);
+    if (order.status !== "delivered") {
+      win.close();
+      throw new Error("O recibo só pode ser emitido após a entrega da OS.");
+    }
+    win.document.open();
+    win.document.write(buildOrderReceiptHtml(order));
+    win.document.close();
+    win.focus();
+    window.setTimeout(() => {
+      try {
+        win.print();
+      } catch {
+        /* ignore */
+      }
+    }, 250);
+  } catch (err) {
     try {
-      win.print();
+      win.close();
     } catch {
       /* ignore */
     }
-  }, 250);
+    throw err;
+  }
+}
+
+/**
+ * Abre o comprovante da OS entregue.
+ * A janela é aberta antes do fetch para não ser bloqueada pelo navegador.
+ */
+export async function printOrderReceipt(orderId: string): Promise<void> {
+  const win = openReceiptPrintWindow();
+  await fillAndPrintReceipt(win, orderId);
 }

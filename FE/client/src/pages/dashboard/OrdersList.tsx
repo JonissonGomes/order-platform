@@ -141,16 +141,20 @@ export default function OrdersList() {
                       {o.finalCost && o.finalCost > 0 ? formatCurrency(o.finalCost) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Imprimir comprovante"
-                        disabled={printingId === o.id}
-                        onClick={e => handlePrint(o, e)}
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
+                      {o.status === "delivered" ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Imprimir recibo"
+                          disabled={printingId === o.id}
+                          onClick={e => handlePrint(o, e)}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span className="inline-block w-8" aria-hidden />
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

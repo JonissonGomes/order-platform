@@ -21,7 +21,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { PAYMENT_LABELS } from "@/components/cash/QuickSale";
-import { printOrderReceipt } from "@/lib/orderReceipt";
+import { fillAndPrintReceipt, openReceiptPrintWindow, printOrderReceipt } from "@/lib/orderReceipt";
 import { NEXT_STATUSES, ORDER_STATUS } from "@/lib/orderStatus";
 import type { PaymentMethod, ServiceOrder, ServiceOrderStatus } from "@/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -71,11 +71,6 @@ function StatusChanger({ order }: { order: ServiceOrder }) {
       queryClient.invalidateQueries({ queryKey: ["service-order", order.id] });
       queryClient.invalidateQueries({ queryKey: qk.products });
       queryClient.invalidateQueries({ queryKey: qk.cash });
-      toast.success(
-        needsPayment
-          ? `Entregue · ${formatCurrency(due)} lançado no caixa`
-          : `Status alterado para ${ORDER_STATUS[status].label}`,
-      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -88,6 +83,41 @@ function StatusChanger({ order }: { order: ServiceOrder }) {
 
   const gateMessage =
     status === "ready" || status === "delivered" ? closeoutReadyMessage(order) : null;
+  const delivering = status === "delivered" && order.status !== "delivered";
+
+  const handleUpdate = async () => {
+    // Abre a janela no clique (antes do await) para o navegador não bloquear o recibo.
+    let receiptWin: Window | null = null;
+    if (delivering) {
+      try {
+        receiptWin = openReceiptPrintWindow();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Não foi possível abrir o recibo");
+        return;
+      }
+    }
+
+    try {
+      await mutation.mutateAsync();
+      toast.success(
+        needsPayment
+          ? `Entregue · ${formatCurrency(due)} lançado no caixa`
+          : `Status alterado para ${ORDER_STATUS[status].label}`,
+      );
+      if (receiptWin) {
+        try {
+          await fillAndPrintReceipt(receiptWin, order.id);
+          toast.message("Recibo pronto para impressão");
+        } catch (printErr) {
+          toast.error(
+            printErr instanceof Error ? printErr.message : "Entrega ok, mas o recibo não abriu",
+          );
+        }
+      }
+    } catch {
+      receiptWin?.close();
+    }
+  };
 
   return (
     <section className="space-y-2 border rounded-md p-3 bg-muted/30">
@@ -127,12 +157,23 @@ function StatusChanger({ order }: { order: ServiceOrder }) {
           {gateMessage}
         </p>
       )}
+      {delivering && !gateMessage && (
+        <p className="text-xs text-muted-foreground">
+          Ao confirmar a entrega, o recibo abre automaticamente para impressão.
+        </p>
+      )}
       <Button
         size="sm"
         disabled={status === order.status || mutation.isPending || Boolean(gateMessage)}
-        onClick={() => mutation.mutate()}
+        onClick={() => void handleUpdate()}
       >
-        {mutation.isPending ? "Salvando…" : needsPayment ? "Entregar e receber" : "Atualizar status"}
+        {mutation.isPending
+          ? "Salvando…"
+          : needsPayment
+            ? "Entregar, receber e emitir recibo"
+            : delivering
+              ? "Entregar e emitir recibo"
+              : "Atualizar status"}
       </Button>
     </section>
   );
@@ -206,17 +247,19 @@ export function OrderDetailSheet({ order: summary, onOpenChange }: OrderDetailSh
                     {order.productBrand} {order.productModel} · {order.customer?.name ?? "Cliente"}
                   </SheetDescription>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  disabled={printing}
-                  onClick={handlePrint}
-                >
-                  <Printer className="h-4 w-4" />
-                  {printing ? "Abrindo…" : "Recibo"}
-                </Button>
+                {order.status === "delivered" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={printing}
+                    onClick={handlePrint}
+                  >
+                    <Printer className="h-4 w-4" />
+                    {printing ? "Abrindo…" : "Recibo"}
+                  </Button>
+                )}
               </div>
             </SheetHeader>
 
