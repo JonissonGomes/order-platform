@@ -60,8 +60,10 @@ export function PortalResult({
             </p>
           </div>
           <div className="text-right">
-            <p className="zts-eyebrow">Previsão</p>
-            <p className="text-sm font-medium font-mono mt-0.5">{formatDate(data.expectedAt)}</p>
+            <p className="zts-eyebrow">{data.deliveredAt ? "Entrega" : "Previsão"}</p>
+            <p className="text-sm font-medium font-mono mt-0.5">
+              {data.deliveredAt ? formatDate(data.deliveredAt) : formatDate(data.expectedAt)}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 text-sm font-medium">

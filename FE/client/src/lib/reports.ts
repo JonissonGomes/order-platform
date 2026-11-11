@@ -15,7 +15,8 @@ export function lastDays(n: number): string[] {
 export const shortDay = (key: string) => key.slice(8, 10) + "/" + key.slice(5, 7);
 
 /** Data em que a OS foi concluída (entregue). */
-export const deliveredAt = (o: ServiceOrder) => o.statusChangedAt ?? o.updatedAt;
+export const deliveredAt = (o: ServiceOrder) =>
+  o.deliveredAt ?? o.statusChangedAt ?? o.updatedAt;
 export const orderValue = (o: ServiceOrder) => o.finalCost ?? o.estimatedCost ?? 0;
 
 const REVENUE_KINDS = new Set(["sale", "os_deposit", "os_balance"]);

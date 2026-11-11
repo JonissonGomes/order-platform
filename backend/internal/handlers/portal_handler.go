@@ -55,6 +55,7 @@ type portalOrderResponse struct {
 	CreatedAt     time.Time                 `json:"createdAt"`
 	UpdatedAt     time.Time                 `json:"updatedAt"`
 	ExpectedAt    *time.Time                `json:"expectedAt,omitempty"`
+	DeliveredAt   *time.Time                `json:"deliveredAt,omitempty"`
 	Timeline      []portalTimelineItem      `json:"timeline"`
 	Messages      []portalMessage           `json:"messages"`
 }
@@ -230,6 +231,7 @@ func buildPortalResponse(order *models.ServiceOrder, history []*models.StatusHis
 		CreatedAt:   order.CreatedAt,
 		UpdatedAt:   order.UpdatedAt,
 		ExpectedAt:  order.ExpectedAt,
+		DeliveredAt: order.DeliveredAt,
 		Timeline:    timeline,
 		Messages:    messages,
 	}

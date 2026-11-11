@@ -131,6 +131,7 @@ export interface PortalLookup {
   createdAt: string;
   updatedAt: string;
   expectedAt?: string;
+  deliveredAt?: string;
   timeline: PortalTimelineEntry[];
   messages: PortalMessage[];
 }

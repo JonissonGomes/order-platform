@@ -166,6 +166,8 @@ export interface ServiceOrder {
   updatedBy: string;
   statusChangedBy?: string;
   statusChangedAt?: string;
+  /** Data efetiva da entrega ao cliente (preenchida ao marcar entregue). */
+  deliveredAt?: string;
 }
 
 export interface ServiceOrderPart {

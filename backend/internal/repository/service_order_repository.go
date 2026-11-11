@@ -70,13 +70,17 @@ func (r *ServiceOrderRepository) AddNote(ctx context.Context, id primitive.Objec
 // (evita corrida entre duas mudanças simultâneas). Retorna false se não houve alteração.
 func (r *ServiceOrderRepository) UpdateStatus(ctx context.Context, id primitive.ObjectID, from, to models.ServiceOrderStatus, changedBy primitive.ObjectID) (bool, error) {
 	now := time.Now()
-	update := bson.M{"$set": bson.M{
+	set := bson.M{
 		"status":          to,
 		"statusChangedBy": changedBy,
 		"statusChangedAt": now,
 		"updatedAt":       now,
 		"updatedBy":       changedBy,
-	}}
+	}
+	if to == models.StatusDelivered {
+		set["deliveredAt"] = now
+	}
+	update := bson.M{"$set": set}
 	result, err := r.collection.UpdateOne(ctx, bson.M{"_id": id, "status": from}, update)
 	if err != nil {
 		return false, err

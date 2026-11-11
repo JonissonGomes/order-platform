@@ -1,6 +1,7 @@
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { statusLabel } from "@/lib/orderStatus";
+import { deliveredAt as orderDeliveredAt } from "@/lib/reports";
 import type { ServiceOrder } from "@/types";
 
 function escapeHtml(value: string) {
@@ -91,6 +92,14 @@ export function buildOrderReceiptHtml(order: ServiceOrder): string {
     <div>
       <div class="label">Serviço</div>
       <div class="value">${escapeHtml(order.serviceType || "—")}</div>
+    </div>
+    <div>
+      <div class="label">Abertura</div>
+      <div class="value">${escapeHtml(formatDateTime(order.createdAt))}</div>
+    </div>
+    <div>
+      <div class="label">Data de entrega</div>
+      <div class="value">${escapeHtml(formatDateTime(orderDeliveredAt(order)))}</div>
     </div>
     <div>
       <div class="label">Previsão</div>

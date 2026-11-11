@@ -20,6 +20,7 @@ import { qk } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { deliveredAt as orderDeliveredAt } from "@/lib/reports";
 import { PAYMENT_LABELS } from "@/components/cash/QuickSale";
 import { fillAndPrintReceipt, openReceiptPrintWindow, printOrderReceipt } from "@/lib/orderReceipt";
 import { NEXT_STATUSES, ORDER_STATUS } from "@/lib/orderStatus";
@@ -271,7 +272,11 @@ export function OrderDetailSheet({ order: summary, onOpenChange }: OrderDetailSh
                 <Info label="IMEI / Série" value={order.imei} />
                 <Info label="Serviço" value={order.serviceType} />
                 <Info label="Técnico" value={order.assignedEmployee?.name} />
+                <Info label="Abertura" value={formatDateTime(order.createdAt)} />
                 <Info label="Previsão" value={formatDate(order.expectedAt)} />
+                {order.status === "delivered" && (
+                  <Info label="Data de entrega" value={formatDateTime(orderDeliveredAt(order))} />
+                )}
                 <Info label="Orçamento" value={formatCurrency(order.estimatedCost)} />
                 <Info label="Sinal" value={formatCurrency(order.depositAmount)} />
                 <Info

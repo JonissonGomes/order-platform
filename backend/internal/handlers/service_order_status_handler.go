@@ -143,8 +143,13 @@ func (h *ServiceOrderHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
+	now := time.Now()
 	order.Status = req.Status
 	order.StatusChangedBy = actor.ID
+	order.StatusChangedAt = now
+	if req.Status == models.StatusDelivered {
+		order.DeliveredAt = &now
+	}
 	h.recordHistory(c, order, previous, req.Status, strings.TrimSpace(req.Notes), actor)
 	h.populateDetails(c, order)
 	h.notifyStatus(order)

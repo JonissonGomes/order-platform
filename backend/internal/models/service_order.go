@@ -61,6 +61,8 @@ type ServiceOrder struct {
 	UpdatedBy       primitive.ObjectID `bson:"updatedBy" json:"updatedBy"`                                 // Employee ID
 	StatusChangedBy primitive.ObjectID `bson:"statusChangedBy,omitempty" json:"statusChangedBy,omitempty"` // Employee ID
 	StatusChangedAt time.Time          `bson:"statusChangedAt,omitempty" json:"statusChangedAt,omitempty"`
+	// Preenchido na transição para delivered (data efetiva de entrega ao cliente).
+	DeliveredAt *time.Time `bson:"deliveredAt,omitempty" json:"deliveredAt,omitempty"`
 }
 
 // ServiceOrderPart é uma peça lançada na OS (price = cliente; cost = interno).
