@@ -23,7 +23,7 @@ const (
 
 type ServiceOrder struct {
 	ID                 primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	OrderNumber        string             `bson:"orderNumber" json:"orderNumber"` // Único, gerado automaticamente
+	OrderNumber        string             `bson:"orderNumber" json:"orderNumber"` // Único, alfanumérico (ex.: K7M2X9PA)
 	BranchID           primitive.ObjectID `bson:"branchId,omitempty" json:"branchId,omitempty"`
 	CustomerID         primitive.ObjectID `bson:"customerId" json:"customerId"`
 	Customer           *Customer          `bson:"-" json:"customer,omitempty"` // Populado em queries

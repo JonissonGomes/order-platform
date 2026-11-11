@@ -240,15 +240,24 @@ func buildPortalResponse(order *models.ServiceOrder, history []*models.StatusHis
 	return resp
 }
 
-// normalizeOrderNumber aceita "OS-1048", "os 1048" ou apenas "1048"
+// normalizeOrderNumber normaliza códigos novos (alfanuméricos) e mantém
+// compatibilidade com OS legadas "OS-1048" / "1048".
 func normalizeOrderNumber(raw string) string {
 	value := strings.ToUpper(strings.TrimSpace(raw))
+	value = strings.TrimPrefix(value, "#")
+	value = strings.ReplaceAll(value, " ", "")
+	value = strings.ReplaceAll(value, "-", "")
+
+	// Legado: só dígitos → OS-NNNN
 	if digits := onlyDigits(value); digits != "" && digits == value {
 		return "OS-" + digits
 	}
-	value = strings.ReplaceAll(value, " ", "-")
-	if strings.HasPrefix(value, "OS") && !strings.HasPrefix(value, "OS-") {
-		value = "OS-" + strings.TrimPrefix(value, "OS")
+	// Legado: "OS1048" → "OS-1048"
+	if strings.HasPrefix(value, "OS") {
+		rest := strings.TrimPrefix(value, "OS")
+		if digits := onlyDigits(rest); digits != "" && digits == rest {
+			return "OS-" + digits
+		}
 	}
 	return value
 }

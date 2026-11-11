@@ -50,7 +50,7 @@ export function PortalResult({
           <div>
             <p className="zts-eyebrow">Ordem de serviço</p>
             <p className="text-2xl font-semibold font-mono tracking-tight mt-0.5">
-              {data.orderNumber.replace(/^OS-?/i, "")}
+              {data.orderNumber.replace(/^OS-/i, "")}
             </p>
           </div>
           <div className="text-right">

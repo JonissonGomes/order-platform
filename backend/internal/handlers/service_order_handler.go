@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -17,8 +16,8 @@ import (
 )
 
 const (
-	orderCounterName  = "service_order"
-	orderCounterStart = 1001
+	orderCodeLength  = 8
+	orderCodeRetries = 8
 )
 
 type ServiceOrderHandler struct {
@@ -28,7 +27,6 @@ type ServiceOrderHandler struct {
 	historyRepo    *repository.StatusHistoryRepository
 	employeeRepo   *repository.EmployeeRepository
 	branchRepo     *repository.BranchRepository
-	counterRepo    *repository.CounterRepository
 	productRepo    *repository.ProductRepository
 	movementRepo   *repository.InventoryMovementRepository
 	notifier       notifications.NotificationChannel
@@ -41,7 +39,6 @@ func NewServiceOrderHandler(
 	historyRepo *repository.StatusHistoryRepository,
 	employeeRepo *repository.EmployeeRepository,
 	branchRepo *repository.BranchRepository,
-	counterRepo *repository.CounterRepository,
 	productRepo *repository.ProductRepository,
 	movementRepo *repository.InventoryMovementRepository,
 	notifier notifications.NotificationChannel,
@@ -56,7 +53,6 @@ func NewServiceOrderHandler(
 		historyRepo:    historyRepo,
 		employeeRepo:   employeeRepo,
 		branchRepo:     branchRepo,
-		counterRepo:    counterRepo,
 		productRepo:    productRepo,
 		movementRepo:   movementRepo,
 		notifier:       notifier,
@@ -162,7 +158,7 @@ func (h *ServiceOrderHandler) GetServiceOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"order": order, "history": history})
 }
 
-// CreateServiceOrder cria uma ordem com número sequencial (OS-1001, OS-1002, ...)
+// CreateServiceOrder cria uma ordem com código alfanumérico único (sem prefixo OS-).
 func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 	var req CreateServiceOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -180,17 +176,29 @@ func (h *ServiceOrderHandler) CreateServiceOrder(c *gin.Context) {
 		return
 	}
 
-	seq, err := h.counterRepo.Next(ctx, orderCounterName, orderCounterStart)
-	if err != nil {
+	var created bool
+	for attempt := 0; attempt < orderCodeRetries; attempt++ {
+		code, err := utils.RandomOrderCode(orderCodeLength)
+		if err != nil {
+			utils.RespondWithInternalError(c)
+			return
+		}
+		order.OrderNumber = code
+		if err := h.orderRepo.CreateServiceOrder(ctx, order); err != nil {
+			if isDuplicateKey(err) {
+				continue
+			}
+			utils.RespondWithInternalError(c)
+			return
+		}
+		created = true
+		break
+	}
+	if !created {
 		utils.RespondWithInternalError(c)
 		return
 	}
-	order.OrderNumber = fmt.Sprintf("OS-%d", seq)
 
-	if err := h.orderRepo.CreateServiceOrder(ctx, order); err != nil {
-		utils.RespondWithInternalError(c)
-		return
-	}
 	h.recordHistory(c, order, "", models.StatusPending, "Ordem de serviço criada", actor)
 
 	order.StatusLabel = models.StatusLabel(order.Status)

@@ -55,7 +55,6 @@ func New(db *database.MongoDB) *gin.Engine {
 	productRepo := repository.NewProductRepository(db.Database)
 	movementRepo := repository.NewInventoryMovementRepository(db.Database)
 	cashRepo := repository.NewCashSessionRepository(db.Database)
-	counterRepo := repository.NewCounterRepository(db.Database)
 	auditLogRepo := repository.NewAuditLogRepository(db.Database)
 
 	initializeDefaults(profileRepo, branchRepo)
@@ -73,7 +72,7 @@ func New(db *database.MongoDB) *gin.Engine {
 		customer:   handlers.NewCustomerHandler(customerRepo, branchRepo),
 		serviceOrder: handlers.NewServiceOrderHandler(
 			serviceOrderRepo, customerRepo, departmentRepo, statusHistoryRepo,
-			employeeRepo, branchRepo, counterRepo, productRepo, movementRepo,
+			employeeRepo, branchRepo, productRepo, movementRepo,
 			notifications.NoopChannel{},
 		),
 		product:  handlers.NewProductHandler(productRepo, movementRepo, branchRepo),
