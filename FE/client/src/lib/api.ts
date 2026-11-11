@@ -1,40 +1,51 @@
-// API client for REST API calls to Go backend
-// 
-// IMPORTANTE: VITE_API_URL deve ser configurado sempre (dev e prod)
-// 
-// Development:
-//   - Configure VITE_API_URL=http://localhost:8080 no .env
-//   - Configure CORS_ORIGINS no backend com as URLs do frontend
-//   - O backend valida a origem via CORS para segurança
-//
-// Production:
-//   - Configure VITE_API_URL=https://api.seusite.com no .env
-//   - Configure CORS_ORIGINS no backend com as URLs permitidas
-//   - Use HTTPS sempre em produção
-//
-// Segurança:
-//   - CORS está configurado no backend para validar origens
-//   - Cookies são HTTP-only e SameSite para proteção CSRF
-//   - Credentials são enviados apenas para a origem configurada
+// API client (REST - backend Go). Ver apiClient.ts para configuração de base URL.
+// Contrato de rotas/respostas espelha backend/internal/router (chaves envelopadas: { orders }, { order }, ...).
+import { fetchAPI, itemOf, jsonBody, listOf, qs } from "./apiClient";
+import type {
+  AdjustStockRequest,
+  AuthMe,
+  Branch,
+  CashMovement,
+  CashSession,
+  CashSessionMovements,
+  CashSessionState,
+  CloseCashRequest,
+  CreateCashMovementRequest,
+  CreateCustomerRequest,
+  CreateDepartmentRequest,
+  CreateEmployeeRequest,
+  CreateProductRequest,
+  CreateProfileRequest,
+  CreateServiceOrderRequest,
+  Customer,
+  Department,
+  Employee,
+  InventoryMovement,
+  Note,
+  OpenCashRequest,
+  PortalLookup,
+  PortalLookupRequest,
+  Product,
+  Profile,
+  ServiceOrder,
+  ServiceOrderFilters,
+  StatusHistory,
+  UpdateCustomerRequest,
+  UpdateDepartmentRequest,
+  UpdateEmployeeRequest,
+  UpdateProductRequest,
+  UpdateProfileRequest,
+  UpdateServiceOrderRequest,
+  UpdateServiceOrderStatusRequest,
+} from "@/types";
 
-import { handleHttpError, handleApiError } from "./errors";
-
-// VITE_API_URL é obrigatório para garantir segurança e consistência
-const API_BASE_URL = import.meta.env.VITE_API_URL;
-
-if (!API_BASE_URL) {
-  console.error(
-    "⚠️ VITE_API_URL não está configurado! " +
-    "Configure no arquivo .env do frontend. " +
-    "Exemplo: VITE_API_URL=http://localhost:8080 (dev) ou https://api.seusite.com (prod)"
-  );
-}
+export { API_BASE_URL } from "./apiClient";
 
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "super_admin";
 }
 
 export interface LoginRequest {
@@ -52,61 +63,151 @@ export interface AuthResponse {
   user: User;
 }
 
-async function fetchAPI<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  
-  let response: Response;
-  
-  try {
-    response = await fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      credentials: "include", // Important for cookies
-    });
-  } catch (error) {
-    // Network error (no response from server)
-    const apiError = handleApiError(error);
-    throw new Error(apiError.message);
-  }
+/** Tamanho de página máximo aceito pelo backend (maxPageSize). */
+const PAGE_LIMIT = 200;
 
-  if (!response.ok) {
-    // HTTP error (response received but status is not ok)
-    const apiError = await handleHttpError(response);
-    throw new Error(apiError.message);
-  }
+const send = (method: string, data?: unknown): RequestInit => ({
+  method,
+  ...(data === undefined ? {} : jsonBody(data)),
+});
 
-  return response.json();
+/** Gera os métodos CRUD padrão de um recurso REST. */
+function crud<T, C, U>(base: string, listKey: string, itemKey: string) {
+  return {
+    list: async (params?: object) =>
+      listOf<T>(await fetchAPI<unknown>(`${base}${qs({ limit: PAGE_LIMIT, ...params })}`), listKey),
+    get: async (id: string) => itemOf<T>(await fetchAPI<unknown>(`${base}/${id}`), itemKey),
+    create: async (data: C) =>
+      itemOf<T>(await fetchAPI<unknown>(base, send("POST", data)), itemKey),
+    update: async (id: string, data: U) =>
+      itemOf<T>(await fetchAPI<unknown>(`${base}/${id}`, send("PUT", data)), itemKey),
+  };
 }
 
+/** Retorna user + employee + permissions. Backends antigos devolvem só `user`. */
+async function me(): Promise<AuthMe> {
+  const res = await fetchAPI<Partial<AuthMe>>("/api/auth/me");
+  return {
+    user: res?.user ?? null,
+    employee: res?.employee ?? undefined,
+    permissions: Array.isArray(res?.permissions) ? res.permissions : [],
+  };
+}
+
+const serviceOrderCrud = crud<
+  ServiceOrder,
+  CreateServiceOrderRequest,
+  UpdateServiceOrderRequest
+>("/api/service-orders", "orders", "order");
+
+const productCrud = crud<Product, CreateProductRequest, UpdateProductRequest>(
+  "/api/products", "products", "product"
+);
+
 export const api = {
-  // Auth endpoints
-  async login(data: LoginRequest): Promise<AuthResponse> {
-    return fetchAPI<AuthResponse>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+  // Auth
+  login: (data: LoginRequest) => fetchAPI<AuthResponse>("/api/auth/login", send("POST", data)),
+  register: (data: RegisterRequest) =>
+    fetchAPI<AuthResponse>("/api/auth/register", send("POST", data)),
+  me,
+  /** Alias retrocompatível. */
+  getMe: me,
+  logout: () => fetchAPI<{ success: boolean }>("/api/auth/logout", send("POST")),
+
+  // Colaboradores / perfis / setores / filiais
+  employees: crud<Employee, CreateEmployeeRequest, UpdateEmployeeRequest>(
+    "/api/employees", "employees", "employee"
+  ),
+  profiles: crud<Profile, CreateProfileRequest, UpdateProfileRequest>(
+    "/api/profiles", "profiles", "profile"
+  ),
+  departments: crud<Department, CreateDepartmentRequest, UpdateDepartmentRequest>(
+    "/api/departments", "departments", "department"
+  ),
+  branches: {
+    list: async () => listOf<Branch>(await fetchAPI<unknown>("/api/branches"), "branches"),
   },
 
-  async register(data: RegisterRequest): Promise<AuthResponse> {
-    return fetchAPI<AuthResponse>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+  // Clientes (busca: ?q=)
+  customers: crud<Customer, CreateCustomerRequest, UpdateCustomerRequest>(
+    "/api/customers", "customers", "customer"
+  ),
+
+  // Ordens de serviço
+  serviceOrders: {
+    ...serviceOrderCrud,
+    list: (filters?: ServiceOrderFilters) => serviceOrderCrud.list(filters),
+    /** GET /:id devolve { order, history }; o histórico é anexado em statusHistory. */
+    get: async (id: string): Promise<ServiceOrder> => {
+      const res = await fetchAPI<{ order: ServiceOrder; history?: StatusHistory[] }>(
+        `/api/service-orders/${id}`
+      );
+      return { ...res.order, statusHistory: res.history ?? [] };
+    },
+    updateStatus: async (id: string, data: UpdateServiceOrderStatusRequest) =>
+      itemOf<ServiceOrder>(
+        await fetchAPI<unknown>(`/api/service-orders/${id}/status`, send("PATCH", data)),
+        "order"
+      ),
+    addNote: async (id: string, content: string, isPublic = false) =>
+      itemOf<Note>(
+        await fetchAPI<unknown>(
+          `/api/service-orders/${id}/notes`,
+          send("POST", { content, isPublic })
+        ),
+        "note"
+      ),
   },
 
-  async getMe(): Promise<{ user: User | null }> {
-    return fetchAPI<{ user: User | null }>("/api/auth/me");
+  // Produtos / estoque (busca: ?q=, ?lowStock=true)
+  products: {
+    ...productCrud,
+    byBarcode: async (code: string) =>
+      itemOf<Product>(
+        await fetchAPI<unknown>(`/api/products/barcode/${encodeURIComponent(code)}`),
+        "product"
+      ),
+    adjust: async (id: string, data: AdjustStockRequest) =>
+      fetchAPI<{ product: Product; movement: InventoryMovement }>(
+        `/api/products/${id}/adjust`,
+        send("POST", data)
+      ),
+    movements: async (productId: string) =>
+      listOf<InventoryMovement>(
+        await fetchAPI<unknown>(`/api/products/${productId}/movements`),
+        "movements"
+      ),
   },
 
-  async logout(): Promise<{ success: boolean }> {
-    return fetchAPI<{ success: boolean }>("/api/auth/logout", {
-      method: "POST",
-    });
+  // Caixa
+  cash: {
+    /** Sessão aberta da filial (session = null se fechado) + resumo. */
+    current: async (): Promise<CashSessionState> => {
+      const res = await fetchAPI<Partial<CashSessionState>>("/api/cash/session");
+      return { session: res?.session?.id ? res.session : null, summary: res?.summary };
+    },
+    open: async (data: OpenCashRequest) =>
+      itemOf<CashSession>(await fetchAPI<unknown>("/api/cash/open", send("POST", data)), "session"),
+    close: async (data: CloseCashRequest) =>
+      itemOf<CashSession>(await fetchAPI<unknown>("/api/cash/close", send("POST", data)), "session"),
+    sessionMovements: async (sessionId: string): Promise<CashSessionMovements> => {
+      const res = await fetchAPI<Partial<CashSessionMovements>>(
+        `/api/cash/sessions/${sessionId}/movements`
+      );
+      return {
+        session: res?.session ?? null,
+        movements: Array.isArray(res?.movements) ? res.movements : [],
+        summary: res?.summary,
+      };
+    },
+    addMovement: async (data: CreateCashMovementRequest) =>
+      itemOf<CashMovement>(
+        await fetchAPI<unknown>("/api/cash/movements", send("POST", data)),
+        "movement"
+      ),
   },
+
+  // Portal público do cliente (sem autenticação)
+  portalLookup: async (data: PortalLookupRequest) =>
+    itemOf<PortalLookup>(await fetchAPI<unknown>("/api/portal/lookup", send("POST", data)), "order"),
 };

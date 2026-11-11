@@ -39,6 +39,7 @@ type CreateEmployeeRequest struct {
 	Name         string             `json:"name" binding:"required"`
 	Phone        string             `json:"phone,omitempty"`
 	Role         models.EmployeeRole `json:"role" binding:"required"`
+	ProfileID    string             `json:"profileId,omitempty"` // Se vazio, usa o perfil padrão do role
 	DepartmentID string             `json:"departmentId,omitempty"`
 }
 
@@ -46,6 +47,7 @@ type UpdateEmployeeRequest struct {
 	Name         string             `json:"name,omitempty"`
 	Phone        string             `json:"phone,omitempty"`
 	Role         models.EmployeeRole `json:"role,omitempty"`
+	ProfileID    string             `json:"profileId,omitempty"`
 	DepartmentID string             `json:"departmentId,omitempty"`
 	IsActive     *bool              `json:"isActive,omitempty"`
 }
@@ -60,16 +62,14 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	if middleware.GetUserFromContext(c) == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
-	// Get current employee to use as createdBy
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		utils.RespondWithForbidden(c, "")
+	// Colaborador atual (ou super admin) é usado como createdBy
+	currentEmployee := requireActor(c)
+	if currentEmployee == nil {
 		return
 	}
 
@@ -91,6 +91,18 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 		return
 	}
 
+	// Valida departamento e perfil antes de criar o usuário (evita usuários órfãos)
+	departmentID, err := parseOptionalID(req.DepartmentID)
+	if err != nil {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
+		return
+	}
+	profile, status, msg := h.resolveProfile(c, req.ProfileID, req.Role)
+	if profile == nil {
+		utils.RespondWithError(c, status, msg)
+		return
+	}
+
 	// Hash password
 	hashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
@@ -108,29 +120,6 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 
 	if err := h.userRepo.CreateUser(ctx, user); err != nil {
 		utils.RespondWithInternalError(c)
-		return
-	}
-
-	// Parse department ID if provided
-	var departmentID primitive.ObjectID
-	if req.DepartmentID != "" {
-		departmentID, err = primitive.ObjectIDFromHex(req.DepartmentID)
-		if err != nil {
-			utils.RespondWithBadRequest(c, utils.ErrInvalidID)
-			return
-		}
-	}
-
-	// Map EmployeeRole to Profile (CCD-Connect pattern)
-	// Buscar perfil correspondente ao role
-	profileName := mapRoleToProfileName(req.Role)
-	profile, err := h.profileRepo.GetProfileByName(ctx, profileName)
-	if err != nil {
-		utils.RespondWithInternalError(c)
-		return
-	}
-	if profile == nil {
-		utils.RespondWithBadRequest(c, "")
 		return
 	}
 
@@ -168,6 +157,36 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 			"isActive":     employee.IsActive,
 		},
 	})
+}
+
+// resolveProfile retorna o perfil pelo ID informado ou, se vazio, o perfil padrão do role.
+// Em caso de erro retorna profile nil com o status HTTP e a mensagem a responder.
+func (h *EmployeeHandler) resolveProfile(c *gin.Context, rawProfileID string, role models.EmployeeRole) (*models.Profile, int, string) {
+	ctx := c.Request.Context()
+
+	var profile *models.Profile
+	var err error
+	if rawProfileID != "" {
+		profileID, idErr := primitive.ObjectIDFromHex(rawProfileID)
+		if idErr != nil {
+			return nil, http.StatusBadRequest, utils.ErrInvalidID
+		}
+		profile, err = h.profileRepo.GetProfileByID(ctx, profileID)
+	} else {
+		profile, err = h.profileRepo.GetProfileByName(ctx, mapRoleToProfileName(role))
+	}
+
+	if err != nil {
+		return nil, http.StatusInternalServerError, utils.ErrInternalServer
+	}
+	if profile == nil || !profile.IsActive {
+		return nil, http.StatusBadRequest, utils.ErrProfileNotFound
+	}
+	// Impede conceder um perfil com mais privilégios do que o usuário atual possui
+	if !canGrantPermissions(c, profile.Permissions) {
+		return nil, http.StatusForbidden, utils.ErrForbidden
+	}
+	return profile, 0, ""
 }
 
 // mapRoleToProfileName mapeia EmployeeRole para nome do Profile
@@ -261,15 +280,13 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	currentUser := middleware.GetUserFromContext(c)
-	if currentUser == nil {
+	if middleware.GetUserFromContext(c) == nil {
 		utils.RespondWithUnauthorized(c, utils.ErrUnauthorized)
 		return
 	}
 
-	currentEmployee, err := h.employeeRepo.GetEmployeeByUserID(ctx, currentUser.ID)
-	if err != nil || currentEmployee == nil {
-		utils.RespondWithForbidden(c, "")
+	currentEmployee := requireActor(c)
+	if currentEmployee == nil {
 		return
 	}
 
@@ -293,6 +310,14 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 	}
 	if req.Role != "" {
 		employee.Role = req.Role
+	}
+	if req.ProfileID != "" {
+		profile, status, msg := h.resolveProfile(c, req.ProfileID, employee.Role)
+		if profile == nil {
+			utils.RespondWithError(c, status, msg)
+			return
+		}
+		employee.ProfileID = profile.ID
 	}
 	if req.DepartmentID != "" {
 		departmentID, err := primitive.ObjectIDFromHex(req.DepartmentID)

@@ -27,6 +27,26 @@ const (
 	ErrInvalidID              = "ID inválido"
 	ErrMaxSuperAdmins         = "Limite máximo de super administradores atingido"
 	ErrEmailAlreadyExists     = "Este email já está em uso"
+
+	ErrDuplicateRecord        = "Já existe um registro com estes dados"
+	ErrBranchNotFound         = "Filial não encontrada"
+	ErrCustomerNotFound       = "Cliente não encontrado"
+	ErrProductNotFound        = "Produto não encontrado"
+	ErrOrderNotFound          = "Ordem de serviço não encontrada"
+	ErrEmployeeNotFound       = "Colaborador não encontrado"
+	ErrProfileNotFound        = "Perfil não encontrado"
+	ErrInvalidStatus          = "Status inválido"
+	ErrInvalidStatusTransition = "Transição de status não permitida"
+	ErrStatusChangeForbidden  = "Você não tem permissão para alterar para este status"
+	ErrStatusConflict         = "O status da ordem foi alterado por outra pessoa. Atualize e tente novamente"
+	ErrInsufficientStock      = "Estoque insuficiente para esta operação"
+	ErrInvalidQuantity        = "Quantidade inválida"
+	ErrCashAlreadyOpen        = "Já existe um caixa aberto nesta filial"
+	ErrCashNotOpen            = "Não há caixa aberto nesta filial"
+	ErrInvalidPaymentMethod   = "Forma de pagamento inválida"
+	ErrInvalidAmount          = "Valor inválido"
+	ErrDefaultProfileLocked   = "O nome e o status de perfis padrão não podem ser alterados"
+	ErrPortalNotFound         = "Ordem não encontrada. Verifique o número e os 4 últimos dígitos do telefone"
 )
 
 // RespondWithError sends a standardized error response

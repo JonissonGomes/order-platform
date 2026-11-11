@@ -16,12 +16,20 @@ import (
 )
 
 type AuthHandler struct {
-	userRepo *repository.UserRepository
+	userRepo     *repository.UserRepository
+	employeeRepo *repository.EmployeeRepository
+	profileRepo  *repository.ProfileRepository
 }
 
-func NewAuthHandler(userRepo *repository.UserRepository) *AuthHandler {
+func NewAuthHandler(
+	userRepo *repository.UserRepository,
+	employeeRepo *repository.EmployeeRepository,
+	profileRepo *repository.ProfileRepository,
+) *AuthHandler {
 	return &AuthHandler{
-		userRepo: userRepo,
+		userRepo:     userRepo,
+		employeeRepo: employeeRepo,
+		profileRepo:  profileRepo,
 	}
 }
 
@@ -203,14 +211,27 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
-// GetMe returns the current authenticated user
+// GetMe retorna o usuário autenticado, seu colaborador (com perfil) e as permissões efetivas.
+// Usa o contexto preenchido por LoadEmployeeContext; se ausente, resolve diretamente.
 func (h *AuthHandler) GetMe(c *gin.Context) {
 	user := middleware.GetUserFromContext(c)
 	if user == nil {
-		c.JSON(http.StatusOK, gin.H{"user": nil})
+		c.JSON(http.StatusOK, gin.H{"user": nil, "employee": nil, "permissions": []string{}})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": user})
+
+	employee := middleware.GetEmployeeFromContext(c)
+	permissions := middleware.GetPermissionsFromContext(c)
+	if _, loaded := c.Get(middleware.PermissionsContextKey); !loaded {
+		var err error
+		employee, permissions, err = middleware.ResolveAccess(c.Request.Context(), user, h.employeeRepo, h.profileRepo)
+		if err != nil {
+			utils.RespondWithInternalError(c)
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"user": user, "employee": employee, "permissions": permissions})
 }
 
 // Logout logs out the current user

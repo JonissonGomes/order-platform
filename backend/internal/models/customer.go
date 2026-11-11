@@ -8,8 +8,9 @@ import (
 
 type Customer struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	BranchID  primitive.ObjectID `bson:"branchId,omitempty" json:"branchId,omitempty"`
 	Name      string             `bson:"name" json:"name"`
-	CPF       string             `bson:"cpf" json:"cpf"` // Único, indexado
+	CPF       string             `bson:"cpf,omitempty" json:"cpf"` // Único (quando informado), indexado
 	Phone     string             `bson:"phone" json:"phone"`
 	Email     string             `bson:"email,omitempty" json:"email,omitempty"`
 	Address   *Address           `bson:"address,omitempty" json:"address,omitempty"`

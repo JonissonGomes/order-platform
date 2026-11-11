@@ -1,0 +1,158 @@
+package handlers
+
+import (
+	"net/http"
+	"strings"
+	"time"
+
+	"order-platform/backend/internal/models"
+	"order-platform/backend/internal/repository"
+	"order-platform/backend/internal/utils"
+
+	"github.com/gin-gonic/gin"
+)
+
+// PortalHandler expõe o acompanhamento público da ordem para o cliente
+type PortalHandler struct {
+	orderRepo    *repository.ServiceOrderRepository
+	customerRepo *repository.CustomerRepository
+	historyRepo  *repository.StatusHistoryRepository
+}
+
+func NewPortalHandler(
+	orderRepo *repository.ServiceOrderRepository,
+	customerRepo *repository.CustomerRepository,
+	historyRepo *repository.StatusHistoryRepository,
+) *PortalHandler {
+	return &PortalHandler{orderRepo: orderRepo, customerRepo: customerRepo, historyRepo: historyRepo}
+}
+
+type PortalLookupRequest struct {
+	OrderNumber string `json:"orderNumber" binding:"required"`
+	PhoneLast4  string `json:"phoneLast4" binding:"required"`
+}
+
+type portalTimelineItem struct {
+	Status      models.ServiceOrderStatus `json:"status"`
+	StatusLabel string                    `json:"statusLabel"`
+	At          time.Time                 `json:"at"`
+}
+
+type portalMessage struct {
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type portalOrderResponse struct {
+	OrderNumber string                    `json:"orderNumber"`
+	Status      models.ServiceOrderStatus `json:"status"`
+	StatusLabel string                    `json:"statusLabel"`
+	Device      string                    `json:"device"`
+	ServiceType string                    `json:"serviceType,omitempty"`
+	CreatedAt   time.Time                 `json:"createdAt"`
+	UpdatedAt   time.Time                 `json:"updatedAt"`
+	ExpectedAt  *time.Time                `json:"expectedAt,omitempty"`
+	Timeline    []portalTimelineItem      `json:"timeline"`
+	Messages    []portalMessage           `json:"messages"`
+}
+
+// Lookup (público) retorna o andamento sanitizado da ordem, sem valores internos.
+// Valida o número da ordem + 4 últimos dígitos do telefone do cliente; qualquer falha
+// retorna a mesma resposta 404 para não revelar quais ordens existem.
+func (h *PortalHandler) Lookup(c *gin.Context) {
+	var req PortalLookupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondWithBadRequest(c, utils.SanitizeValidationError(err))
+		return
+	}
+
+	last4 := onlyDigits(req.PhoneLast4)
+	if len(last4) != 4 {
+		utils.RespondWithBadRequest(c, "Informe os 4 últimos dígitos do telefone")
+		return
+	}
+
+	ctx := c.Request.Context()
+	order, err := h.orderRepo.GetServiceOrderByOrderNumber(ctx, normalizeOrderNumber(req.OrderNumber))
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if order == nil {
+		utils.RespondWithNotFound(c, utils.ErrPortalNotFound)
+		return
+	}
+
+	customer, err := h.customerRepo.GetCustomerByID(ctx, order.CustomerID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if customer == nil || !phoneEndsWith(customer.Phone, last4) {
+		utils.RespondWithNotFound(c, utils.ErrPortalNotFound)
+		return
+	}
+
+	history, err := h.historyRepo.GetStatusHistoryByServiceOrderID(ctx, order.ID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"order": buildPortalResponse(order, history)})
+}
+
+func buildPortalResponse(order *models.ServiceOrder, history []*models.StatusHistory) portalOrderResponse {
+	device := order.DeviceLabel
+	if device == "" {
+		device = deviceLabel(order.ProductBrand, order.ProductModel)
+	}
+
+	// O repositório retorna o histórico do mais recente ao mais antigo; a linha do tempo é cronológica
+	timeline := make([]portalTimelineItem, 0, len(history))
+	for i := len(history) - 1; i >= 0; i-- {
+		timeline = append(timeline, portalTimelineItem{
+			Status:      history[i].NewStatus,
+			StatusLabel: models.StatusLabel(history[i].NewStatus),
+			At:          history[i].ChangedAt,
+		})
+	}
+
+	messages := make([]portalMessage, 0)
+	for _, note := range order.Notes {
+		if note.IsPublic {
+			messages = append(messages, portalMessage{Content: note.Content, CreatedAt: note.CreatedAt})
+		}
+	}
+
+	return portalOrderResponse{
+		OrderNumber: order.OrderNumber,
+		Status:      order.Status,
+		StatusLabel: models.StatusLabel(order.Status),
+		Device:      device,
+		ServiceType: order.ServiceType,
+		CreatedAt:   order.CreatedAt,
+		UpdatedAt:   order.UpdatedAt,
+		ExpectedAt:  order.ExpectedAt,
+		Timeline:    timeline,
+		Messages:    messages,
+	}
+}
+
+// normalizeOrderNumber aceita "OS-1048", "os 1048" ou apenas "1048"
+func normalizeOrderNumber(raw string) string {
+	value := strings.ToUpper(strings.TrimSpace(raw))
+	if digits := onlyDigits(value); digits != "" && digits == value {
+		return "OS-" + digits
+	}
+	value = strings.ReplaceAll(value, " ", "-")
+	if strings.HasPrefix(value, "OS") && !strings.HasPrefix(value, "OS-") {
+		value = "OS-" + strings.TrimPrefix(value, "OS")
+	}
+	return value
+}
+
+func phoneEndsWith(phone, last4 string) bool {
+	digits := onlyDigits(phone)
+	return len(digits) >= 4 && strings.HasSuffix(digits, last4)
+}

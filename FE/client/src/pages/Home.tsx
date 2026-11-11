@@ -1,378 +1,136 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { ZtsLogo } from "@/components/zts/ZtsLogo";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
-  CheckCircle2,
-  Phone,
-  Mail,
-  MapPin,
+  Cable,
   Clock,
-  Shield,
-  Wrench,
-  Smartphone,
   Laptop,
-  Tablet,
-  Star,
+  MapPin,
   MessageSquare,
-  Zap,
+  Phone,
+  Shield,
+  Smartphone,
+  Wrench,
 } from "lucide-react";
+import { lazy, Suspense } from "react";
 import { useLocation } from "wouter";
-import { useState } from "react";
+
+// Three.js apenas no momento de marca da home, carregado sob demanda
+const BrandCanvas = lazy(() =>
+  import("@/components/zts/BrandCanvas").then(m => ({ default: m.BrandCanvas }))
+);
+
+const SERVICES = [
+  { icon: Smartphone, title: "Smartphones", text: "Tela, bateria, conector de carga, software e placa." },
+  { icon: Laptop, title: "Notebooks e tablets", text: "Troca de peças, limpeza interna e formatação." },
+  { icon: Cable, title: "Acessórios", text: "Capas, películas, carregadores, cabos e fones." },
+  { icon: Wrench, title: "Diagnóstico", text: "Avaliação técnica com orçamento antes do reparo." },
+];
+
+const BENEFITS = [
+  { icon: Shield, title: "Garantia no serviço", text: "Prazo registrado na ordem de serviço." },
+  { icon: Clock, title: "Prazo combinado", text: "Previsão de entrega informada na abertura." },
+  { icon: MessageSquare, title: "Acompanhamento online", text: "Consulte a OS no portal com o número e o telefone." },
+];
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", message: "" });
-
-  const services = [
-    {
-      icon: Smartphone,
-      title: "Reparo de Smartphones",
-      description: "Conserto completo de smartphones de todas as marcas. Tela, bateria, conector e muito mais.",
-    },
-    {
-      icon: Laptop,
-      title: "Reparo de Notebooks",
-      description: "Manutenção e reparo de notebooks. Troca de peças, limpeza interna e formatação.",
-    },
-    {
-      icon: Tablet,
-      title: "Reparo de Tablets",
-      description: "Especialistas em reparo de tablets. Tela, bateria e componentes internos.",
-    },
-    {
-      icon: Zap,
-      title: "Manutenção Preventiva",
-      description: "Mantenha seus aparelhos em perfeito estado com nossa manutenção preventiva.",
-    },
-  ];
-
-  const benefits = [
-    {
-      icon: Shield,
-      title: "Garantia de 90 dias",
-      description: "Todos os nossos serviços possuem garantia de 90 dias",
-    },
-    {
-      icon: Clock,
-      title: "Atendimento Rápido",
-      description: "Avaliação em até 24 horas e conserto rápido",
-    },
-    {
-      icon: Wrench,
-      title: "Técnicos Especializados",
-      description: "Equipe qualificada e certificada pelas principais marcas",
-    },
-    {
-      icon: MessageSquare,
-      title: "Acompanhamento Online",
-      description: "Acompanhe o status do seu conserto em tempo real",
-    },
-  ];
-
-  const testimonials = [
-    {
-      name: "Maria Silva",
-      service: "Reparo de Smartphone",
-      rating: 5,
-      comment: "Atendimento excelente! Meu celular foi consertado rapidamente e com muita qualidade.",
-    },
-    {
-      name: "João Santos",
-      service: "Reparo de Notebook",
-      rating: 5,
-      comment: "Profissionais competentes e preço justo. Recomendo!",
-    },
-    {
-      name: "Ana Costa",
-      service: "Reparo de Tablet",
-      rating: 5,
-      comment: "Muito satisfeita com o serviço. Meu tablet voltou a funcionar perfeitamente.",
-    },
-  ];
-
-  const handleContactSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Aqui você pode implementar o envio do formulário
-    console.log("Formulário enviado:", contactForm);
-    alert("Mensagem enviada com sucesso! Entraremos em contato em breve.");
-    setContactForm({ name: "", email: "", phone: "", message: "" });
-  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Hero Section */}
-      <section className="container mx-auto px-4 py-16 md:py-24">
-        <div className="text-center max-w-4xl mx-auto mb-16">
-          <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6">
-            Conserto de Aparelhos Eletrônicos
-            <span className="block text-blue-600 mt-2">Profissional e Confiável</span>
-          </h1>
-          <p className="text-xl text-slate-600 mb-8 leading-relaxed">
-            Especialistas em reparo de smartphones, notebooks e tablets. 
-            Atendimento rápido, garantia de 90 dias e acompanhamento online do seu serviço.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-all"
-              onClick={() => {
-                document.getElementById("contato")?.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              Solicitar Orçamento
-              <ArrowRight className="ml-2 h-5 w-5" />
+    <div className="min-h-screen bg-background">
+      <header className="bg-[#1a1f26] border-b border-white/10">
+        <div className="container flex h-14 items-center justify-between">
+          <ZtsLogo tone="light" subtitle="Assistência técnica" />
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-white/10"
+              onClick={() => setLocation("/portal")}>
+              Acompanhar OS
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-lg px-8 py-6"
-              onClick={() => setLocation("/public/track")}
-            >
-              Acompanhar Serviço
+            <Button size="sm" variant="secondary" onClick={() => setLocation("/login")}>
+              Área da equipe
             </Button>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* Services Section */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-            Nossos Serviços
-          </h2>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Oferecemos soluções completas para o conserto dos seus aparelhos eletrônicos
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {services.map((service, index) => (
-            <Card key={index} className="border-0 shadow-md hover:shadow-xl transition-all duration-300">
-              <CardHeader>
-                <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center mb-4">
-                  <service.icon className="h-6 w-6 text-blue-600" />
-                </div>
-                <CardTitle className="text-xl">{service.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-base">
-                  {service.description}
-                </CardDescription>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="bg-white py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Por que escolher nossa empresa?
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {benefits.map((benefit, index) => (
-              <Card key={index} className="border-0 shadow-md text-center">
-                <CardHeader>
-                  <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                    <benefit.icon className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <CardTitle className="text-lg">{benefit.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>{benefit.description}</CardDescription>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-            O que nossos clientes dizem
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {testimonials.map((testimonial, index) => (
-            <Card key={index} className="border-0 shadow-md">
-              <CardHeader>
-                <div className="flex items-center gap-1 mb-2">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <CardTitle className="text-lg">{testimonial.name}</CardTitle>
-                <CardDescription>{testimonial.service}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-700 italic">"{testimonial.comment}"</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* Contact Section */}
-      <section id="contato" className="bg-gradient-to-br from-blue-50 to-slate-50 py-16">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-                Entre em Contato
-              </h2>
-              <p className="text-lg text-slate-600">
-                Solicite um orçamento ou tire suas dúvidas
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Contact Info */}
-              <div className="space-y-6">
-                <Card className="border-0 shadow-md">
-                  <CardHeader>
-                    <CardTitle>Informações de Contato</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <Phone className="h-5 w-5 text-blue-600 mt-1" />
-                      <div>
-                        <p className="font-semibold">Telefone</p>
-                        <p className="text-slate-600">(11) 99999-9999</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Mail className="h-5 w-5 text-blue-600 mt-1" />
-                      <div>
-                        <p className="font-semibold">Email</p>
-                        <p className="text-slate-600">contato@empresa.com.br</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <MapPin className="h-5 w-5 text-blue-600 mt-1" />
-                      <div>
-                        <p className="font-semibold">Endereço</p>
-                        <p className="text-slate-600">
-                          Rua Exemplo, 123<br />
-                          São Paulo - SP, 01234-567
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Clock className="h-5 w-5 text-blue-600 mt-1" />
-                      <div>
-                        <p className="font-semibold">Horário de Atendimento</p>
-                        <p className="text-slate-600">
-                          Segunda a Sexta: 9h às 18h<br />
-                          Sábado: 9h às 13h
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Contact Form */}
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle>Envie sua Mensagem</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleContactSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Nome</Label>
-                      <Input
-                        id="name"
-                        value={contactForm.name}
-                        onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                        required
-                        placeholder="Seu nome completo"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={contactForm.email}
-                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                        required
-                        placeholder="seu@email.com"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Telefone</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={contactForm.phone}
-                        onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-                        required
-                        placeholder="(11) 99999-9999"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="message">Mensagem</Label>
-                      <Textarea
-                        id="message"
-                        value={contactForm.message}
-                        onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                        required
-                        placeholder="Descreva o problema do seu aparelho..."
-                        rows={5}
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" size="lg">
-                      Enviar Mensagem
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="container mx-auto px-4 py-16">
-        <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-          <CardContent className="p-8 md:p-12 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Pronto para consertar seu aparelho?
-            </h2>
-            <p className="text-lg mb-8 text-blue-100">
-              Solicite um orçamento gratuito e sem compromisso
+      <section className="relative bg-[#1a1f26] zts-grid-bg overflow-hidden">
+        <Suspense fallback={null}>
+          <BrandCanvas className="absolute inset-y-0 right-0 w-full lg:w-1/2 opacity-80" />
+        </Suspense>
+        <div className="container relative py-20 md:py-28">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+            className="max-w-xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#7fa3c7]">Assistência + acessórios</p>
+            <h1 className="mt-3 text-4xl md:text-5xl font-semibold tracking-tight text-white">
+              Seu aparelho em boas mãos, do diagnóstico à garantia.
+            </h1>
+            <p className="mt-4 text-slate-300 leading-relaxed">
+              A ZTS Cell cuida do reparo de smartphones, tablets e notebooks e ainda vende os
+              acessórios que você precisa — tudo no mesmo balcão.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                size="lg"
-                variant="secondary"
-                className="text-lg px-8 py-6"
-                onClick={() => {
-                  document.getElementById("contato")?.scrollIntoView({ behavior: "smooth" });
-                }}
-              >
-                Solicitar Orçamento
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button size="lg" variant="secondary" onClick={() => setLocation("/portal")}>
+                Acompanhar meu serviço <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="text-lg px-8 py-6 bg-transparent border-white text-white hover:bg-white hover:text-blue-600"
-                onClick={() => setLocation("/public/track")}
-              >
-                Acompanhar Serviço
+              <Button size="lg" variant="outline"
+                className="bg-transparent text-white border-white/30 hover:bg-white/10 hover:text-white"
+                onClick={() => document.getElementById("contato")?.scrollIntoView({ behavior: "smooth" })}>
+                Falar com a loja
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </motion.div>
+        </div>
       </section>
+
+      <section className="container py-14">
+        <h2 className="text-xl font-semibold tracking-tight mb-6">O que fazemos</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {SERVICES.map(s => (
+            <div key={s.title} className="bg-card border rounded-md p-4">
+              <s.icon className="h-5 w-5 text-primary mb-3" />
+              <h3 className="text-sm font-semibold">{s.title}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{s.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-card border-y">
+        <div className="container py-12 grid gap-6 md:grid-cols-3">
+          {BENEFITS.map(b => (
+            <div key={b.title} className="flex gap-3">
+              <b.icon className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-semibold">{b.title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{b.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="contato" className="container py-14">
+        <h2 className="text-xl font-semibold tracking-tight mb-6">Contato</h2>
+        <div className="grid gap-4 md:grid-cols-3 text-sm">
+          <div className="flex gap-3 bg-card border rounded-md p-4">
+            <Phone className="h-4 w-4 text-primary mt-0.5" />
+            <div><p className="font-medium">Telefone</p><p className="text-muted-foreground">(11) 99999-9999</p></div>
+          </div>
+          <div className="flex gap-3 bg-card border rounded-md p-4">
+            <MapPin className="h-4 w-4 text-primary mt-0.5" />
+            <div><p className="font-medium">Endereço</p><p className="text-muted-foreground">Rua Exemplo, 123 — São Paulo/SP</p></div>
+          </div>
+          <div className="flex gap-3 bg-card border rounded-md p-4">
+            <Clock className="h-4 w-4 text-primary mt-0.5" />
+            <div><p className="font-medium">Horário</p><p className="text-muted-foreground">Seg–Sex 9h–18h · Sáb 9h–13h</p></div>
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t py-6 text-center text-xs text-muted-foreground">
+        © {new Date().getFullYear()} ZTS Cell — Assistência técnica e acessórios
+      </footer>
     </div>
   );
 }

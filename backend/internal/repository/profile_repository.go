@@ -33,33 +33,60 @@ func NewProfileRepository(db *mongo.Database) *ProfileRepository {
 	return repo
 }
 
-// InitializeDefaultProfiles inicializa os perfis padrão se a collection estiver vazia
+// InitializeDefaultProfiles garante que todos os perfis padrão existam.
+// Perfis novos são inseridos; em perfis IsDefault existentes, permissões ausentes
+// do catálogo atual são mescladas (edições manuais já presentes são preservadas).
 func (r *ProfileRepository) InitializeDefaultProfiles(ctx context.Context) error {
-	// Verificar se já existem perfis
-	count, err := r.collection.CountDocuments(ctx, bson.M{})
-	if err != nil {
-		return err
+	now := time.Now()
+	for _, profile := range models.DefaultProfiles() {
+		existing, err := r.GetProfileByName(ctx, profile.Name)
+		if err != nil {
+			return err
+		}
+		if existing == nil {
+			profile.ID = primitive.NewObjectID()
+			profile.CreatedAt = now
+			profile.UpdatedAt = now
+			if err := r.CreateProfile(ctx, profile); err != nil {
+				return err
+			}
+			continue
+		}
+		if !existing.IsDefault {
+			continue
+		}
+		merged := mergePermissions(existing.Permissions, profile.Permissions)
+		if len(merged) == len(existing.Permissions) {
+			continue
+		}
+		existing.Permissions = merged
+		existing.Description = profile.Description
+		existing.UpdatedAt = now
+		if err := r.UpdateProfile(ctx, existing.ID, existing); err != nil {
+			return err
+		}
 	}
+	return nil
+}
 
-	// Se já existem perfis, não inicializar
-	if count > 0 {
-		return nil
+func mergePermissions(current, desired []string) []string {
+	seen := make(map[string]struct{}, len(current)+len(desired))
+	out := make([]string, 0, len(current)+len(desired))
+	for _, p := range current {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
 	}
-
-	// Obter perfis padrão
-	defaultProfiles := models.DefaultProfiles()
-
-	// Preparar documentos para inserção
-	docs := make([]interface{}, len(defaultProfiles))
-	for i, profile := range defaultProfiles {
-		profile.CreatedAt = time.Now()
-		profile.UpdatedAt = time.Now()
-		docs[i] = profile
+	for _, p := range desired {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
 	}
-
-	// Inserir todos os perfis padrão
-	_, err = r.collection.InsertMany(ctx, docs)
-	return err
+	return out
 }
 
 // GetProfileByID retrieves a profile by ID
@@ -116,6 +143,9 @@ func (r *ProfileRepository) ListProfiles(ctx context.Context, filter bson.M) ([]
 func (r *ProfileRepository) CreateProfile(ctx context.Context, profile *models.Profile) error {
 	profile.CreatedAt = time.Now()
 	profile.UpdatedAt = time.Now()
+	if profile.ID.IsZero() {
+		profile.ID = primitive.NewObjectID()
+	}
 	_, err := r.collection.InsertOne(ctx, profile)
 	return err
 }

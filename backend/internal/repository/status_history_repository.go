@@ -34,6 +34,9 @@ func NewStatusHistoryRepository(db *mongo.Database) *StatusHistoryRepository {
 // CreateStatusHistory creates a new status history entry
 func (r *StatusHistoryRepository) CreateStatusHistory(ctx context.Context, history *models.StatusHistory) error {
 	history.ChangedAt = time.Now()
+	if history.ID.IsZero() {
+		history.ID = primitive.NewObjectID()
+	}
 	_, err := r.collection.InsertOne(ctx, history)
 	return err
 }

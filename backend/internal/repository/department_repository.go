@@ -28,6 +28,9 @@ func NewDepartmentRepository(db *mongo.Database) *DepartmentRepository {
 func (r *DepartmentRepository) CreateDepartment(ctx context.Context, department *models.Department) error {
 	department.CreatedAt = time.Now()
 	department.UpdatedAt = time.Now()
+	if department.ID.IsZero() {
+		department.ID = primitive.NewObjectID()
+	}
 	_, err := r.collection.InsertOne(ctx, department)
 	return err
 }

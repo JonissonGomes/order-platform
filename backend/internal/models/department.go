@@ -8,6 +8,7 @@ import (
 
 type Department struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	BranchID    primitive.ObjectID `bson:"branchId,omitempty" json:"branchId,omitempty"`
 	Name        string             `bson:"name" json:"name"`
 	Description string             `bson:"description,omitempty" json:"description,omitempty"`
 	ManagerID   primitive.ObjectID `bson:"managerId,omitempty" json:"managerId,omitempty"` // Employee ID

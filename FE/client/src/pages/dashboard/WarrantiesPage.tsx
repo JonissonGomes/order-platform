@@ -1,0 +1,95 @@
+import { OrderDetailSheet } from "@/components/orders/OrderDetailSheet";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ChartCard } from "@/components/zts/ChartCard";
+import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
+import { KpiCard } from "@/components/zts/KpiCard";
+import { PageHeader } from "@/components/zts/PageHeader";
+import { TableSkeleton } from "@/components/zts/TableSkeleton";
+import { useServiceOrders } from "@/hooks/queries";
+import { formatDate } from "@/lib/format";
+import { buildWarranties, type WarrantyInfo } from "@/lib/reports";
+import type { ServiceOrder } from "@/types";
+import { BadgeCheck, ShieldOff, TimerReset } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+
+const HEADERS = ["OS", "Cliente", "Aparelho", "Garantia até", "Situação"];
+
+const BUCKETS = [
+  { name: "Vencida", test: (w: WarrantyInfo) => !w.active },
+  { name: "Até 7 dias", test: (w: WarrantyInfo) => w.active && w.daysLeft <= 7 },
+  { name: "8 a 30 dias", test: (w: WarrantyInfo) => w.daysLeft > 7 && w.daysLeft <= 30 },
+  { name: "Mais de 30", test: (w: WarrantyInfo) => w.daysLeft > 30 },
+];
+
+export default function WarrantiesPage() {
+  const { data, isPending, error, refetch } = useServiceOrders({ status: "delivered" });
+  const [selected, setSelected] = useState<ServiceOrder | null>(null);
+
+  const warranties = useMemo(() => buildWarranties(data ?? []), [data]);
+  const active = warranties.filter(w => w.active);
+  const expiringSoon = active.filter(w => w.daysLeft <= 7);
+  const chart = BUCKETS.map(b => ({ name: b.name, value: warranties.filter(b.test).length }));
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      <PageHeader title="Garantias" description="Ordens entregues e o prazo de garantia restante." />
+
+      <div className="grid gap-3 sm:grid-cols-3 mb-5">
+        <KpiCard label="Garantias ativas" icon={BadgeCheck} loading={isPending} value={active.length} />
+        <KpiCard label="Vencem em 7 dias" icon={TimerReset} loading={isPending} value={expiringSoon.length}
+          tone={expiringSoon.length ? "warning" : "default"} />
+        <KpiCard label="Vencidas" icon={ShieldOff} loading={isPending} value={warranties.length - active.length} />
+      </div>
+
+      <ChartCard title="Garantias por prazo restante" className="mb-4" loading={isPending}
+        empty={warranties.length === 0}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chart}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
+            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+            <YAxis allowDecimals={false} width={30} tick={{ fontSize: 11 }} />
+            <Tooltip cursor={{ fill: "#e2e7ed" }} />
+            <Bar dataKey="value" name="Ordens" fill="#3d5a78" radius={[2, 2, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      {isPending ? (
+        <TableSkeleton columns={HEADERS.length} headers={HEADERS} rows={4} />
+      ) : error ? (
+        <ErrorState message={error.message} onRetry={() => refetch()} />
+      ) : warranties.length === 0 ? (
+        <EmptyState icon={BadgeCheck} title="Nenhuma garantia registrada"
+          description="Ordens entregues com garantia aparecerão aqui." />
+      ) : (
+        <div className="border rounded-md bg-card overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
+            </TableHeader>
+            <TableBody>
+              {warranties.map(w => (
+                <TableRow key={w.order.id} className="cursor-pointer" onClick={() => setSelected(w.order)}>
+                  <TableCell className="font-mono text-xs font-medium">#{w.order.orderNumber}</TableCell>
+                  <TableCell>{w.order.customer?.name ?? "—"}</TableCell>
+                  <TableCell>{w.order.productBrand} {w.order.productModel}</TableCell>
+                  <TableCell>{formatDate(w.endsAt.toISOString())}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={`rounded-sm ${w.active
+                      ? w.daysLeft <= 7 ? "border-amber-300 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "bg-muted text-muted-foreground"}`}>
+                      {w.active ? `${w.daysLeft} dia(s) restantes` : "Vencida"}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      <OrderDetailSheet order={selected} onOpenChange={open => !open && setSelected(null)} />
+    </div>
+  );
+}

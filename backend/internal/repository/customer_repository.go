@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"order-platform/backend/internal/models"
 
@@ -22,20 +23,43 @@ func NewCustomerRepository(db *mongo.Database) *CustomerRepository {
 		collection: db.Collection(customersCollection),
 	}
 
-	// Criar índice único para CPF
-	indexModel := mongo.IndexModel{
-		Keys:    bson.D{{Key: "cpf", Value: 1}},
-		Options: options.Index().SetUnique(true),
-	}
-	repo.collection.Indexes().CreateOne(context.Background(), indexModel)
+	// Índice único para CPF apenas quando informado (clientes de balcão podem não ter CPF).
+	// O índice antigo (não parcial) é removido para não bloquear cadastros sem CPF.
+	ctx := context.Background()
+	repo.collection.Indexes().DropOne(ctx, "cpf_1")
+	repo.collection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "cpf", Value: 1}},
+		Options: options.Index().SetName("cpf_unique_partial").SetUnique(true).
+			SetPartialFilterExpression(bson.M{"cpf": bson.M{"$type": "string"}}),
+	})
+	repo.collection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "phone", Value: 1}},
+	})
+	repo.collection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "branchId", Value: 1}},
+	})
 
 	return repo
 }
 
-// CreateCustomer creates a new customer
+// CreateCustomer creates a new customer (define timestamps se ausentes)
 func (r *CustomerRepository) CreateCustomer(ctx context.Context, customer *models.Customer) error {
-	_, err := r.collection.InsertOne(ctx, customer)
-	return err
+	now := time.Now()
+	if customer.CreatedAt.IsZero() {
+		customer.CreatedAt = now
+	}
+	if customer.UpdatedAt.IsZero() {
+		customer.UpdatedAt = now
+	}
+
+	result, err := r.collection.InsertOne(ctx, customer)
+	if err != nil {
+		return err
+	}
+	if id, ok := result.InsertedID.(primitive.ObjectID); ok {
+		customer.ID = id
+	}
+	return nil
 }
 
 // GetCustomerByID retrieves a customer by ID
@@ -52,6 +76,29 @@ func (r *CustomerRepository) GetCustomerByID(ctx context.Context, id primitive.O
 	}
 
 	return &customer, nil
+}
+
+// GetCustomersByIDs retrieves multiple customers at once (indexed by ID)
+func (r *CustomerRepository) GetCustomersByIDs(ctx context.Context, ids []primitive.ObjectID) (map[primitive.ObjectID]*models.Customer, error) {
+	result := make(map[primitive.ObjectID]*models.Customer, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+
+	cursor, err := r.collection.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var customers []*models.Customer
+	if err := cursor.All(ctx, &customers); err != nil {
+		return nil, err
+	}
+	for _, customer := range customers {
+		result[customer.ID] = customer
+	}
+	return result, nil
 }
 
 // GetCustomerByCPF retrieves a customer by CPF

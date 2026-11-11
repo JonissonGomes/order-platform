@@ -40,14 +40,64 @@ func NewServiceOrderRepository(db *mongo.Database) *ServiceOrderRepository {
 	repo.collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
 		Keys: bson.D{{Key: "status", Value: 1}},
 	})
+	repo.collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
+		Keys: bson.D{{Key: "branchId", Value: 1}, {Key: "createdAt", Value: -1}},
+	})
+	repo.collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
+		Keys: bson.D{{Key: "imei", Value: 1}},
+	})
 
 	return repo
+}
+
+// AddNote adiciona uma nota à ordem de serviço de forma atômica
+func (r *ServiceOrderRepository) AddNote(ctx context.Context, id primitive.ObjectID, note *models.Note, updatedBy primitive.ObjectID) error {
+	if note.ID.IsZero() {
+		note.ID = primitive.NewObjectID()
+	}
+	if note.CreatedAt.IsZero() {
+		note.CreatedAt = time.Now()
+	}
+	update := bson.M{
+		"$push": bson.M{"notes": note},
+		"$set":  bson.M{"updatedAt": time.Now(), "updatedBy": updatedBy},
+	}
+	_, err := r.collection.UpdateOne(ctx, bson.M{"_id": id}, update)
+	return err
+}
+
+// UpdateStatus altera o status somente se o status atual ainda for o esperado
+// (evita corrida entre duas mudanças simultâneas). Retorna false se não houve alteração.
+func (r *ServiceOrderRepository) UpdateStatus(ctx context.Context, id primitive.ObjectID, from, to models.ServiceOrderStatus, changedBy primitive.ObjectID) (bool, error) {
+	now := time.Now()
+	update := bson.M{"$set": bson.M{
+		"status":          to,
+		"statusChangedBy": changedBy,
+		"statusChangedAt": now,
+		"updatedAt":       now,
+		"updatedBy":       changedBy,
+	}}
+	result, err := r.collection.UpdateOne(ctx, bson.M{"_id": id, "status": from}, update)
+	if err != nil {
+		return false, err
+	}
+	return result.ModifiedCount > 0, nil
+}
+
+// AssignTo atribui a ordem a um colaborador
+func (r *ServiceOrderRepository) AssignTo(ctx context.Context, id, employeeID, updatedBy primitive.ObjectID) error {
+	update := bson.M{"$set": bson.M{"assignedTo": employeeID, "updatedAt": time.Now(), "updatedBy": updatedBy}}
+	_, err := r.collection.UpdateOne(ctx, bson.M{"_id": id}, update)
+	return err
 }
 
 // CreateServiceOrder creates a new service order
 func (r *ServiceOrderRepository) CreateServiceOrder(ctx context.Context, order *models.ServiceOrder) error {
 	order.CreatedAt = time.Now()
 	order.UpdatedAt = time.Now()
+	if order.ID.IsZero() {
+		order.ID = primitive.NewObjectID()
+	}
 	_, err := r.collection.InsertOne(ctx, order)
 	return err
 }
@@ -104,7 +154,7 @@ func (r *ServiceOrderRepository) ListServiceOrders(ctx context.Context, skip, li
 	}
 	defer cursor.Close(ctx)
 
-	var orders []*models.ServiceOrder
+	orders := []*models.ServiceOrder{}
 	if err := cursor.All(ctx, &orders); err != nil {
 		return nil, err
 	}

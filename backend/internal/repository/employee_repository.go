@@ -40,6 +40,9 @@ func NewEmployeeRepository(db *mongo.Database) *EmployeeRepository {
 func (r *EmployeeRepository) CreateEmployee(ctx context.Context, employee *models.Employee) error {
 	employee.CreatedAt = time.Now()
 	employee.UpdatedAt = time.Now()
+	if employee.ID.IsZero() {
+		employee.ID = primitive.NewObjectID()
+	}
 	_, err := r.collection.InsertOne(ctx, employee)
 	return err
 }

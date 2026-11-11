@@ -1,70 +1,73 @@
 import { LOGIN_PATH } from "@/const";
 import { api, type User } from "@/lib/api";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { permissionsFromRole } from "@/lib/permissions";
+import type { Employee, Permission } from "@/types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
+
+export const AUTH_QUERY_KEY = ["auth", "me"] as const;
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
   redirectPath?: string;
 };
 
+/**
+ * Estado de autenticação compartilhado via cache do TanStack Query
+ * (várias chamadas de useAuth na mesma tela fazem um único GET /auth/me).
+ */
 export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = LOGIN_PATH } =
     options ?? {};
+  const queryClient = useQueryClient();
 
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const query = useQuery({
+    queryKey: AUTH_QUERY_KEY,
+    queryFn: api.me,
+    staleTime: 60_000,
+  });
 
-  const fetchUser = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await api.getMe();
-      setUser(response.user);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Failed to fetch user"));
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const logoutMutation = useMutation({
+    mutationFn: api.logout,
+    onSettled: () => {
+      queryClient.setQueryData(AUTH_QUERY_KEY, {
+        user: null,
+        employee: undefined,
+        permissions: [],
+      });
+      queryClient.removeQueries({
+        predicate: q => q.queryKey[0] !== AUTH_QUERY_KEY[0],
+      });
+    },
+  });
 
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+  const user = (query.data?.user ?? null) as User | null;
+  const employee: Employee | null = query.data?.employee ?? null;
 
-  const logout = useCallback(async () => {
-    try {
-      await api.logout();
-      setUser(null);
-    } catch (err) {
-      // Even if logout fails, clear user state
-      setUser(null);
-    }
-  }, []);
+  const permissions: Permission[] = useMemo(() => {
+    const fromApi = query.data?.permissions ?? [];
+    return fromApi.length > 0 ? fromApi : permissionsFromRole(user?.role);
+  }, [query.data?.permissions, user?.role]);
 
-  const state = useMemo(() => {
-    return {
-      user,
-      loading,
-      error,
-      isAuthenticated: Boolean(user),
-    };
-  }, [user, loading, error]);
+  const loading = query.isPending;
 
   useEffect(() => {
-    if (!redirectOnUnauthenticated) return;
-    if (loading) return;
-    if (state.user) return;
+    if (!redirectOnUnauthenticated || loading || user) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
-
     window.location.href = redirectPath;
-  }, [redirectOnUnauthenticated, redirectPath, loading, state.user]);
+  }, [redirectOnUnauthenticated, redirectPath, loading, user]);
 
   return {
-    ...state,
-    refresh: fetchUser,
-    logout,
+    user,
+    employee,
+    permissions,
+    loading,
+    error: query.error instanceof Error ? query.error : null,
+    isAuthenticated: Boolean(user),
+    refresh: () => query.refetch(),
+    logout: async () => {
+      await logoutMutation.mutateAsync().catch(() => undefined);
+    },
   };
 }

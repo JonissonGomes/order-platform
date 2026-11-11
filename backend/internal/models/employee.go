@@ -35,16 +35,28 @@ type Employee struct {
 }
 
 // CanChangeStatus verifica se o colaborador pode mudar para o status especificado
+// (considerando as permissões do Profile, quando carregado, e o role como fallback)
 func (e *Employee) CanChangeStatus(status ServiceOrderStatus) bool {
+	if e.Profile != nil && e.Profile.IsActive {
+		perms := e.Profile.Permissions
+		if HasPermission(perms, "service_orders.status."+string(status)) ||
+			HasPermission(perms, "service_orders.*") ||
+			HasPermission(perms, "*") {
+			return true
+		}
+	}
+
 	switch e.Role {
 	case EmployeeRoleAdmin:
 		return true
 	case EmployeeRoleDepartmentManager:
 		return true
 	case EmployeeRoleAttendant:
-		return status == StatusPending || status == StatusEvaluating || status == StatusApproved
+		return status == StatusPending || status == StatusEvaluating || status == StatusApproved ||
+			status == StatusReady || status == StatusDelivered || status == StatusCancelled
 	case EmployeeRoleTechnician:
-		return status == StatusInRepair || status == StatusWaitingParts || status == StatusTesting || status == StatusReady
+		return status == StatusInRepair || status == StatusWaitingParts || status == StatusTesting ||
+			status == StatusReady || status == StatusUnrepairable
 	default:
 		return false
 	}

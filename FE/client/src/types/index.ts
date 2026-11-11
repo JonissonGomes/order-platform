@@ -1,4 +1,6 @@
-// Backend Models - TypeScript Types
+// Backend Models - TypeScript Types (ZTS Cell)
+
+export * from "./stock";
 
 export type UserRole = "user" | "admin" | "super_admin";
 
@@ -12,6 +14,30 @@ export interface User {
   lastSignedIn: string;
 }
 
+// Permissões no formato "recurso.ação" (ex: "service_orders.read"), "recurso.*" ou "*"
+export type Permission = string;
+
+export interface Profile {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: Permission[];
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Branch {
+  id: string;
+  name: string;
+  code?: string;
+  phone?: string;
+  address?: string;
+  isDefault: boolean;
+  isActive: boolean;
+}
+
 export type EmployeeRole = "admin" | "department_manager" | "attendant" | "technician";
 
 export interface Employee {
@@ -22,13 +48,25 @@ export interface Employee {
   email: string;
   phone?: string;
   role: EmployeeRole;
+  profileId?: string;
+  profile?: Profile;
   departmentId?: string;
   department?: Department;
+  branchId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy: string;
   updatedBy: string;
+}
+
+/** Usuário retornado em /auth/me (campos de auditoria podem faltar). */
+export type SessionUser = Pick<User, "id" | "email" | "name" | "role"> & Partial<User>;
+
+export interface AuthMe {
+  user: SessionUser | null;
+  employee?: Employee;
+  permissions: Permission[];
 }
 
 export interface Address {
@@ -63,11 +101,14 @@ export type ServiceOrderStatus =
   | "testing"
   | "ready"
   | "delivered"
-  | "cancelled";
+  | "cancelled"
+  | "unrepairable";
 
 export interface Note {
   id: string;
   content: string;
+  /** Visível no portal do cliente. */
+  isPublic?: boolean;
   createdAt: string;
   createdBy: string;
 }
@@ -86,23 +127,33 @@ export interface Image {
 
 export interface ServiceOrder {
   id: string;
+  deviceLabel?: string;
+  statusLabel?: string;
   orderNumber: string;
   customerId: string;
   customer?: Customer;
   productType: string;
   productBrand: string;
   productModel: string;
+  imei?: string;
+  serviceType?: string;
   problemDescription: string;
   initialEvaluation?: string;
   status: ServiceOrderStatus;
-  departmentId: string;
+  departmentId?: string;
   department?: Department;
+  branchId?: string;
   assignedTo?: string;
   assignedEmployee?: Employee;
   images?: Image[];
+  checklist?: string[];
   estimatedCost?: number;
   finalCost?: number;
+  depositAmount?: number;
+  warrantyDays?: number;
+  expectedAt?: string;
   notes?: Note[];
+  statusHistory?: StatusHistory[];
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -118,18 +169,6 @@ export interface Department {
   managerId?: string;
   manager?: Employee;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  updatedBy: string;
-}
-
-export interface Product {
-  id: string;
-  type: string;
-  brand: string;
-  model: string;
-  description?: string;
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -163,7 +202,7 @@ export interface AuditLog {
   userRole: EmployeeRole;
   departmentId?: string;
   departmentName?: string;
-  changes?: Record<string, any>;
+  changes?: Record<string, unknown>;
   ip?: string;
   userAgent?: string;
   timestamp: string;
@@ -177,6 +216,7 @@ export interface CreateEmployeeRequest {
   name: string;
   phone?: string;
   role: EmployeeRole;
+  profileId?: string;
   departmentId?: string;
 }
 
@@ -184,27 +224,55 @@ export interface UpdateEmployeeRequest {
   name?: string;
   phone?: string;
   role?: EmployeeRole;
+  profileId?: string;
   departmentId?: string;
   isActive?: boolean;
 }
 
+export interface CreateProfileRequest {
+  name: string;
+  description?: string;
+  permissions: Permission[];
+}
+
+export type UpdateProfileRequest = Partial<CreateProfileRequest> & {
+  isActive?: boolean;
+};
+
 export interface CreateCustomerRequest {
   name: string;
-  cpf: string;
+  cpf?: string;
   phone: string;
   email?: string;
   address?: Address;
 }
+
+export type UpdateCustomerRequest = Partial<CreateCustomerRequest>;
 
 export interface CreateServiceOrderRequest {
   customerId: string;
   productType: string;
   productBrand: string;
   productModel: string;
+  imei?: string;
+  serviceType?: string;
   problemDescription: string;
-  departmentId: string;
+  departmentId?: string;
+  branchId?: string;
+  /** Rótulos dos itens do checklist marcados na entrada. */
+  checklist?: string[];
+  estimatedCost?: number;
+  depositAmount?: number;
+  warrantyDays?: number;
+  expectedAt?: string;
   images?: Image[];
 }
+
+export type UpdateServiceOrderRequest = Partial<CreateServiceOrderRequest> & {
+  initialEvaluation?: string;
+  finalCost?: number;
+  assignedTo?: string;
+};
 
 export interface UpdateServiceOrderStatusRequest {
   status: ServiceOrderStatus;
@@ -215,4 +283,15 @@ export interface CreateDepartmentRequest {
   name: string;
   description?: string;
   managerId?: string;
+}
+
+export type UpdateDepartmentRequest = Partial<CreateDepartmentRequest> & {
+  isActive?: boolean;
+};
+
+export interface ServiceOrderFilters {
+  status?: ServiceOrderStatus;
+  customerId?: string;
+  assignedTo?: string;
+  branchId?: string;
 }

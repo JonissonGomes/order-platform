@@ -30,6 +30,9 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *models.User) erro
 	user.UpdatedAt = time.Now()
 	user.LastSignedIn = time.Now()
 
+	if user.ID.IsZero() {
+		user.ID = primitive.NewObjectID()
+	}
 	_, err := r.collection.InsertOne(ctx, user)
 	return err
 }

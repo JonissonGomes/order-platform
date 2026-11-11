@@ -1,12 +1,17 @@
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LogIn, Loader2, AlertCircle } from "lucide-react";
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { ZtsLogo } from "@/components/zts/ZtsLogo";
 import { api } from "@/lib/api";
+import { AlertCircle, Loader2, LogIn } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
+import { useLocation } from "wouter";
+
+// Three.js só é carregado aqui (momento de marca) e fora do bundle principal
+const BrandCanvas = lazy(() =>
+  import("@/components/zts/BrandCanvas").then(m => ({ default: m.BrandCanvas }))
+);
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -19,11 +24,9 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
       await api.login({ email, password });
-      // Redirecionar para o dashboard após login bem-sucedido
-      // Recarregar a página para atualizar o estado de autenticação
+      // Recarrega para atualizar o estado de autenticação (cookie de sessão)
       window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login. Tente novamente.");
@@ -33,20 +36,32 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4">
-      <Card className="w-full max-w-md border-0 shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-lg bg-blue-600 flex items-center justify-center">
-              <LogIn className="h-6 w-6 text-white" />
-            </div>
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
+      <aside className="hidden lg:flex relative flex-col justify-between bg-[#1a1f26] zts-grid-bg p-10 overflow-hidden">
+        <ZtsLogo tone="light" subtitle="Assistência técnica" />
+        <Suspense fallback={null}>
+          <BrandCanvas className="absolute inset-0" />
+        </Suspense>
+        <div className="relative max-w-sm pointer-events-none">
+          <h2 className="text-2xl font-semibold tracking-tight text-white">
+            Assistência e acessórios, num só balcão.
+          </h2>
+          <p className="mt-2 text-sm text-slate-400">
+            Ordens de serviço, estoque, caixa e garantias integrados.
+          </p>
+        </div>
+      </aside>
+
+      <main className="flex items-center justify-center p-6">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="lg:hidden">
+            <ZtsLogo subtitle="Assistência técnica" />
           </div>
-          <CardTitle className="text-2xl font-bold">Entrar na Plataforma</CardTitle>
-          <CardDescription>
-            Digite suas credenciais para acessar sua conta
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Entrar no ZTS Cell</h1>
+            <p className="text-sm text-muted-foreground mt-1">Use suas credenciais de colaborador.</p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -54,66 +69,36 @@ export default function Login() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-                autoComplete="email"
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="email">E-mail</Label>
+              <Input id="email" type="email" placeholder="voce@ztscell.com.br" value={email}
+                onChange={e => setEmail(e.target.value)} required disabled={loading} autoComplete="email" />
             </div>
-
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-                autoComplete="current-password"
-              />
+              <Input id="password" type="password" placeholder="••••••••" value={password}
+                onChange={e => setPassword(e.target.value)} required disabled={loading}
+                autoComplete="current-password" />
             </div>
-
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              disabled={loading}
-            >
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Entrando...
-                </>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Entrando...</>
               ) : (
-                <>
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Entrar
-                </>
+                <><LogIn className="mr-2 h-4 w-4" /> Entrar</>
               )}
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            <button
-              type="button"
-              onClick={() => setLocation("/")}
-              className="text-blue-600 hover:underline"
-            >
-              Voltar para a página inicial
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <button type="button" onClick={() => setLocation("/")} className="hover:text-foreground underline underline-offset-4">
+              Voltar ao site
+            </button>
+            <button type="button" onClick={() => setLocation("/portal")} className="hover:text-foreground underline underline-offset-4">
+              Sou cliente: acompanhar OS
             </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </main>
     </div>
   );
 }
