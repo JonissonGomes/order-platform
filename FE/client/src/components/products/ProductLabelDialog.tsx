@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/format";
 import type { Product } from "@/types";
-import JsBarcode from "jsbarcode";
 import { Copy, Printer } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -27,19 +26,30 @@ export function ProductLabelDialog({
 
   useEffect(() => {
     if (!product || !code || !svgRef.current) return;
-    try {
-      JsBarcode(svgRef.current, code, {
-        format: "CODE128",
-        displayValue: true,
-        fontSize: 14,
-        height: 64,
-        margin: 8,
-        background: "#ffffff",
-        lineColor: "#1a1f26",
+    const el = svgRef.current;
+    let cancelled = false;
+
+    void import("jsbarcode")
+      .then(mod => {
+        if (cancelled || !el) return;
+        const JsBarcode = mod.default;
+        JsBarcode(el, code, {
+          format: "CODE128",
+          displayValue: true,
+          fontSize: 14,
+          height: 64,
+          margin: 8,
+          background: "#ffffff",
+          lineColor: "#1a1f26",
+        });
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Não foi possível desenhar o código de barras.");
       });
-    } catch {
-      toast.error("Não foi possível desenhar o código de barras.");
-    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [product, code]);
 
   const copyCode = async () => {

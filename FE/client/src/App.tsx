@@ -2,30 +2,31 @@ import { Toaster } from "@/components/ui/sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import DashboardLayout from "./components/DashboardLayout";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { lazyWithRetry } from "./lib/lazyWithRetry";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import PortalPage from "./pages/PortalPage";
 import { ROUTES } from "./routes";
 
 // Páginas do dashboard carregadas sob demanda (recharts/zxing ficam fora do bundle inicial)
-const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome"));
-const OrdersList = lazy(() => import("./pages/dashboard/OrdersList"));
-const OrderNew = lazy(() => import("./pages/dashboard/OrderNew"));
-const CustomersList = lazy(() => import("./pages/dashboard/CustomersList"));
-const AgendaPage = lazy(() => import("./pages/dashboard/AgendaPage"));
-const ProductsPage = lazy(() => import("./pages/dashboard/ProductsPage"));
-const CashPage = lazy(() => import("./pages/dashboard/CashPage"));
-const BillingPage = lazy(() => import("./pages/dashboard/BillingPage"));
-const WarrantiesPage = lazy(() => import("./pages/dashboard/WarrantiesPage"));
-const PerformancePage = lazy(() => import("./pages/dashboard/PerformancePage"));
-const EmployeesPage = lazy(() => import("./pages/dashboard/EmployeesPage"));
-const DepartmentsPage = lazy(() => import("./pages/dashboard/DepartmentsPage"));
-const ProfilesPage = lazy(() => import("./pages/dashboard/ProfilesPage"));
+const DashboardHome = lazyWithRetry(() => import("./pages/dashboard/DashboardHome"));
+const OrdersList = lazyWithRetry(() => import("./pages/dashboard/OrdersList"));
+const OrderNew = lazyWithRetry(() => import("./pages/dashboard/OrderNew"));
+const CustomersList = lazyWithRetry(() => import("./pages/dashboard/CustomersList"));
+const AgendaPage = lazyWithRetry(() => import("./pages/dashboard/AgendaPage"));
+const ProductsPage = lazyWithRetry(() => import("./pages/dashboard/ProductsPage"));
+const CashPage = lazyWithRetry(() => import("./pages/dashboard/CashPage"));
+const BillingPage = lazyWithRetry(() => import("./pages/dashboard/BillingPage"));
+const WarrantiesPage = lazyWithRetry(() => import("./pages/dashboard/WarrantiesPage"));
+const PerformancePage = lazyWithRetry(() => import("./pages/dashboard/PerformancePage"));
+const EmployeesPage = lazyWithRetry(() => import("./pages/dashboard/EmployeesPage"));
+const DepartmentsPage = lazyWithRetry(() => import("./pages/dashboard/DepartmentsPage"));
+const ProfilesPage = lazyWithRetry(() => import("./pages/dashboard/ProfilesPage"));
 
 function PageFallback() {
   return (

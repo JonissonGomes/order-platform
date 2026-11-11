@@ -9,20 +9,50 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  autoReloading: boolean;
+}
+
+function isDynamicImportError(error: Error | null): boolean {
+  if (!error) return false;
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
+    error.message
+  );
 }
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, autoReloading: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error) {
+    if (!isDynamicImportError(error)) return;
+    const key = "zts:error-boundary-chunk-reload";
+    if (sessionStorage.getItem(key)) {
+      sessionStorage.removeItem(key);
+      return;
+    }
+    sessionStorage.setItem(key, "1");
+    this.setState({ autoReloading: true });
+    window.location.reload();
   }
 
   render() {
     if (this.state.hasError) {
+      if (this.state.autoReloading || isDynamicImportError(this.state.error)) {
+        return (
+          <div className="flex items-center justify-center min-h-screen p-8 bg-background">
+            <p className="text-sm text-muted-foreground">
+              Recarregando a página…
+            </p>
+          </div>
+        );
+      }
+
       return (
         <div className="flex items-center justify-center min-h-screen p-8 bg-background">
           <div className="flex flex-col items-center w-full max-w-2xl p-8">
@@ -31,11 +61,11 @@ class ErrorBoundary extends Component<Props, State> {
               className="text-destructive mb-6 flex-shrink-0"
             />
 
-            <h2 className="text-xl mb-4">An unexpected error occurred.</h2>
+            <h2 className="text-xl mb-4">Ocorreu um erro inesperado.</h2>
 
             <div className="p-4 w-full rounded bg-muted overflow-auto mb-6">
               <pre className="text-sm text-muted-foreground whitespace-break-spaces">
-                {this.state.error?.stack}
+                {this.state.error?.message || this.state.error?.stack}
               </pre>
             </div>
 
@@ -48,7 +78,7 @@ class ErrorBoundary extends Component<Props, State> {
               )}
             >
               <RotateCcw size={16} />
-              Reload Page
+              Recarregar página
             </button>
           </div>
         </div>
