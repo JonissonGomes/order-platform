@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CustomerDetailSheet } from "@/components/customers/CustomerDetailSheet";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FormField } from "@/components/zts/FormField";
 import { PageHeader } from "@/components/zts/PageHeader";
@@ -19,6 +20,7 @@ import { qk, useCustomers } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
 import { digitsOnly, formatDate, formatPhone } from "@/lib/format";
+import type { Customer } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -91,6 +93,7 @@ export default function CustomersList() {
   const { data, isPending, error, refetch } = useCustomers();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selected, setSelected] = useState<Customer | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -140,7 +143,11 @@ export default function CustomersList() {
               </TableHeader>
               <TableBody>
                 {pageItems.map(c => (
-                  <TableRow key={c.id}>
+                  <TableRow
+                    key={c.id}
+                    className="cursor-pointer"
+                    onClick={() => setSelected(c)}
+                  >
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>{formatPhone(c.phone)}</TableCell>
                     <TableCell className="font-mono text-xs">{c.cpf || "—"}</TableCell>
@@ -155,6 +162,7 @@ export default function CustomersList() {
         </>
       )}
       <NewCustomerDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <CustomerDetailSheet customer={selected} onOpenChange={open => !open && setSelected(null)} />
     </div>
   );
 }

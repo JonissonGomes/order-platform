@@ -4,8 +4,8 @@ import { FilterChips } from "@/components/zts/FilterChips";
 import { KpiCard } from "@/components/zts/KpiCard";
 import { PageHeader } from "@/components/zts/PageHeader";
 import { useCashMovements, useCashSession, useServiceOrders } from "@/hooks/queries";
-import { formatCurrency } from "@/lib/format";
-import { buildRevenue, revenueByPayment } from "@/lib/reports";
+import { dayKey, formatCurrency } from "@/lib/format";
+import { buildRevenue, orderValue, revenueByPayment } from "@/lib/reports";
 import { Receipt, ShoppingBag, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -39,6 +39,24 @@ export default function BillingPage() {
       })),
     [movements.data, days]
   );
+
+  const byService = useMemo(() => {
+    const keys = new Set(report.series.map(s => s.day));
+    const delivered = (orders.data ?? []).filter(o => {
+      if (o.status !== "delivered") return false;
+      const key = dayKey(o.statusChangedAt ?? o.updatedAt);
+      return Boolean(key && keys.has(key));
+    });
+    const map = new Map<string, number>();
+    delivered.forEach(o => {
+      const name = o.serviceType || "Outro";
+      map.set(name, (map.get(name) ?? 0) + orderValue(o));
+    });
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [orders.data, report.series]);
 
   return (
     <div>
@@ -79,6 +97,17 @@ export default function BillingPage() {
               <Bar dataKey="value" radius={[0, 2, 2, 0]}>
                 {payments.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Receita por tipo de serviço" className="lg:col-span-3" loading={loading} empty={byService.length === 0}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={byService} layout="vertical">
+              <XAxis type="number" tickFormatter={v => `R$${v}`} tick={{ fontSize: 11 }} />
+              <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
+              <Bar dataKey="value" name="Receita" fill="#6f8fae" radius={[0, 2, 2, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>

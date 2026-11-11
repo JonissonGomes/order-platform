@@ -126,11 +126,19 @@ export interface PortalLookup {
   statusLabel?: string;
   device: string;
   serviceType?: string;
+  /** Presente só quando a OS está aguardando aprovação do cliente. */
+  estimatedCost?: number;
   createdAt: string;
   updatedAt: string;
   expectedAt?: string;
   timeline: PortalTimelineEntry[];
   messages: PortalMessage[];
+}
+
+export interface PortalRespondRequest {
+  orderNumber: string;
+  phoneLast4: string;
+  decision: "approved" | "cancelled";
 }
 
 // Requests

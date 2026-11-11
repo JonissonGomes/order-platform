@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"order-platform/backend/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // PortalHandler expõe o acompanhamento público da ordem para o cliente
@@ -44,16 +46,24 @@ type portalMessage struct {
 }
 
 type portalOrderResponse struct {
-	OrderNumber string                    `json:"orderNumber"`
-	Status      models.ServiceOrderStatus `json:"status"`
-	StatusLabel string                    `json:"statusLabel"`
-	Device      string                    `json:"device"`
-	ServiceType string                    `json:"serviceType,omitempty"`
-	CreatedAt   time.Time                 `json:"createdAt"`
-	UpdatedAt   time.Time                 `json:"updatedAt"`
-	ExpectedAt  *time.Time                `json:"expectedAt,omitempty"`
-	Timeline    []portalTimelineItem      `json:"timeline"`
-	Messages    []portalMessage           `json:"messages"`
+	OrderNumber   string                    `json:"orderNumber"`
+	Status        models.ServiceOrderStatus `json:"status"`
+	StatusLabel   string                    `json:"statusLabel"`
+	Device        string                    `json:"device"`
+	ServiceType   string                    `json:"serviceType,omitempty"`
+	EstimatedCost float64                   `json:"estimatedCost,omitempty"`
+	CreatedAt     time.Time                 `json:"createdAt"`
+	UpdatedAt     time.Time                 `json:"updatedAt"`
+	ExpectedAt    *time.Time                `json:"expectedAt,omitempty"`
+	Timeline      []portalTimelineItem      `json:"timeline"`
+	Messages      []portalMessage           `json:"messages"`
+}
+
+type PortalRespondRequest struct {
+	OrderNumber string `json:"orderNumber" binding:"required"`
+	PhoneLast4  string `json:"phoneLast4" binding:"required"`
+	// approved | cancelled
+	Decision string `json:"decision" binding:"required"`
 }
 
 // Lookup (público) retorna o andamento sanitizado da ordem, sem valores internos.
@@ -102,6 +112,92 @@ func (h *PortalHandler) Lookup(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"order": buildPortalResponse(order, history)})
 }
 
+// Respond permite ao cliente aprovar ou recusar o orçamento (status evaluating).
+func (h *PortalHandler) Respond(c *gin.Context) {
+	var req PortalRespondRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.RespondWithBadRequest(c, utils.SanitizeValidationError(err))
+		return
+	}
+	last4 := onlyDigits(req.PhoneLast4)
+	if len(last4) != 4 {
+		utils.RespondWithBadRequest(c, "Informe os 4 últimos dígitos do telefone")
+		return
+	}
+
+	var next models.ServiceOrderStatus
+	var note string
+	switch strings.ToLower(strings.TrimSpace(req.Decision)) {
+	case "approved", "aprovar", "aprovado":
+		next = models.StatusApproved
+		note = "Orçamento aprovado pelo cliente no portal."
+	case "cancelled", "recusar", "cancelado", "rejected":
+		next = models.StatusCancelled
+		note = "Orçamento recusado pelo cliente no portal."
+	default:
+		utils.RespondWithBadRequest(c, "Decisão inválida")
+		return
+	}
+
+	ctx := c.Request.Context()
+	order, err := h.orderRepo.GetServiceOrderByOrderNumber(ctx, normalizeOrderNumber(req.OrderNumber))
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if order == nil {
+		utils.RespondWithNotFound(c, utils.ErrPortalNotFound)
+		return
+	}
+
+	customer, err := h.customerRepo.GetCustomerByID(ctx, order.CustomerID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if customer == nil || !phoneEndsWith(customer.Phone, last4) {
+		utils.RespondWithNotFound(c, utils.ErrPortalNotFound)
+		return
+	}
+
+	if order.Status != models.StatusEvaluating {
+		utils.RespondWithBadRequest(c, "Esta ordem não está aguardando aprovação")
+		return
+	}
+	if !models.IsValidStatusTransition(order.Status, next) {
+		utils.RespondWithBadRequest(c, utils.ErrInvalidStatusTransition)
+		return
+	}
+
+	previous := order.Status
+	changed, err := h.orderRepo.UpdateStatus(ctx, order.ID, previous, next, primitive.NilObjectID)
+	if err != nil {
+		utils.RespondWithInternalError(c)
+		return
+	}
+	if !changed {
+		utils.RespondWithConflict(c, utils.ErrStatusConflict)
+		return
+	}
+
+	entry := &models.StatusHistory{
+		ServiceOrderID: order.ID,
+		PreviousStatus: previous,
+		NewStatus:      next,
+		Notes:          note,
+	}
+	if err := h.historyRepo.CreateStatusHistory(ctx, entry); err != nil {
+		log.Printf("Warning: portal respond history for %s: %v", order.OrderNumber, err)
+	}
+
+	order.Status = next
+	history, err := h.historyRepo.GetStatusHistoryByServiceOrderID(ctx, order.ID)
+	if err != nil {
+		history = nil
+	}
+	c.JSON(http.StatusOK, gin.H{"order": buildPortalResponse(order, history)})
+}
+
 func buildPortalResponse(order *models.ServiceOrder, history []*models.StatusHistory) portalOrderResponse {
 	device := order.DeviceLabel
 	if device == "" {
@@ -125,7 +221,7 @@ func buildPortalResponse(order *models.ServiceOrder, history []*models.StatusHis
 		}
 	}
 
-	return portalOrderResponse{
+	resp := portalOrderResponse{
 		OrderNumber: order.OrderNumber,
 		Status:      order.Status,
 		StatusLabel: models.StatusLabel(order.Status),
@@ -137,6 +233,11 @@ func buildPortalResponse(order *models.ServiceOrder, history []*models.StatusHis
 		Timeline:    timeline,
 		Messages:    messages,
 	}
+	// Orçamento só na etapa de aprovação (evita expor valores em outros status)
+	if order.Status == models.StatusEvaluating && order.EstimatedCost > 0 {
+		resp.EstimatedCost = order.EstimatedCost
+	}
+	return resp
 }
 
 // normalizeOrderNumber aceita "OS-1048", "os 1048" ou apenas "1048"

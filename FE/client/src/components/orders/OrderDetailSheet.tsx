@@ -142,12 +142,37 @@ export function OrderDetailSheet({ order: summary, onOpenChange }: OrderDetailSh
                 <Info label="Aparelho" value={`${order.productType} · ${order.productBrand} ${order.productModel}`} />
                 <Info label="IMEI / Série" value={order.imei} />
                 <Info label="Serviço" value={order.serviceType} />
+                <Info label="Técnico" value={order.assignedEmployee?.name} />
                 <Info label="Previsão" value={formatDate(order.expectedAt)} />
                 <Info label="Orçamento" value={formatCurrency(order.estimatedCost)} />
                 <Info label="Sinal" value={formatCurrency(order.depositAmount)} />
+                <Info
+                  label="Saldo estimado"
+                  value={
+                    order.estimatedCost
+                      ? formatCurrency(Math.max(0, (order.estimatedCost ?? 0) - (order.depositAmount ?? 0)))
+                      : undefined
+                  }
+                />
+                <Info label="Valor final" value={order.finalCost ? formatCurrency(order.finalCost) : undefined} />
                 <Info label="Garantia" value={order.warrantyDays ? `${order.warrantyDays} dias` : undefined} />
                 <Info label="Telefone" value={order.customer?.phone} />
               </div>
+
+              {(order.estimatedCost ?? 0) > 0 && (
+                <div className="border rounded-md bg-muted/40 p-3 text-sm">
+                  Resultado estimado: orçamento{" "}
+                  <strong className="tabular-nums">{formatCurrency(order.estimatedCost)}</strong>
+                  {order.depositAmount
+                    ? <> · sinal <strong className="tabular-nums">{formatCurrency(order.depositAmount)}</strong></>
+                    : null}
+                  . Saldo a receber{" "}
+                  <strong className="tabular-nums">
+                    {formatCurrency(Math.max(0, (order.estimatedCost ?? 0) - (order.depositAmount ?? 0)))}
+                  </strong>
+                  .
+                </div>
+              )}
 
               <Info label="Defeito relatado" value={order.problemDescription} />
 

@@ -7,8 +7,9 @@ import { PageHeader } from "@/components/zts/PageHeader";
 import { StatusBadge } from "@/components/zts/StatusBadge";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { useServiceOrders } from "@/hooks/queries";
-import { dayKey } from "@/lib/format";
+import { dayKey, formatDate } from "@/lib/format";
 import { OPEN_STATUSES } from "@/lib/orderStatus";
+import { buildWarranties } from "@/lib/reports";
 import { cn } from "@/lib/utils";
 import type { ServiceOrder } from "@/types";
 import { CalendarDays } from "lucide-react";
@@ -78,6 +79,14 @@ export default function AgendaPage() {
   const { page, pageCount, total, pageSize, pageItems, setPage, resetPage } =
     useClientPagination(filtered);
 
+  const warrantyReturns = useMemo(
+    () =>
+      buildWarranties(data ?? [])
+        .filter(w => w.active && w.daysLeft <= 15)
+        .slice(0, 8),
+    [data]
+  );
+
   useEffect(() => {
     resetPage();
   }, [filter, resetPage]);
@@ -86,7 +95,7 @@ export default function AgendaPage() {
     <div>
       <PageHeader
         title="Agenda"
-        description="Previsão de entrega das ordens em aberto."
+        description="Retiradas, previsões de entrega e retornos de garantia."
         actions={
           <FiltersDialog
             title="Previsão"
@@ -158,6 +167,35 @@ export default function AgendaPage() {
             onPageChange={setPage}
           />
         </>
+      )}
+
+      {warrantyReturns.length > 0 && (
+        <section className="mt-6">
+          <h2 className="zts-eyebrow mb-2">Retornos de garantia (próximos 15 dias)</h2>
+          <ul className="border rounded-md bg-card divide-y">
+            {warrantyReturns.map(w => (
+              <li key={w.order.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelected(w.order)}
+                  className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-muted/50"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      Garantia · #{w.order.orderNumber} · {w.order.productBrand}{" "}
+                      {w.order.productModel}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {w.order.customer?.name ?? "Cliente"} · até {formatDate(w.endsAt.toISOString())} ·{" "}
+                      {w.daysLeft} dia(s)
+                    </p>
+                  </div>
+                  <StatusBadge status={w.order.status} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <OrderDetailSheet order={selected} onOpenChange={open => !open && setSelected(null)} />

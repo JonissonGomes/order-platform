@@ -25,6 +25,7 @@ import type {
   OpenCashRequest,
   PortalLookup,
   PortalLookupRequest,
+  PortalRespondRequest,
   Product,
   Profile,
   ServiceOrder,
@@ -210,4 +211,6 @@ export const api = {
   // Portal público do cliente (sem autenticação)
   portalLookup: async (data: PortalLookupRequest) =>
     itemOf<PortalLookup>(await fetchAPI<unknown>("/api/portal/lookup", send("POST", data)), "order"),
+  portalRespond: async (data: PortalRespondRequest) =>
+    itemOf<PortalLookup>(await fetchAPI<unknown>("/api/portal/respond", send("POST", data)), "order"),
 };

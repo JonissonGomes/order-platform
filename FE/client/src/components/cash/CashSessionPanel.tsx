@@ -5,12 +5,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FormField } from "@/components/zts/FormField";
 import { qk } from "@/hooks/queries";
 import { api } from "@/lib/api";
+import { PAYMENT_LABELS } from "@/components/cash/QuickSale";
 import { formatCurrency, formatDateTime, parseMoney } from "@/lib/format";
-import type { CashSession, CashSummary } from "@/types";
+import type { CashSession, CashSummary, PaymentMethod } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Lock, Unlock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
+const METHOD_ORDER: PaymentMethod[] = ["cash", "pix", "debit", "credit"];
 
 interface CashSessionPanelProps {
   session: CashSession | null | undefined;
@@ -70,20 +73,32 @@ export function CashSessionPanel({ session, summary, loading, canOpen, canClose 
       </div>
 
       {isOpen && session && (
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 text-sm max-w-xl">
-          <div>
-            <p className="zts-eyebrow">Fundo</p>
-            <p className="tabular-nums">{formatCurrency(session.openingFloat)}</p>
+        <>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 text-sm max-w-xl">
+            <div>
+              <p className="zts-eyebrow">Fundo</p>
+              <p className="tabular-nums">{formatCurrency(session.openingFloat)}</p>
+            </div>
+            <div>
+              <p className="zts-eyebrow">Entradas</p>
+              <p className="tabular-nums">{formatCurrency(summary?.totalIn)}</p>
+            </div>
+            <div>
+              <p className="zts-eyebrow">Dinheiro esperado</p>
+              <p className="tabular-nums font-semibold">{formatCurrency(expected)}</p>
+            </div>
           </div>
-          <div>
-            <p className="zts-eyebrow">Entradas</p>
-            <p className="tabular-nums">{formatCurrency(summary?.totalIn)}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {METHOD_ORDER.map(method => (
+              <div key={method} className="rounded-sm border bg-muted/40 px-2.5 py-2">
+                <p className="zts-eyebrow">{PAYMENT_LABELS[method]}</p>
+                <p className="text-sm font-medium tabular-nums mt-0.5">
+                  {formatCurrency(summary?.totalsByMethod?.[method] ?? 0)}
+                </p>
+              </div>
+            ))}
           </div>
-          <div>
-            <p className="zts-eyebrow">Dinheiro esperado</p>
-            <p className="tabular-nums font-semibold">{formatCurrency(expected)}</p>
-          </div>
-        </div>
+        </>
       )}
 
       {canAct ? (

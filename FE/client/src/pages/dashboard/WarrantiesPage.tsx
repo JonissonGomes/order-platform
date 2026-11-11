@@ -1,5 +1,6 @@
 import { OrderDetailSheet } from "@/components/orders/OrderDetailSheet";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartCard } from "@/components/zts/ChartCard";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
@@ -13,13 +14,20 @@ import { useServiceOrders } from "@/hooks/queries";
 import { formatDate } from "@/lib/format";
 import { buildWarranties, type WarrantyInfo } from "@/lib/reports";
 import type { ServiceOrder } from "@/types";
-import { BadgeCheck, ShieldOff, TimerReset } from "lucide-react";
+import { BadgeCheck, Search, ShieldOff, TimerReset } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type WarrantyFilter = "active" | "soon" | "expired";
 
-const HEADERS = ["OS", "Cliente", "Aparelho", "Garantia até", "Situação"];
+const HEADERS = ["OS", "Cliente", "Aparelho", "IMEI", "Garantia até", "Situação"];
+
+const POLICY = [
+  { svc: "Troca de tela", days: "90 dias" },
+  { svc: "Troca de bateria", days: "90 dias" },
+  { svc: "Conector de carga", days: "90 dias" },
+  { svc: "Reparo de placa", days: "30 dias" },
+];
 
 const BUCKETS = [
   { name: "Vencida", test: (w: WarrantyInfo) => !w.active },
@@ -32,6 +40,7 @@ export default function WarrantiesPage() {
   const { data, isPending, error, refetch } = useServiceOrders({ status: "delivered" });
   const [selected, setSelected] = useState<ServiceOrder | null>(null);
   const [filter, setFilter] = useState<WarrantyFilter[]>([]);
+  const [search, setSearch] = useState("");
 
   const warranties = useMemo(() => buildWarranties(data ?? []), [data]);
   const active = warranties.filter(w => w.active);
@@ -39,25 +48,30 @@ export default function WarrantiesPage() {
   const chart = BUCKETS.map(b => ({ name: b.name, value: warranties.filter(b.test).length }));
 
   const filtered = useMemo(() => {
-    if (filter.length === 0) return warranties;
+    const term = search.trim().toLowerCase();
     return warranties.filter(w => {
       const kind: WarrantyFilter = !w.active ? "expired" : w.daysLeft <= 7 ? "soon" : "active";
-      return filter.includes(kind);
+      if (filter.length > 0 && !filter.includes(kind)) return false;
+      if (!term) return true;
+      const o = w.order;
+      return [o.orderNumber, o.imei, o.productBrand, o.productModel, o.customer?.name]
+        .filter(Boolean)
+        .some(v => String(v).toLowerCase().includes(term));
     });
-  }, [warranties, filter]);
+  }, [warranties, filter, search]);
 
   const { page, pageCount, total, pageSize, pageItems, setPage, resetPage } =
     useClientPagination(filtered);
 
   useEffect(() => {
     resetPage();
-  }, [filter, resetPage]);
+  }, [filter, search, resetPage]);
 
   return (
     <div>
       <PageHeader
         title="Garantias"
-        description="Ordens entregues e o prazo de garantia restante."
+        description="Consulte por IMEI, OS ou cliente antes de abrir um novo atendimento."
         actions={
           <FiltersDialog
             title="Situação da garantia"
@@ -79,18 +93,43 @@ export default function WarrantiesPage() {
         <KpiCard label="Vencidas" icon={ShieldOff} loading={isPending} value={warranties.length - active.length} />
       </div>
 
-      <ChartCard title="Garantias por prazo restante" className="mb-4" loading={isPending}
-        empty={warranties.length === 0}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chart}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
-            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-            <YAxis allowDecimals={false} width={30} tick={{ fontSize: 11 }} />
-            <Tooltip cursor={{ fill: "#e2e7ed" }} />
-            <Bar dataKey="value" name="Ordens" fill="#3d5a78" radius={[2, 2, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(14rem,20rem)] mb-4">
+        <ChartCard title="Garantias por prazo restante" loading={isPending} empty={warranties.length === 0}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chart}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} width={30} tick={{ fontSize: 11 }} />
+              <Tooltip cursor={{ fill: "#e2e7ed" }} />
+              <Bar dataKey="value" name="Ordens" fill="#3d5a78" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <div className="border rounded-md bg-card p-4 space-y-3">
+          <h2 className="text-sm font-semibold">Política de garantia</h2>
+          <ul className="space-y-2 text-sm">
+            {POLICY.map(p => (
+              <li key={p.svc} className="flex justify-between gap-3">
+                <span>{p.svc}</span>
+                <span className="font-mono text-xs tabular-nums">{p.days}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Cobre peça e mão de obra. Perde validade com queda, líquido, mau uso ou violação do lacre.
+          </p>
+        </div>
+      </div>
+
+      <div className="relative max-w-sm mb-4">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          className="pl-8"
+          placeholder="Buscar IMEI, OS ou cliente"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
 
       {isPending ? (
         <TableSkeleton columns={HEADERS.length} headers={HEADERS} rows={4} />
@@ -112,6 +151,7 @@ export default function WarrantiesPage() {
                     <TableCell className="font-mono text-xs font-medium">#{w.order.orderNumber}</TableCell>
                     <TableCell>{w.order.customer?.name ?? "—"}</TableCell>
                     <TableCell>{w.order.productBrand} {w.order.productModel}</TableCell>
+                    <TableCell className="font-mono text-xs">{w.order.imei || "—"}</TableCell>
                     <TableCell>{formatDate(w.endsAt.toISOString())}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={`rounded-sm ${w.active

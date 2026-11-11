@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BarcodeInput } from "@/components/zts/BarcodeInput";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FiltersDialog } from "@/components/zts/FiltersDialog";
+import { KpiCard } from "@/components/zts/KpiCard";
 import { ListPagination } from "@/components/zts/ListPagination";
 import { PageHeader } from "@/components/zts/PageHeader";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
@@ -16,14 +17,39 @@ import { useProducts } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { Product } from "@/types";
-import { Package, Plus, Search, Tag } from "lucide-react";
+import { AlertTriangle, Package, Plus, Search, Tag, WalletCards } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type StockFilter = "ok" | "low" | "out";
 
-const HEADERS = ["Produto", "Código", "Categoria", "Custo", "Venda", "Estoque", ""];
+const HEADERS = ["Produto", "Código", "Categoria", "Estoque", "Custo", "Venda", ""];
+
+function StockBar({ qty, minQty }: { qty: number; minQty: number }) {
+  const target = Math.max(minQty * 2, 1);
+  const pct = Math.min(100, Math.round((qty / target) * 100));
+  const zero = qty <= 0;
+  const low = qty > 0 && qty <= minQty;
+  return (
+    <div className="min-w-[7.5rem]">
+      <div className="flex justify-between gap-2 mb-1">
+        <span className="tabular-nums font-medium text-sm">{qty}</span>
+        <span className="text-[0.6875rem] text-muted-foreground">mín. {minQty}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn(
+            "h-full rounded-full",
+            zero ? "bg-destructive" : low ? "bg-amber-500" : "bg-foreground/70"
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function ProductsPage() {
   const { can } = usePermissions();
@@ -44,6 +70,8 @@ export default function ProductsPage() {
       ok: list.filter(p => p.qty > p.minQty).length,
       low: list.filter(p => p.qty > 0 && p.qty <= p.minQty).length,
       out: list.filter(p => p.qty <= 0).length,
+      value: list.reduce((sum, p) => sum + p.qty * (p.cost || 0), 0),
+      belowMin: list.filter(p => p.qty <= p.minQty).length,
     };
   }, [data]);
 
@@ -109,6 +137,25 @@ export default function ProductsPage() {
         }
       />
 
+      <div className="grid gap-3 sm:grid-cols-3 mb-4">
+        <KpiCard label="Itens cadastrados" icon={Package} loading={isPending} value={(data ?? []).length} />
+        <KpiCard
+          label="Abaixo do mínimo"
+          icon={AlertTriangle}
+          loading={isPending}
+          value={stockCounts.belowMin}
+          tone={stockCounts.belowMin ? "warning" : "default"}
+          hint="Repor com o fornecedor"
+        />
+        <KpiCard
+          label="Valor em estoque"
+          icon={WalletCards}
+          loading={isPending}
+          value={formatCurrency(stockCounts.value)}
+          hint="Ao custo"
+        />
+      </div>
+
       <div className="grid gap-3 lg:grid-cols-[1fr_auto] mb-4">
         <BarcodeInput onScan={handleScan} />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -164,22 +211,22 @@ export default function ProductsPage() {
                     <TableRow key={p.id}>
                       <TableCell>
                         <p className="font-medium">{p.name}</p>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{code}</TableCell>
-                      <TableCell>{p.category || "—"}</TableCell>
-                      <TableCell className="tabular-nums">{formatCurrency(p.cost)}</TableCell>
-                      <TableCell className="tabular-nums">{formatCurrency(p.price)}</TableCell>
-                      <TableCell>
-                        <span className="tabular-nums font-medium mr-2">{p.qty}</span>
                         {low && (
                           <Badge
                             variant="outline"
-                            className="rounded-sm border-amber-300 bg-amber-50 text-amber-800"
+                            className="mt-1 rounded-sm border-amber-300 bg-amber-50 text-amber-800"
                           >
-                            Baixo
+                            {p.qty <= 0 ? "Zerado" : "Baixo"}
                           </Badge>
                         )}
                       </TableCell>
+                      <TableCell className="font-mono text-xs">{code}</TableCell>
+                      <TableCell>{p.category || "—"}</TableCell>
+                      <TableCell>
+                        <StockBar qty={p.qty} minQty={p.minQty} />
+                      </TableCell>
+                      <TableCell className="tabular-nums">{formatCurrency(p.cost)}</TableCell>
+                      <TableCell className="tabular-nums">{formatCurrency(p.price)}</TableCell>
                       <TableCell className="text-right whitespace-nowrap">
                         <Button variant="ghost" size="sm" onClick={() => setLabeling(p)}>
                           <Tag className="h-3.5 w-3.5" /> Etiqueta

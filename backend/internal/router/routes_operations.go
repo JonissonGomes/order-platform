@@ -67,5 +67,6 @@ func registerPortalRoutes(api *gin.RouterGroup, d *deps) {
 	portal.Use(middleware.RateLimitByIP(20, 10*time.Minute))
 	{
 		portal.POST("/lookup", d.portal.Lookup)
+		portal.POST("/respond", d.portal.Respond)
 	}
 }

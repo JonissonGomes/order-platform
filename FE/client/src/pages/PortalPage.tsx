@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { ZtsLogo } from "@/components/zts/ZtsLogo";
 import { api } from "@/lib/api";
 import { digitsOnly } from "@/lib/format";
+import type { PortalLookup } from "@/types";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2, Search } from "lucide-react";
 import { useState } from "react";
@@ -13,10 +14,13 @@ import { Link } from "wouter";
 export default function PortalPage() {
   const [orderNumber, setOrderNumber] = useState("");
   const [last4, setLast4] = useState("");
+  const [result, setResult] = useState<PortalLookup | null>(null);
 
   const lookup = useMutation({
     mutationFn: () =>
       api.portalLookup({ orderNumber: orderNumber.trim().replace(/^#/, ""), phoneLast4: last4 }),
+    onSuccess: data => setResult(data),
+    onError: () => setResult(null),
   });
 
   const valid = orderNumber.trim().length > 0 && last4.length === 4;
@@ -100,7 +104,9 @@ export default function PortalPage() {
               </div>
             )}
 
-            {lookup.data && <PortalResult data={lookup.data} />}
+            {result && (
+              <PortalResult data={result} phoneLast4={last4} onUpdated={setResult} />
+            )}
           </div>
         </div>
       </div>
