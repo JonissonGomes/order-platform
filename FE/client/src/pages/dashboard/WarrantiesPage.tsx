@@ -94,17 +94,19 @@ export default function WarrantiesPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(14rem,20rem)] mb-4">
-        <ChartCard title="Garantias por prazo restante" loading={isPending} empty={warranties.length === 0}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chart}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis allowDecimals={false} width={30} tick={{ fontSize: 11 }} />
-              <Tooltip cursor={{ fill: "#e2e7ed" }} />
-              <Bar dataKey="value" name="Ordens" fill="#3d5a78" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        {(isPending || warranties.length > 0) && (
+          <ChartCard title="Garantias por prazo restante" loading={isPending} empty={warranties.length === 0}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chart}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} width={30} tick={{ fontSize: 11 }} />
+                <Tooltip cursor={{ fill: "#e2e7ed" }} />
+                <Bar dataKey="value" name="Ordens" fill="#3d5a78" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        )}
         <div className="border rounded-md bg-card p-4 space-y-3">
           <h2 className="text-sm font-semibold">Política de garantia</h2>
           <ul className="space-y-2 text-sm">

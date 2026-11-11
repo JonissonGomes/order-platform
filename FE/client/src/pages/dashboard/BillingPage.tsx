@@ -1,5 +1,6 @@
 import { PAYMENT_LABELS } from "@/components/cash/QuickSale";
 import { ChartCard } from "@/components/zts/ChartCard";
+import { EmptyState } from "@/components/zts/EmptyState";
 import { FilterChips } from "@/components/zts/FilterChips";
 import { KpiCard } from "@/components/zts/KpiCard";
 import { PageHeader } from "@/components/zts/PageHeader";
@@ -74,44 +75,62 @@ export default function BillingPage() {
           value={formatCurrency(report.count ? report.total / report.count : 0)} hint={`Últimos ${days} dias`} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3 min-w-0">
-        <ChartCard title="Receita por dia" className="lg:col-span-2 min-w-0" loading={loading} empty={report.total === 0}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={report.series}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={days > 30 ? 6 : days > 7 ? 2 : 0} />
-              <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={v => `R$${v}`} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
-              <Bar dataKey="value" name="Receita" fill="#3d5a78" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+      {!loading && report.total === 0 && payments.length === 0 && byService.length === 0 ? (
+        <EmptyState
+          icon={TrendingUp}
+          title="Sem faturamento no período"
+          description="Entregue OS ou registre pagamentos no caixa para ver os gráficos."
+        />
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-3 min-w-0">
+          {(loading || report.total > 0) && (
+            <ChartCard title="Receita por dia" className="lg:col-span-2 min-w-0" loading={loading} empty={report.total === 0}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={report.series}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={days > 30 ? 6 : days > 7 ? 2 : 0} />
+                  <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={v => `R$${v}`} />
+                  <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
+                  <Bar dataKey="value" name="Receita" fill="#3d5a78" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
 
-        <ChartCard title="Pagamentos (sessão de caixa atual)" loading={loading} empty={payments.length === 0}
-          emptyLabel="Disponível com lançamentos de caixa">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={payments} layout="vertical">
-              <XAxis type="number" hide />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={70} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
-              <Bar dataKey="value" radius={[0, 2, 2, 0]}>
-                {payments.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+          {(loading || payments.length > 0) && (
+            <ChartCard
+              title="Pagamentos (sessão de caixa atual)"
+              loading={loading}
+              empty={payments.length === 0}
+              emptyLabel="Disponível com lançamentos de caixa"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={payments} layout="vertical">
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={70} />
+                  <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
+                  <Bar dataKey="value" radius={[0, 2, 2, 0]}>
+                    {payments.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
 
-        <ChartCard title="Receita por tipo de serviço" className="lg:col-span-3" loading={loading} empty={byService.length === 0}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={byService} layout="vertical">
-              <XAxis type="number" tickFormatter={v => `R$${v}`} tick={{ fontSize: 11 }} />
-              <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
-              <Bar dataKey="value" name="Receita" fill="#6f8fae" radius={[0, 2, 2, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
+          {(loading || byService.length > 0) && (
+            <ChartCard title="Receita por tipo de serviço" className="lg:col-span-3" loading={loading} empty={byService.length === 0}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={byService} layout="vertical">
+                  <XAxis type="number" tickFormatter={v => `R$${v}`} tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
+                  <Bar dataKey="value" name="Receita" fill="#6f8fae" radius={[0, 2, 2, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+        </div>
+      )}
     </div>
   );
 }
