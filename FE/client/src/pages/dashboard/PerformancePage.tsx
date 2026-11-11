@@ -3,15 +3,15 @@ import { Button } from "@/components/ui/button";
 import { ChartCard } from "@/components/zts/ChartCard";
 import { EmptyState } from "@/components/zts/EmptyState";
 import { KpiCard } from "@/components/zts/KpiCard";
+import { CHART_BLUE, ColumnBarChart, DonutChart } from "@/components/zts/SimpleCharts";
 import { useServiceOrders } from "@/hooks/queries";
 import { buildAttentionQueue } from "@/lib/attention";
 import { formatCurrency } from "@/lib/format";
-import { ORDER_STATUS, ORDER_STATUS_LIST } from "@/lib/orderStatus";
+import { OPEN_STATUSES, ORDER_STATUS, ORDER_STATUS_LIST } from "@/lib/orderStatus";
 import { averageTurnaroundDays, countBy, orderValue } from "@/lib/reports";
 import type { ServiceOrder } from "@/types";
-import { ClipboardList, Hourglass, Percent, ShoppingBag, Wrench } from "lucide-react";
+import { ClipboardList, Hourglass, PackageCheck, Percent, ShoppingBag, Wrench } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export default function PerformancePage() {
   const { data, isPending } = useServiceOrders();
@@ -20,6 +20,7 @@ export default function PerformancePage() {
   const stats = useMemo(() => {
     const orders = data ?? [];
     const delivered = orders.filter(o => o.status === "delivered");
+    const open = orders.filter(o => OPEN_STATUSES.includes(o.status));
     const closed = orders.filter(o => ["delivered", "cancelled", "unrepairable"].includes(o.status));
     const decided = orders.filter(o =>
       ["approved", "waiting_parts", "in_repair", "testing", "ready", "delivered", "cancelled"].includes(o.status)
@@ -30,8 +31,11 @@ export default function PerformancePage() {
         ? delivered.reduce((s, o) => s + orderValue(o), 0) / delivered.length
         : 0;
     const stuck = buildAttentionQueue(orders).filter(i => i.tone === "bad");
+    const byTechnician = countBy(delivered, o => o.assignedEmployee?.name).slice(0, 8);
     return {
       total: orders.length,
+      open: open.length,
+      ready: orders.filter(o => o.status === "ready").length,
       delivered: delivered.length,
       ticket,
       approvalRate: decided.length ? Math.round((approvedLike.length / decided.length) * 100) : 0,
@@ -40,26 +44,42 @@ export default function PerformancePage() {
         : 0,
       turnaround: averageTurnaroundDays(orders),
       byStatus: ORDER_STATUS_LIST
-        .map(s => ({ name: ORDER_STATUS[s].label, value: orders.filter(o => o.status === s).length, color: ORDER_STATUS[s].color }))
+        .map(s => ({
+          name: ORDER_STATUS[s].label,
+          value: orders.filter(o => o.status === s).length,
+          color: ORDER_STATUS[s].color,
+        }))
         .filter(s => s.value > 0),
-      byTechnician: countBy(delivered, o => o.assignedEmployee?.name).slice(0, 8),
+      byTechnicianBars: byTechnician.map(t => ({
+        label: t.name.length > 10 ? `${t.name.slice(0, 9)}…` : t.name,
+        value: t.value,
+      })),
       byService: countBy(delivered, o => o.serviceType).slice(0, 6),
-      byDepartment: countBy(orders, o => o.department?.name).slice(0, 8),
+      byDepartment: countBy(orders, o => o.department?.name).slice(0, 8).map(d => ({
+        label: d.name.length > 12 ? `${d.name.slice(0, 11)}…` : d.name,
+        value: d.value,
+      })),
       stuck,
     };
   }, [data]);
 
   return (
     <div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-5">
         <KpiCard label="Ticket médio" icon={ShoppingBag} loading={isPending}
           value={formatCurrency(stats.ticket)} hint="Por OS entregue" />
-        <KpiCard label="Tempo médio de reparo" icon={Hourglass} loading={isPending}
-          value={stats.turnaround === null ? "—" : `${stats.turnaround.toFixed(1)} dias`} hint="Da abertura à entrega" />
-        <KpiCard label="Orçamentos aprovados" icon={Percent} loading={isPending}
-          value={`${stats.approvalRate}%`} hint="Das OS com decisão" />
-        <KpiCard label="Sem conserto" icon={Wrench} loading={isPending} value={`${stats.unrepairableRate}%`}
-          hint="Das ordens encerradas" tone={stats.unrepairableRate > 15 ? "warning" : "default"} />
+        <KpiCard label="Tempo médio" icon={Hourglass} loading={isPending}
+          value={stats.turnaround === null ? "—" : `${stats.turnaround.toFixed(1)} d`}
+          hint="Abertura → entrega" />
+        <KpiCard label="Aprovação" icon={Percent} loading={isPending}
+          value={`${stats.approvalRate}%`} hint="Orçamentos aprovados" />
+        <KpiCard label="Sem conserto" icon={Wrench} loading={isPending}
+          value={`${stats.unrepairableRate}%`} hint="Das encerradas"
+          tone={stats.unrepairableRate > 15 ? "warning" : "default"} />
+        <KpiCard label="Em aberto" icon={ClipboardList} loading={isPending}
+          value={stats.open} hint="Fila atual" />
+        <KpiCard label="Prontas" icon={PackageCheck} loading={isPending}
+          value={stats.ready} hint="Aguardando retirada" />
       </div>
 
       {!isPending && stats.total === 0 ? (
@@ -71,57 +91,46 @@ export default function PerformancePage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {(isPending || stats.byStatus.length > 0) && (
-            <ChartCard title="Ordens por status" loading={isPending} empty={stats.byStatus.length === 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={stats.byStatus} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85} paddingAngle={1}>
-                    {stats.byStatus.map(s => <Cell key={s.name} fill={s.color} />)}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+            <ChartCard
+              title="Ordens por status"
+              loading={isPending}
+              empty={stats.byStatus.length === 0}
+              chartHeightClassName="h-56"
+            >
+              <DonutChart data={stats.byStatus} />
             </ChartCard>
           )}
 
           {(isPending || stats.byService.length > 0) && (
-            <ChartCard title="Reparos mais frequentes" loading={isPending} empty={stats.byService.length === 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.byService} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#d3d8df" />
-                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-                  <Tooltip cursor={{ fill: "#e2e7ed" }} />
-                  <Bar dataKey="value" name="OS" fill="#3d5a78" radius={[0, 2, 2, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartCard
+              title="Reparos mais frequentes"
+              loading={isPending}
+              empty={stats.byService.length === 0}
+              chartHeightClassName="h-56"
+            >
+              <DonutChart data={stats.byService} />
             </ChartCard>
           )}
 
-          {(isPending || stats.byTechnician.length > 0) && (
-            <ChartCard title="Entregas por técnico" loading={isPending} empty={stats.byTechnician.length === 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.byTechnician} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#d3d8df" />
-                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
-                  <Tooltip cursor={{ fill: "#e2e7ed" }} />
-                  <Bar dataKey="value" name="Entregas" fill="#6f8fae" radius={[0, 2, 2, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+          {(isPending || stats.byTechnicianBars.length > 0) && (
+            <ChartCard
+              title="Entregas por técnico"
+              loading={isPending}
+              empty={stats.byTechnicianBars.length === 0}
+              chartHeightClassName="h-56"
+            >
+              <ColumnBarChart data={stats.byTechnicianBars} fill={CHART_BLUE} />
             </ChartCard>
           )}
 
           {(isPending || stats.byDepartment.length > 0) && (
-            <ChartCard title="Ordens por setor" className="lg:col-span-2" loading={isPending} empty={stats.byDepartment.length === 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.byDepartment}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={30} />
-                  <Tooltip cursor={{ fill: "#e2e7ed" }} />
-                  <Bar dataKey="value" name="Ordens" fill="#94a3b8" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartCard
+              title="Ordens por setor"
+              loading={isPending}
+              empty={stats.byDepartment.length === 0}
+              chartHeightClassName="h-56"
+            >
+              <ColumnBarChart data={stats.byDepartment} fill="#6f8fae" />
             </ChartCard>
           )}
         </div>

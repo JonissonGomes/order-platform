@@ -5,11 +5,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChartCard } from "@/components/zts/ChartCard";
 import { EmptyState } from "@/components/zts/EmptyState";
 import { KpiCard } from "@/components/zts/KpiCard";
+import { ColumnBarChart, DonutChart } from "@/components/zts/SimpleCharts";
 import { StatusBadge } from "@/components/zts/StatusBadge";
 import { useCashSession, useProducts, useServiceOrders } from "@/hooks/queries";
 import { buildAttentionQueue } from "@/lib/attention";
 import { formatCurrency, isSameDay } from "@/lib/format";
-import { OPEN_STATUSES } from "@/lib/orderStatus";
+import { OPEN_STATUSES, ORDER_STATUS, ORDER_STATUS_LIST } from "@/lib/orderStatus";
 import { buildRevenue } from "@/lib/reports";
 import type { ServiceOrder } from "@/types";
 import {
@@ -17,10 +18,11 @@ import {
   CalendarClock,
   ClipboardList,
   PackageCheck,
+  TrendingUp,
+  Wrench,
   Wallet,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useLocation } from "wouter";
 
 function ListSkeleton({ rows = 4 }: { rows?: number }) {
@@ -45,17 +47,28 @@ export default function DashboardHome() {
     const list = orders.data ?? [];
     const open = list.filter(o => OPEN_STATUSES.includes(o.status));
     const week = buildRevenue(list, 7);
+    const month = buildRevenue(list, 30);
+    const lowStockAll = (products.data ?? []).filter(p => p.isActive && p.qty <= p.minQty);
     return {
       open: open.length,
       awaitingApproval: open.filter(o => o.status === "evaluating").length,
+      inRepair: open.filter(o => o.status === "in_repair").length,
+      waitingParts: open.filter(o => o.status === "waiting_parts").length,
       ready: list.filter(o => o.status === "ready").length,
       dueToday: open.filter(o => isSameDay(o.expectedAt)),
       attention: buildAttentionQueue(list).slice(0, 8),
-      lowStock: (products.data ?? [])
-        .filter(p => p.isActive && p.qty <= p.minQty)
-        .sort((a, b) => a.qty - b.qty)
-        .slice(0, 5),
+      lowStockCount: lowStockAll.length,
+      lowStock: lowStockAll.sort((a, b) => a.qty - b.qty).slice(0, 5),
       week,
+      month,
+      openByStatus: ORDER_STATUS_LIST
+        .filter(s => OPEN_STATUSES.includes(s))
+        .map(s => ({
+          name: ORDER_STATUS[s].label,
+          value: open.filter(o => o.status === s).length,
+          color: ORDER_STATUS[s].color,
+        }))
+        .filter(s => s.value > 0),
     };
   }, [orders.data, products.data]);
 
@@ -69,13 +82,20 @@ export default function DashboardHome() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-5">
         <KpiCard
           label="OS em aberto"
           icon={ClipboardList}
           loading={orders.isPending}
           value={stats.open}
-          hint={`${stats.awaitingApproval} aguardando aprovação`}
+          hint={`${stats.awaitingApproval} em avaliação`}
+        />
+        <KpiCard
+          label="Em reparo"
+          icon={Wrench}
+          loading={orders.isPending}
+          value={stats.inRepair}
+          hint={`${stats.waitingParts} aguardando peça`}
         />
         <KpiCard
           label="Prontas p/ retirada"
@@ -85,11 +105,18 @@ export default function DashboardHome() {
           hint="Avise o cliente"
         />
         <KpiCard
+          label="Faturamento 7d"
+          icon={TrendingUp}
+          loading={orders.isPending}
+          value={formatCurrency(stats.week.total)}
+          hint={`${stats.week.count} entregas`}
+        />
+        <KpiCard
           label="Estoque baixo"
           icon={AlertTriangle}
           loading={products.isPending}
-          tone={stats.lowStock.length ? "warning" : "default"}
-          value={(products.data ?? []).filter(p => p.isActive && p.qty <= p.minQty).length}
+          tone={stats.lowStockCount ? "warning" : "default"}
+          value={stats.lowStockCount}
           hint="Itens para repor"
         />
         <KpiCard
@@ -97,8 +124,33 @@ export default function DashboardHome() {
           icon={Wallet}
           loading={session.isPending}
           value={session.data?.session ? formatCurrency(session.data.summary?.totalIn) : "Fechado"}
-          hint={session.data?.session ? "Entradas na sessão atual" : "Nenhuma sessão aberta"}
+          hint={session.data?.session ? "Entradas na sessão" : "Nenhuma sessão aberta"}
         />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2 mb-4">
+        <ChartCard
+          title="Faturamento da semana"
+          loading={orders.isPending}
+          empty={stats.week.total === 0}
+          emptyLabel="Sem entregas nos últimos 7 dias"
+          chartHeightClassName="h-56"
+        >
+          <ColumnBarChart
+            data={stats.week.series.map(s => ({ label: s.label, value: s.value }))}
+            money
+          />
+        </ChartCard>
+
+        <ChartCard
+          title="Fila aberta por status"
+          loading={orders.isPending}
+          empty={stats.openByStatus.length === 0}
+          emptyLabel="Nenhuma OS em aberto"
+          chartHeightClassName="h-56"
+        >
+          <DonutChart data={stats.openByStatus} />
+        </ChartCard>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2 mb-4">
@@ -153,20 +205,17 @@ export default function DashboardHome() {
         </Card>
 
         <ChartCard
-          title="Faturamento da semana"
+          title="Faturamento 30 dias"
           loading={orders.isPending}
-          empty={stats.week.total === 0}
-          emptyLabel="Sem entregas nos últimos 7 dias"
+          empty={stats.month.total === 0}
+          emptyLabel="Sem entregas no mês"
+          chartHeightClassName="h-56"
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.week.series}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} width={50} tickFormatter={v => `R$${v}`} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
-              <Bar dataKey="value" name="Receita" fill="#3d5a78" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <ColumnBarChart
+            data={stats.month.series.map(s => ({ label: s.label, value: s.value }))}
+            money
+            fill="#6f8fae"
+          />
         </ChartCard>
       </div>
 

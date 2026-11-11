@@ -50,7 +50,8 @@ export default function PortalPage() {
     retry: false,
   });
 
-  const initialLoading = lookup.isPending && !lookup.data;
+  // isLoading = isPending && isFetching (falso com query desabilitada; evita spinner eterno)
+  const initialLoading = Boolean(session) && lookup.isLoading;
   /** Erro só na 1ª consulta; falhas de sync em background ficam silenciosas. */
   const showLookupError = Boolean(session && lookup.isError && !lookup.data);
 

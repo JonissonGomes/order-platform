@@ -11,13 +11,13 @@ import { useClientPagination } from "@/hooks/useClientPagination";
 import { useServiceOrders } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { printOrderReceipt } from "@/lib/orderReceipt";
 import { ORDER_STATUS, ORDER_STATUS_LIST } from "@/lib/orderStatus";
 import type { ServiceOrder, ServiceOrderStatus } from "@/types";
-import { ClipboardList, FilePlus2, Search } from "lucide-react";
+import { ClipboardList, FilePlus2, Printer, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useLocation } from "wouter";
-
-const HEADERS = ["OS", "Cliente", "Aparelho", "Status", "Previsão", "Orçamento"];
 
 export default function OrdersList() {
   const [, setLocation] = useLocation();
@@ -26,6 +26,7 @@ export default function OrdersList() {
   const [statusFilter, setStatusFilter] = useState<ServiceOrderStatus[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<ServiceOrder | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   const counts = useMemo(() => {
     const map: Partial<Record<ServiceOrderStatus, number>> = {};
@@ -53,10 +54,22 @@ export default function OrdersList() {
     resetPage();
   }, [search, statusFilter, resetPage]);
 
+  const handlePrint = async (order: ServiceOrder, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPrintingId(order.id);
+    try {
+      await printOrderReceipt(order.id);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao imprimir");
+    } finally {
+      setPrintingId(null);
+    }
+  };
+
   return (
     <div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <div className="relative w-full max-w-sm">
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+        <div className="relative w-full min-w-0 sm:w-64 sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             value={search}
@@ -65,28 +78,26 @@ export default function OrdersList() {
             placeholder="Buscar por OS, cliente, aparelho ou IMEI"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <FiltersDialog
-            title="Status da OS"
-            description="Marque os status que deseja ver na lista."
-            value={statusFilter}
-            onApply={setStatusFilter}
-            options={ORDER_STATUS_LIST.map(s => ({
-              value: s,
-              label: ORDER_STATUS[s].label,
-              count: counts[s] ?? 0,
-            }))}
-          />
-          {can("service_orders.create") && (
-            <Button size="sm" onClick={() => setLocation("/dashboard/ordens/nova")}>
-              <FilePlus2 className="h-4 w-4" /> Nova OS
-            </Button>
-          )}
-        </div>
+        <FiltersDialog
+          title="Status da OS"
+          description="Marque os status que deseja ver na lista."
+          value={statusFilter}
+          onApply={setStatusFilter}
+          options={ORDER_STATUS_LIST.map(s => ({
+            value: s,
+            label: ORDER_STATUS[s].label,
+            count: counts[s] ?? 0,
+          }))}
+        />
+        {can("service_orders.create") && (
+          <Button size="sm" onClick={() => setLocation("/dashboard/ordens/nova")}>
+            <FilePlus2 className="h-4 w-4" /> Nova OS
+          </Button>
+        )}
       </div>
 
       {isPending ? (
-        <TableSkeleton columns={HEADERS.length} headers={HEADERS} />
+        <TableSkeleton columns={7} headers={["OS", "Cliente", "Aparelho", "Status", "Previsão", "Orçamento", "Valor final"]} />
       ) : error ? (
         <ErrorState message={error.message} onRetry={() => refetch()} />
       ) : filtered.length === 0 ? (
@@ -100,7 +111,16 @@ export default function OrdersList() {
           <div className="border rounded-md bg-card overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
+                <TableRow>
+                  <TableHead>OS</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Aparelho</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Previsão</TableHead>
+                  <TableHead className="text-right">Orçamento</TableHead>
+                  <TableHead className="text-right">Valor final</TableHead>
+                  <TableHead className="text-right w-[4rem]">Ações</TableHead>
+                </TableRow>
               </TableHeader>
               <TableBody>
                 {pageItems.map(o => (
@@ -114,7 +134,24 @@ export default function OrdersList() {
                       <StatusBadge status={o.status} />
                     </TableCell>
                     <TableCell>{formatDate(o.expectedAt)}</TableCell>
-                    <TableCell className="tabular-nums">{formatCurrency(o.estimatedCost)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {o.estimatedCost ? formatCurrency(o.estimatedCost) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">
+                      {o.finalCost && o.finalCost > 0 ? formatCurrency(o.finalCost) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Imprimir comprovante"
+                        disabled={printingId === o.id}
+                        onClick={e => handlePrint(o, e)}
+                      >
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

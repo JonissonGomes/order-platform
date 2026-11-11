@@ -14,37 +14,37 @@ import { useClientPagination } from "@/hooks/useClientPagination";
 import { useProducts } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import type { Product } from "@/types";
-import { AlertTriangle, Package, Plus, Search, Tag, WalletCards } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  Package,
+  Pencil,
+  Plus,
+  Search,
+  Tag,
+  WalletCards,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type StockFilter = "ok" | "low" | "out";
 
-const HEADERS = ["Produto", "Código", "Categoria", "Estoque", "Custo", "Venda", ""];
+const HEADERS = [
+  "Código",
+  "Produto",
+  "Categoria",
+  "Qtd atual",
+  "Qtd mín",
+  "Status",
+  "Custo",
+  "Venda",
+  "Ações",
+];
 
-function StockBar({ qty, minQty }: { qty: number; minQty: number }) {
-  const target = Math.max(minQty * 2, 1);
-  const pct = Math.min(100, Math.round((qty / target) * 100));
-  const zero = qty <= 0;
-  const low = qty > 0 && qty <= minQty;
-  return (
-    <div className="min-w-[7.5rem]">
-      <div className="flex justify-between gap-2 mb-1">
-        <span className="tabular-nums font-medium text-sm">{qty}</span>
-        <span className="text-[0.6875rem] text-muted-foreground">mín. {minQty}</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className={cn(
-            "h-full rounded-full",
-            zero ? "bg-destructive" : low ? "bg-amber-500" : "bg-foreground/70"
-          )}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
+function stockKind(p: Product): StockFilter {
+  if (p.qty <= 0) return "out";
+  if (p.qty <= p.minQty) return "low";
+  return "ok";
 }
 
 export default function ProductsPage() {
@@ -62,9 +62,9 @@ export default function ProductsPage() {
   const stockCounts = useMemo(() => {
     const list = data ?? [];
     return {
-      ok: list.filter(p => p.qty > p.minQty).length,
-      low: list.filter(p => p.qty > 0 && p.qty <= p.minQty).length,
-      out: list.filter(p => p.qty <= 0).length,
+      ok: list.filter(p => stockKind(p) === "ok").length,
+      low: list.filter(p => stockKind(p) === "low").length,
+      out: list.filter(p => stockKind(p) === "out").length,
       value: list.reduce((sum, p) => sum + p.qty * (p.cost || 0), 0),
       belowMin: list.filter(p => p.qty <= p.minQty).length,
     };
@@ -73,8 +73,7 @@ export default function ProductsPage() {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return (data ?? []).filter(p => {
-      const stock: StockFilter = p.qty <= 0 ? "out" : p.qty <= p.minQty ? "low" : "ok";
-      if (stockFilter.length > 0 && !stockFilter.includes(stock)) return false;
+      if (stockFilter.length > 0 && !stockFilter.includes(stockKind(p))) return false;
       return (
         !term ||
         [p.name, p.sku, p.barcode, p.category].some(v => v?.toLowerCase().includes(term))
@@ -89,41 +88,40 @@ export default function ProductsPage() {
     resetPage();
   }, [search, stockFilter, resetPage]);
 
-  const openNew = () => {
-    setEditing(null);
-    setFormOpen(true);
-  };
-
   return (
     <div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <div className="relative w-full max-w-sm">
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+        <div className="relative w-full min-w-0 sm:w-64 sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-8"
-            placeholder="Buscar por nome, código ou categoria"
+            placeholder="Buscar nome, código ou categoria"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <FiltersDialog
-            title="Estoque"
-            description="Filtre produtos por situação de estoque."
-            value={stockFilter}
-            onApply={setStockFilter}
-            options={[
-              { value: "ok", label: "Estoque ok", count: stockCounts.ok },
-              { value: "low", label: "Abaixo do mínimo", count: stockCounts.low },
-              { value: "out", label: "Zerado", count: stockCounts.out },
-            ]}
-          />
-          {canWrite && (
-            <Button size="sm" onClick={openNew}>
-              <Plus className="h-4 w-4" /> Novo produto
-            </Button>
-          )}
-        </div>
+        <FiltersDialog
+          title="Estoque"
+          description="Filtre produtos por situação de estoque."
+          value={stockFilter}
+          onApply={setStockFilter}
+          options={[
+            { value: "ok", label: "Estoque ok", count: stockCounts.ok },
+            { value: "low", label: "Abaixo do mínimo", count: stockCounts.low },
+            { value: "out", label: "Zerado", count: stockCounts.out },
+          ]}
+        />
+        {canWrite && (
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" /> Novo produto
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
@@ -161,56 +159,96 @@ export default function ProductsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {HEADERS.map(h => (
-                    <TableHead key={h}>{h}</TableHead>
-                  ))}
+                  <TableHead>Código</TableHead>
+                  <TableHead>Produto</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead className="text-right">Qtd atual</TableHead>
+                  <TableHead className="text-right">Qtd mín</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Custo</TableHead>
+                  <TableHead className="text-right">Venda</TableHead>
+                  <TableHead className="text-right w-[7.5rem]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pageItems.map(p => {
-                  const low = p.qty <= p.minQty;
+                  const kind = stockKind(p);
                   const code = p.barcode || p.sku || "—";
+                  const statusLabel = kind === "out" ? "Zerado" : kind === "low" ? "Baixo" : "Ok";
                   return (
                     <TableRow key={p.id}>
-                      <TableCell>
-                        <p className="font-medium">{p.name}</p>
-                        {low && (
-                          <Badge
-                            variant="outline"
-                            className="mt-1 rounded-sm border-amber-300 bg-amber-50 text-amber-800"
-                          >
-                            {p.qty <= 0 ? "Zerado" : "Baixo"}
-                          </Badge>
-                        )}
+                      <TableCell className="font-mono text-xs tracking-wide whitespace-nowrap">
+                        {code}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{code}</TableCell>
-                      <TableCell>{p.category || "—"}</TableCell>
-                      <TableCell>
-                        <StockBar qty={p.qty} minQty={p.minQty} />
+                      <TableCell className="font-medium max-w-[16rem]">
+                        <span className="line-clamp-2">{p.name}</span>
                       </TableCell>
-                      <TableCell className="tabular-nums">{formatCurrency(p.cost)}</TableCell>
-                      <TableCell className="tabular-nums">{formatCurrency(p.price)}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">
-                        <Button variant="ghost" size="sm" onClick={() => setLabeling(p)}>
-                          <Tag className="h-3.5 w-3.5" /> Etiqueta
-                        </Button>
-                        {canAdjust && (
-                          <Button variant="ghost" size="sm" onClick={() => setAdjusting(p)}>
-                            Movimentar
-                          </Button>
-                        )}
-                        {canWrite && (
+                      <TableCell className="text-muted-foreground">
+                        {p.category || "—"}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">
+                        {p.qty}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {p.minQty}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={
+                            kind === "out"
+                              ? "rounded-sm border-destructive/40 bg-destructive/5 text-destructive"
+                              : kind === "low"
+                                ? "rounded-sm border-amber-300 bg-amber-50 text-amber-800"
+                                : "rounded-sm border-emerald-200 bg-emerald-50 text-emerald-800"
+                          }
+                        >
+                          {statusLabel}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums whitespace-nowrap">
+                        {formatCurrency(p.cost)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-medium whitespace-nowrap">
+                        {formatCurrency(p.price)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex items-center justify-end gap-0.5">
                           <Button
                             variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditing(p);
-                              setFormOpen(true);
-                            }}
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Etiqueta"
+                            onClick={() => setLabeling(p)}
                           >
-                            Editar
+                            <Tag className="h-4 w-4" />
                           </Button>
-                        )}
+                          {canAdjust && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Movimentar"
+                              onClick={() => setAdjusting(p)}
+                            >
+                              <ArrowLeftRight className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canWrite && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Editar"
+                              onClick={() => {
+                                setEditing(p);
+                                setFormOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -228,11 +266,7 @@ export default function ProductsPage() {
         </>
       )}
 
-      <ProductFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        product={editing}
-      />
+      <ProductFormDialog open={formOpen} onOpenChange={setFormOpen} product={editing} />
       <StockAdjustDialog product={adjusting} onOpenChange={open => !open && setAdjusting(null)} />
       <ProductLabelDialog product={labeling} onOpenChange={open => !open && setLabeling(null)} />
     </div>

@@ -3,12 +3,12 @@ import { ChartCard } from "@/components/zts/ChartCard";
 import { EmptyState } from "@/components/zts/EmptyState";
 import { FilterChips } from "@/components/zts/FilterChips";
 import { KpiCard } from "@/components/zts/KpiCard";
+import { ColumnBarChart, DonutChart } from "@/components/zts/SimpleCharts";
 import { useCashMovements, useCashSession, useServiceOrders } from "@/hooks/queries";
-import { dayKey, formatCurrency } from "@/lib/format";
-import { buildRevenue, orderValue, revenueByPayment } from "@/lib/reports";
-import { Receipt, ShoppingBag, TrendingUp } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
+import { buildRevenue, orderValue, peakRevenuePoint, revenueByPayment } from "@/lib/reports";
+import { CalendarDays, Receipt, ShoppingBag, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const PERIODS = [
   { value: "7", label: "7 dias" },
@@ -16,13 +16,12 @@ const PERIODS = [
   { value: "90", label: "90 dias" },
 ] as const;
 
-const COLORS = ["#3d5a78", "#6f8fae", "#1a1f26", "#94a3b8"];
+const MS_DAY = 86_400_000;
 
 export default function BillingPage() {
   const [period, setPeriod] = useState<"7" | "30" | "90">("30");
   const days = Number(period);
   const orders = useServiceOrders();
-  // O backend lista lançamentos por sessão: o detalhamento por pagamento usa a sessão atual.
   const cash = useCashSession();
   const movements = useCashMovements(cash.data?.session?.id);
   const loading = orders.isPending || cash.isPending || movements.isLoading;
@@ -31,6 +30,9 @@ export default function BillingPage() {
     () => buildRevenue(orders.data ?? [], days),
     [orders.data, days]
   );
+  const peak = useMemo(() => peakRevenuePoint(report.series), [report.series]);
+  const grouped = days > 14;
+
   const payments = useMemo(
     () =>
       revenueByPayment(movements.data ?? [], days).map(p => ({
@@ -41,11 +43,11 @@ export default function BillingPage() {
   );
 
   const byService = useMemo(() => {
-    const keys = new Set(report.series.map(s => s.day));
+    const cutoff = Date.now() - days * MS_DAY;
     const delivered = (orders.data ?? []).filter(o => {
       if (o.status !== "delivered") return false;
-      const key = dayKey(o.statusChangedAt ?? o.updatedAt);
-      return Boolean(key && keys.has(key));
+      const at = o.statusChangedAt ?? o.updatedAt;
+      return at ? +new Date(at) >= cutoff : false;
     });
     const map = new Map<string, number>();
     delivered.forEach(o => {
@@ -56,7 +58,9 @@ export default function BillingPage() {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
-  }, [orders.data, report.series]);
+  }, [orders.data, days]);
+
+  const xInterval = grouped ? 0 : days > 30 ? 6 : days > 7 ? 2 : 0;
 
   return (
     <div>
@@ -69,11 +73,35 @@ export default function BillingPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-5">
-        <KpiCard label="Faturamento" icon={TrendingUp} loading={loading} value={formatCurrency(report.total)} hint={`Últimos ${days} dias`} />
-        <KpiCard label="Ordens entregues" icon={Receipt} loading={loading} value={report.count} hint={`Últimos ${days} dias`} />
-        <KpiCard label="Ticket médio" icon={ShoppingBag} loading={loading}
-          value={formatCurrency(report.count ? report.total / report.count : 0)} hint={`Últimos ${days} dias`} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-5">
+        <KpiCard
+          label="Faturamento"
+          icon={TrendingUp}
+          loading={loading}
+          value={formatCurrency(report.total)}
+          hint={`Últimos ${days} dias`}
+        />
+        <KpiCard
+          label="Ordens entregues"
+          icon={Receipt}
+          loading={loading}
+          value={report.count}
+          hint={`Últimos ${days} dias`}
+        />
+        <KpiCard
+          label="Ticket médio"
+          icon={ShoppingBag}
+          loading={loading}
+          value={formatCurrency(report.count ? report.total / report.count : 0)}
+          hint={`Últimos ${days} dias`}
+        />
+        <KpiCard
+          label={grouped ? "Melhor semana" : "Melhor dia"}
+          icon={CalendarDays}
+          loading={loading}
+          value={peak && peak.value > 0 ? formatCurrency(peak.value) : "—"}
+          hint={peak && peak.value > 0 ? peak.label : "Sem pico no período"}
+        />
       </div>
 
       {!loading && report.total === 0 && payments.length === 0 && byService.length === 0 ? (
@@ -83,51 +111,43 @@ export default function BillingPage() {
           description="Entregue OS ou registre pagamentos no caixa para ver os gráficos."
         />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-3 min-w-0">
+        <div className="grid gap-4 lg:grid-cols-2 min-w-0">
           {(loading || report.total > 0) && (
-            <ChartCard title="Receita por dia" className="lg:col-span-2 min-w-0" loading={loading} empty={report.total === 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={report.series}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d3d8df" />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={days > 30 ? 6 : days > 7 ? 2 : 0} />
-                  <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={v => `R$${v}`} />
-                  <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
-                  <Bar dataKey="value" name="Receita" fill="#3d5a78" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartCard
+              title={grouped ? "Receita por semana" : "Receita por dia"}
+              className="lg:col-span-2 min-w-0"
+              loading={loading}
+              empty={report.total === 0}
+              chartHeightClassName="h-56"
+            >
+              <ColumnBarChart
+                data={report.series.map(s => ({ label: s.label, value: s.value }))}
+                money
+                xInterval={xInterval}
+              />
             </ChartCard>
           )}
 
           {(loading || payments.length > 0) && (
             <ChartCard
-              title="Pagamentos (sessão de caixa atual)"
+              title="Pagamentos (caixa atual)"
               loading={loading}
               empty={payments.length === 0}
               emptyLabel="Disponível com lançamentos de caixa"
+              chartHeightClassName="h-56"
             >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={payments} layout="vertical">
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={70} />
-                  <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
-                  <Bar dataKey="value" radius={[0, 2, 2, 0]}>
-                    {payments.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <DonutChart data={payments} money />
             </ChartCard>
           )}
 
           {(loading || byService.length > 0) && (
-            <ChartCard title="Receita por tipo de serviço" className="lg:col-span-3" loading={loading} empty={byService.length === 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byService} layout="vertical">
-                  <XAxis type="number" tickFormatter={v => `R$${v}`} tick={{ fontSize: 11 }} />
-                  <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number) => formatCurrency(v)} cursor={{ fill: "#e2e7ed" }} />
-                  <Bar dataKey="value" name="Receita" fill="#6f8fae" radius={[0, 2, 2, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartCard
+              title="Receita por serviço"
+              loading={loading}
+              empty={byService.length === 0}
+              chartHeightClassName="h-56"
+            >
+              <DonutChart data={byService} money />
             </ChartCard>
           )}
         </div>

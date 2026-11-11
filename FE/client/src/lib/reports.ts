@@ -35,8 +35,7 @@ export interface RevenueReport {
 
 /**
  * Faturamento do período a partir das OS entregues (valor final, ou orçamento se ausente).
- * O backend só lista lançamentos de caixa por sessão, então o caixa não entra aqui
- * (veja revenueByPayment para o detalhamento por forma de pagamento).
+ * Em períodos longos (>14 dias) agrega por semana para reduzir ruído no gráfico.
  */
 export function buildRevenue(orders: ServiceOrder[], days: number): RevenueReport {
   const keys = lastDays(days);
@@ -53,8 +52,35 @@ export function buildRevenue(orders: ServiceOrder[], days: number): RevenueRepor
       }
     });
 
-  const series = keys.map(day => ({ day, label: shortDay(day), value: totals.get(day) ?? 0 }));
-  return { series, total: series.reduce((s, p) => s + p.value, 0), count };
+  const daily = keys.map(day => ({ day, label: shortDay(day), value: totals.get(day) ?? 0 }));
+  const series = days > 14 ? groupRevenueByWeek(daily) : daily;
+  return { series, total: daily.reduce((s, p) => s + p.value, 0), count };
+}
+
+/** Agrupa pontos diários em semanas (segunda → domingo) com rótulo dd/mm. */
+export function groupRevenueByWeek(daily: RevenuePoint[]): RevenuePoint[] {
+  if (daily.length === 0) return [];
+  const weeks: RevenuePoint[] = [];
+  let bucket: RevenuePoint | null = null;
+
+  daily.forEach(point => {
+    const d = new Date(`${point.day}T12:00:00`);
+    const weekday = d.getDay(); // 0=dom
+    const isWeekStart = weekday === 1 || bucket === null;
+    if (isWeekStart) {
+      bucket = { day: point.day, label: shortDay(point.day), value: point.value };
+      weeks.push(bucket);
+    } else if (bucket) {
+      bucket.value += point.value;
+    }
+  });
+  return weeks;
+}
+
+/** Dia (ou bucket) de maior faturamento na série. */
+export function peakRevenuePoint(series: RevenuePoint[]): RevenuePoint | null {
+  if (series.length === 0) return null;
+  return series.reduce((best, p) => (p.value > best.value ? p : best), series[0]);
 }
 export function revenueByPayment(movements: CashMovement[], days: number) {
   const keys = new Set(lastDays(days));

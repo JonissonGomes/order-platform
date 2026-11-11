@@ -29,6 +29,7 @@ type ServiceOrderHandler struct {
 	branchRepo     *repository.BranchRepository
 	productRepo    *repository.ProductRepository
 	movementRepo   *repository.InventoryMovementRepository
+	cashRepo       *repository.CashSessionRepository
 	notifier       notifications.NotificationChannel
 }
 
@@ -41,6 +42,7 @@ func NewServiceOrderHandler(
 	branchRepo *repository.BranchRepository,
 	productRepo *repository.ProductRepository,
 	movementRepo *repository.InventoryMovementRepository,
+	cashRepo *repository.CashSessionRepository,
 	notifier notifications.NotificationChannel,
 ) *ServiceOrderHandler {
 	if notifier == nil {
@@ -55,6 +57,7 @@ func NewServiceOrderHandler(
 		branchRepo:     branchRepo,
 		productRepo:    productRepo,
 		movementRepo:   movementRepo,
+		cashRepo:       cashRepo,
 		notifier:       notifier,
 	}
 }

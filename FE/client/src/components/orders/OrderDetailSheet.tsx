@@ -20,10 +20,12 @@ import { qk } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { PAYMENT_LABELS } from "@/components/cash/QuickSale";
+import { printOrderReceipt } from "@/lib/orderReceipt";
 import { NEXT_STATUSES, ORDER_STATUS } from "@/lib/orderStatus";
-import type { ServiceOrder, ServiceOrderStatus } from "@/types";
+import type { PaymentMethod, ServiceOrder, ServiceOrderStatus } from "@/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { Check, Printer } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { closeoutReadyMessage, OrderCloseoutPanel } from "./OrderCloseoutPanel";
@@ -38,20 +40,42 @@ function Info({ label, value }: { label: string; value?: string | number | null 
   );
 }
 
+/** Valor estimado a lançar; o backend desconta o que já entrou no caixa (ex.: sinal). */
+function amountDueOnDelivery(order: ServiceOrder): number {
+  const realized = order.finalCost && order.finalCost > 0
+    ? order.finalCost
+    : (order.estimatedCost ?? 0);
+  return Math.max(0, Math.round(realized * 100) / 100);
+}
+
 function StatusChanger({ order }: { order: ServiceOrder }) {
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const [status, setStatus] = useState<ServiceOrderStatus>(order.status);
   const [notes, setNotes] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
+
+  const due = amountDueOnDelivery(order);
+  const needsPayment = status === "delivered" && due > 0;
 
   const mutation = useMutation({
-    mutationFn: () => api.serviceOrders.updateStatus(order.id, { status, notes: notes.trim() || undefined }),
+    mutationFn: () =>
+      api.serviceOrders.updateStatus(order.id, {
+        status,
+        notes: notes.trim() || undefined,
+        paymentMethod: needsPayment ? paymentMethod : undefined,
+      }),
     onSuccess: () => {
       setNotes("");
       queryClient.invalidateQueries({ queryKey: qk.orders });
       queryClient.invalidateQueries({ queryKey: ["service-order", order.id] });
       queryClient.invalidateQueries({ queryKey: qk.products });
-      toast.success(`Status alterado para ${ORDER_STATUS[status].label}`);
+      queryClient.invalidateQueries({ queryKey: qk.cash });
+      toast.success(
+        needsPayment
+          ? `Entregue · ${formatCurrency(due)} lançado no caixa`
+          : `Status alterado para ${ORDER_STATUS[status].label}`,
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -76,6 +100,26 @@ function StatusChanger({ order }: { order: ServiceOrder }) {
           ))}
         </SelectContent>
       </Select>
+      {needsPayment && (
+        <div className="space-y-1.5 rounded-md border border-emerald-200 bg-emerald-50/80 px-2.5 py-2">
+          <p className="text-xs text-emerald-900">
+            Recebimento no caixa: <span className="font-medium">{formatCurrency(due)}</span>
+            {(order.depositAmount ?? 0) > 0
+              ? ` · sinal informado ${formatCurrency(order.depositAmount!)} (descontado se já lançado)`
+              : ""}
+          </p>
+          <Select value={paymentMethod} onValueChange={v => setPaymentMethod(v as PaymentMethod)}>
+            <SelectTrigger className="w-full bg-card h-8 text-sm">
+              <SelectValue placeholder="Forma de pagamento" />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map(m => (
+                <SelectItem key={m} value={m}>{PAYMENT_LABELS[m]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
         placeholder="Observação da mudança (opcional)" className="bg-card" />
       {gateMessage && (
@@ -88,7 +132,7 @@ function StatusChanger({ order }: { order: ServiceOrder }) {
         disabled={status === order.status || mutation.isPending || Boolean(gateMessage)}
         onClick={() => mutation.mutate()}
       >
-        {mutation.isPending ? "Salvando…" : "Atualizar status"}
+        {mutation.isPending ? "Salvando…" : needsPayment ? "Entregar e receber" : "Atualizar status"}
       </Button>
     </section>
   );
@@ -132,6 +176,19 @@ export function OrderDetailSheet({ order: summary, onOpenChange }: OrderDetailSh
     staleTime: 0,
   });
   const order = summary && data ? { ...summary, ...data } : (data ?? summary);
+  const [printing, setPrinting] = useState(false);
+
+  const handlePrint = async () => {
+    if (!order) return;
+    setPrinting(true);
+    try {
+      await printOrderReceipt(order.id);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao imprimir");
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   return (
     <Sheet open={Boolean(summary)} onOpenChange={onOpenChange}>
@@ -139,13 +196,28 @@ export function OrderDetailSheet({ order: summary, onOpenChange }: OrderDetailSh
         {order && (
           <>
             <SheetHeader className="border-b p-4">
-              <div className="flex items-center gap-2">
-                <SheetTitle>OS #{order.orderNumber}</SheetTitle>
-                <StatusBadge status={order.status} />
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <SheetTitle>OS #{order.orderNumber}</SheetTitle>
+                    <StatusBadge status={order.status} />
+                  </div>
+                  <SheetDescription>
+                    {order.productBrand} {order.productModel} · {order.customer?.name ?? "Cliente"}
+                  </SheetDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={printing}
+                  onClick={handlePrint}
+                >
+                  <Printer className="h-4 w-4" />
+                  {printing ? "Abrindo…" : "Recibo"}
+                </Button>
               </div>
-              <SheetDescription>
-                {order.productBrand} {order.productModel} · {order.customer?.name ?? "Cliente"}
-              </SheetDescription>
             </SheetHeader>
 
             <div className="p-4 space-y-5">

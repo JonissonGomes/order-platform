@@ -1,6 +1,7 @@
 // Backend Models - TypeScript Types (ZTS Cell)
 
 export * from "./stock";
+import type { PaymentMethod } from "./stock";
 
 export type UserRole = "user" | "admin" | "super_admin";
 
@@ -297,6 +298,8 @@ export type UpdateServiceOrderRequest = Partial<CreateServiceOrderRequest> & {
 export interface UpdateServiceOrderStatusRequest {
   status: ServiceOrderStatus;
   notes?: string;
+  /** Obrigatório na entrega quando houver valor a receber no caixa. */
+  paymentMethod?: PaymentMethod;
 }
 
 export interface OrderCloseoutRequest {

@@ -110,6 +110,29 @@ func (r *CashSessionRepository) CreateMovement(ctx context.Context, movement *mo
 	return nil
 }
 
+// SumInByRef soma entradas (type=in) de um documento referenciado (ex.: OS).
+func (r *CashSessionRepository) SumInByRef(ctx context.Context, refType string, refID primitive.ObjectID) (float64, error) {
+	cursor, err := r.movements.Find(ctx, bson.M{
+		"refType": refType,
+		"refId":   refID,
+		"type":    models.CashIn,
+	})
+	if err != nil {
+		return 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var total float64
+	for cursor.Next(ctx) {
+		var m models.CashMovement
+		if err := cursor.Decode(&m); err != nil {
+			return 0, err
+		}
+		total += m.Amount
+	}
+	return total, cursor.Err()
+}
+
 // ListMovements lista os lançamentos de uma sessão em ordem cronológica
 func (r *CashSessionRepository) ListMovements(ctx context.Context, sessionID primitive.ObjectID) ([]*models.CashMovement, error) {
 	cursor, err := r.movements.Find(ctx, bson.M{"sessionId": sessionID},

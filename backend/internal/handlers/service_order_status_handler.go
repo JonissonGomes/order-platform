@@ -18,6 +18,8 @@ import (
 type UpdateStatusRequest struct {
 	Status models.ServiceOrderStatus `json:"status" binding:"required"`
 	Notes  string                    `json:"notes,omitempty"`
+	// Obrigatório na entrega quando houver valor a receber no caixa.
+	PaymentMethod models.PaymentMethod `json:"paymentMethod,omitempty"`
 }
 
 type AddNoteRequest struct {
@@ -76,6 +78,24 @@ func (h *ServiceOrderHandler) UpdateStatus(c *gin.Context) {
 			utils.RespondWithBadRequest(c, msg)
 			return
 		}
+	}
+
+	// Pré-valida caixa antes de baixar estoque (evita consumo sem recebimento).
+	var deliveryDue float64
+	var deliverySession *models.CashSession
+	var deliveryBranch primitive.ObjectID
+	if req.Status == models.StatusDelivered {
+		due, session, branchID, status, msg := h.prepareDeliveryPayment(ctx, order, req.PaymentMethod)
+		if status != 0 {
+			utils.RespondWithError(c, status, msg)
+			return
+		}
+		deliveryDue = due
+		deliverySession = session
+		deliveryBranch = branchID
+	}
+
+	if req.Status == models.StatusReady || req.Status == models.StatusDelivered {
 		if err := h.consumePendingParts(ctx, order, actor.ID); err != nil {
 			if err == errInsufficientStock {
 				utils.RespondWithConflict(c, utils.ErrInsufficientStock)
@@ -83,6 +103,25 @@ func (h *ServiceOrderHandler) UpdateStatus(c *gin.Context) {
 			}
 			utils.RespondWithInternalError(c)
 			return
+		}
+	}
+
+	// Entrega: lança no caixa o valor ainda não recebido desta OS (recalcula após consumo).
+	if req.Status == models.StatusDelivered && deliverySession != nil {
+		due := deliveryDue
+		if realized := orderRealizedAmount(order); realized > 0 {
+			already, err := h.cashRepo.SumInByRef(ctx, cashRefServiceOrder, order.ID)
+			if err != nil {
+				utils.RespondWithInternalError(c)
+				return
+			}
+			due = roundMoney(realized - already)
+		}
+		if due > 0 {
+			if status, msg := h.postDeliveryPayment(ctx, order, actor.ID, req.PaymentMethod, due, deliverySession, deliveryBranch); status != 0 {
+				utils.RespondWithError(c, status, msg)
+				return
+			}
 		}
 	}
 
@@ -111,6 +150,90 @@ func (h *ServiceOrderHandler) UpdateStatus(c *gin.Context) {
 	h.notifyStatus(order)
 
 	c.JSON(http.StatusOK, gin.H{"order": order})
+}
+
+const cashRefServiceOrder = "service_order"
+
+func orderRealizedAmount(order *models.ServiceOrder) float64 {
+	if order.FinalCost > 0 {
+		return order.FinalCost
+	}
+	return order.EstimatedCost
+}
+
+// prepareDeliveryPayment calcula o saldo a receber e exige caixa aberto + forma de pagamento.
+func (h *ServiceOrderHandler) prepareDeliveryPayment(
+	ctx context.Context,
+	order *models.ServiceOrder,
+	method models.PaymentMethod,
+) (due float64, session *models.CashSession, branchID primitive.ObjectID, status int, msg string) {
+	if h.cashRepo == nil {
+		return 0, nil, primitive.NilObjectID, 0, ""
+	}
+
+	realized := orderRealizedAmount(order)
+	if realized <= 0 {
+		return 0, nil, primitive.NilObjectID, 0, ""
+	}
+
+	already, err := h.cashRepo.SumInByRef(ctx, cashRefServiceOrder, order.ID)
+	if err != nil {
+		return 0, nil, primitive.NilObjectID, http.StatusInternalServerError, utils.ErrInternalServer
+	}
+	due = roundMoney(realized - already)
+	if due <= 0 {
+		return 0, nil, primitive.NilObjectID, 0, ""
+	}
+
+	if !models.IsValidPaymentMethod(method) {
+		return 0, nil, primitive.NilObjectID, http.StatusBadRequest,
+			"Informe a forma de pagamento para registrar o recebimento no caixa"
+	}
+
+	branchID = order.BranchID
+	if branchID.IsZero() {
+		bid, berr := resolveBranchID(ctx, h.branchRepo, "")
+		if berr != nil {
+			return 0, nil, primitive.NilObjectID, http.StatusBadRequest, utils.ErrBranchNotFound
+		}
+		branchID = bid
+	}
+
+	session, err = h.cashRepo.GetOpenByBranch(ctx, branchID)
+	if err != nil {
+		return 0, nil, primitive.NilObjectID, http.StatusInternalServerError, utils.ErrInternalServer
+	}
+	if session == nil {
+		return 0, nil, primitive.NilObjectID, http.StatusBadRequest, utils.ErrCashNotOpen
+	}
+	return due, session, branchID, 0, ""
+}
+
+func (h *ServiceOrderHandler) postDeliveryPayment(
+	ctx context.Context,
+	order *models.ServiceOrder,
+	actorID primitive.ObjectID,
+	method models.PaymentMethod,
+	due float64,
+	session *models.CashSession,
+	branchID primitive.ObjectID,
+) (int, string) {
+	movement := &models.CashMovement{
+		SessionID:   session.ID,
+		BranchID:    branchID,
+		Type:        models.CashIn,
+		Kind:        models.CashKindOSBalance,
+		Description: fmt.Sprintf("Recebimento OS %s", order.OrderNumber),
+		Method:      method,
+		Amount:      due,
+		RefType:     cashRefServiceOrder,
+		RefID:       order.ID,
+		CreatedBy:   actorID,
+	}
+	if err := h.cashRepo.CreateMovement(ctx, movement); err != nil {
+		return http.StatusInternalServerError, utils.ErrInternalServer
+	}
+	return 0, ""
 }
 
 // AddNote adiciona uma nota (interna ou pública) à ordem
