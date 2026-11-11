@@ -68,8 +68,8 @@ export default function WarrantiesPage() {
 
   return (
     <div className="flex flex-col min-h-[calc(100dvh-7rem)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <div className="relative w-full max-w-sm">
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+        <div className="relative w-full min-w-0 sm:w-64 sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-8"
@@ -188,11 +188,13 @@ export default function WarrantiesPage() {
       <footer className="mt-auto pt-4 border-t">
         <div className="border rounded-md bg-card p-4">
           <h2 className="text-sm font-semibold mb-3">Política de garantia</h2>
-          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm mb-3">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm mb-3">
             {POLICY.map(p => (
-              <li key={p.svc} className="flex justify-between gap-3 sm:block sm:space-y-0.5">
-                <span className="text-muted-foreground">{p.svc}</span>
-                <span className="font-mono text-xs tabular-nums font-medium">{p.days}</span>
+              <li key={p.svc} className="flex items-baseline justify-between gap-4">
+                <span className="text-muted-foreground min-w-0">{p.svc}</span>
+                <span className="shrink-0 font-mono text-xs tabular-nums font-medium tracking-wide">
+                  {p.days}
+                </span>
               </li>
             ))}
           </ul>

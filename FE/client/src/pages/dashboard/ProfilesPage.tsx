@@ -1,128 +1,108 @@
-import { ProfileFormDialog } from "@/components/profiles/ProfileFormDialog";
-import { Badge } from "@/components/ui/badge";
+import { ProfileEditor } from "@/components/profiles/ProfileEditor";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
-import { ListPagination } from "@/components/zts/ListPagination";
-import { useClientPagination } from "@/hooks/useClientPagination";
 import { useProfiles } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
-import { summarizePermissions } from "@/lib/permissions";
 import type { Profile } from "@/types";
-import { Pencil, Plus, ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Plus, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function ProfilesPage() {
   const { isAdmin } = usePermissions();
   const { data, isPending, error, refetch } = useProfiles();
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editing, setEditing] = useState<Profile | null>(null);
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [creating, setCreating] = useState(false);
 
   const list = useMemo(
     () => (data ?? []).filter(p => p.name !== "Super Admin" && (p.isActive || isAdmin)),
     [data, isAdmin]
   );
 
-  const { page, pageCount, total, pageSize, pageItems, setPage } = useClientPagination(list, 6);
+  useEffect(() => {
+    if (creating) return;
+    if (list.length === 0) {
+      setSelectedId("");
+      return;
+    }
+    if (!selectedId || !list.some(p => p.id === selectedId)) {
+      setSelectedId(list[0].id);
+    }
+  }, [list, selectedId, creating]);
 
-  const openCreate = () => {
-    setEditing(null);
-    setEditorOpen(true);
-  };
+  const selected = list.find(p => p.id === selectedId) ?? null;
 
-  const openEdit = (profile: Profile) => {
-    setEditing(profile);
-    setEditorOpen(true);
+  const startCreate = () => {
+    setCreating(true);
+    setSelectedId("");
   };
 
   return (
-    <div>
-      {isAdmin && (
-        <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4" /> Novo perfil
+    <div className="mx-auto w-full max-w-5xl space-y-5">
+      <div className="flex items-center justify-center gap-2">
+        <Select
+          value={creating ? "__new__" : selectedId || undefined}
+          disabled={list.length === 0 && !creating}
+          onValueChange={v => {
+            if (v === "__new__") {
+              startCreate();
+              return;
+            }
+            setCreating(false);
+            setSelectedId(v);
+          }}
+        >
+          <SelectTrigger className="h-9 w-full max-w-sm">
+            <SelectValue placeholder="Perfil" />
+          </SelectTrigger>
+          <SelectContent>
+            {creating && <SelectItem value="__new__">Novo perfil…</SelectItem>}
+            {list.map(p => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+                {!p.isActive ? " (inativo)" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {isAdmin && !creating && (
+          <Button size="sm" variant="outline" className="shrink-0" onClick={startCreate}>
+            <Plus className="h-4 w-4" />
+            Novo
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {isPending ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-44" />)}
-        </div>
+        <Skeleton className="h-56 w-full" />
       ) : error ? (
         <ErrorState message={error.message} onRetry={() => refetch()} />
-      ) : list.length === 0 ? (
-        <EmptyState icon={ShieldCheck} title="Nenhum perfil encontrado" />
+      ) : list.length === 0 && !creating ? (
+        <EmptyState
+          icon={ShieldCheck}
+          title="Nenhum perfil encontrado"
+          action={
+            isAdmin ? (
+              <Button size="sm" onClick={startCreate}>
+                <Plus className="h-4 w-4" /> Novo perfil
+              </Button>
+            ) : undefined
+          }
+        />
       ) : (
-        <>
-          <div className="grid gap-4 md:grid-cols-2">
-            {pageItems.map(profile => (
-              <Card key={profile.id} className="gap-3 py-4">
-                <CardHeader className="px-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <CardTitle className="text-sm">{profile.name}</CardTitle>
-                        {profile.isDefault && (
-                          <Badge variant="outline" className="rounded-sm text-[0.6875rem]">
-                            Padrão
-                          </Badge>
-                        )}
-                        {!profile.isActive && (
-                          <Badge variant="secondary" className="rounded-sm text-[0.6875rem]">
-                            Inativo
-                          </Badge>
-                        )}
-                      </div>
-                      {profile.description && (
-                        <CardDescription>{profile.description}</CardDescription>
-                      )}
-                    </div>
-                    {isAdmin && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0"
-                        onClick={() => openEdit(profile)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Editar
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 space-y-2">
-                  {summarizePermissions(profile.permissions ?? []).map(([label, actions]) => (
-                    <div key={label} className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs font-medium w-32 shrink-0">{label}</span>
-                      {actions.map(a => (
-                        <Badge key={a} variant="secondary" className="rounded-sm text-[0.6875rem]">
-                          {a}
-                        </Badge>
-                      ))}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <ListPagination
-            page={page}
-            pageCount={pageCount}
-            total={total}
-            pageSize={pageSize}
-            onPageChange={setPage}
-          />
-        </>
-      )}
-
-      {isAdmin && (
-        <ProfileFormDialog
-          open={editorOpen}
-          onOpenChange={setEditorOpen}
-          profile={editing}
+        <ProfileEditor
+          profile={creating ? null : selected}
+          creating={creating}
+          canEdit={isAdmin}
+          onCreated={p => {
+            setCreating(false);
+            setSelectedId(p.id);
+          }}
+          onCancelCreate={() => {
+            setCreating(false);
+            if (list[0]) setSelectedId(list[0].id);
+          }}
         />
       )}
     </div>
