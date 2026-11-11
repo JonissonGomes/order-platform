@@ -28,7 +28,7 @@ func EnsureAdminsFromEnv(
 			password: cfg.SuperAdminPassword,
 			name:     cfg.SuperAdminName,
 			role:     models.RoleSuperAdmin,
-			profile:  "Super Admin",
+			profile:  "", // permissões via user.IsSuperAdmin() → ["*"]; sem perfil atribuível
 			empRole:  models.EmployeeRoleAdmin,
 		}); err != nil {
 			log.Printf("Warning: bootstrap SUPER_ADMIN: %v", err)
@@ -129,11 +129,6 @@ func ensureEmployee(
 		return nil
 	}
 
-	profile, err := profileRepo.GetProfileByName(ctx, s.profile)
-	if err != nil {
-		return err
-	}
-
 	employee := &models.Employee{
 		UserID:   user.ID,
 		Name:     user.Name,
@@ -141,12 +136,20 @@ func ensureEmployee(
 		Role:     s.empRole,
 		IsActive: true,
 	}
-	if profile != nil {
-		employee.ProfileID = profile.ID
+	profileLabel := "(nenhum)"
+	if s.profile != "" {
+		profile, err := profileRepo.GetProfileByName(ctx, s.profile)
+		if err != nil {
+			return err
+		}
+		if profile != nil && profile.IsActive && !models.IsSuperAdminProfile(profile) {
+			employee.ProfileID = profile.ID
+			profileLabel = s.profile
+		}
 	}
 	if err := employeeRepo.CreateEmployee(ctx, employee); err != nil {
 		return err
 	}
-	log.Printf("bootstrap: colaborador criado para %s (perfil %s)", user.Email, s.profile)
+	log.Printf("bootstrap: colaborador criado para %s (perfil %s)", user.Email, profileLabel)
 	return nil
 }

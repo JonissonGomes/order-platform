@@ -18,6 +18,9 @@ export function usePermissions() {
     [permissions]
   );
 
+  const isSuperAdmin = user?.role === "super_admin";
+  const isAdmin = user?.role === "admin" || isSuperAdmin;
+
   return {
     permissions,
     user,
@@ -25,6 +28,7 @@ export function usePermissions() {
     loading,
     can,
     canAccess,
-    isSuperAdmin: user?.role === "super_admin",
+    isSuperAdmin,
+    isAdmin,
   };
 }

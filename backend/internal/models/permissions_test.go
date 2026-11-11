@@ -50,14 +50,27 @@ func TestStatusTransitions(t *testing.T) {
 }
 
 func TestCanChangeStatusUsesProfile(t *testing.T) {
-	e := &Employee{Role: EmployeeRoleTechnician, Profile: &Profile{IsActive: true, Permissions: []string{"service_orders.status.delivered"}}}
-	if !e.CanChangeStatus(StatusDelivered) {
+	specific := &Employee{
+		Role:    EmployeeRoleTechnician,
+		Profile: &Profile{IsActive: true, Permissions: []string{"service_orders.status.delivered"}},
+	}
+	if !specific.CanChangeStatus(StatusDelivered) {
 		t.Error("permissão do perfil deveria permitir delivered")
 	}
-	if !e.CanChangeStatus(StatusInRepair) {
-		t.Error("fallback por role deveria permitir in_repair")
+	if specific.CanChangeStatus(StatusInRepair) {
+		t.Error("role não deve mais liberar status sem permissão no perfil")
 	}
-	if e.CanChangeStatus(StatusCancelled) {
-		t.Error("técnico não deveria cancelar")
+
+	withUpdate := &Employee{
+		Role:    EmployeeRoleAttendant,
+		Profile: &Profile{IsActive: true, Permissions: []string{"service_orders.update"}},
+	}
+	if !withUpdate.CanChangeStatus(StatusInRepair) {
+		t.Error("service_orders.update deveria liberar qualquer status")
+	}
+
+	noProfile := &Employee{Role: EmployeeRoleAdmin}
+	if noProfile.CanChangeStatus(StatusPending) {
+		t.Error("sem perfil ativo não deve mudar status")
 	}
 }

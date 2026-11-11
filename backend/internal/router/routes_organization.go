@@ -57,10 +57,10 @@ func registerOrganizationRoutes(api *gin.RouterGroup, d *deps) {
 	profiles.GET("", d.profile.ListProfiles)
 	profiles.GET("/:id", d.profile.GetProfile)
 	profilesWrite := profiles.Group("")
-	profilesWrite.Use(d.auth, middleware.RequireAuth(), d.context, d.audit)
+	profilesWrite.Use(d.auth, middleware.RequireAuth(), middleware.RequireAdminOrSuperAdmin(), d.context, d.audit)
 	{
-		profilesWrite.POST("", middleware.RequirePermission("profiles.create"), d.profile.CreateProfile)
-		profilesWrite.PUT("/:id", middleware.RequirePermission("profiles.update"), d.profile.UpdateProfile)
+		profilesWrite.POST("", d.profile.CreateProfile)
+		profilesWrite.PUT("/:id", d.profile.UpdateProfile)
 	}
 
 	// Employee routes

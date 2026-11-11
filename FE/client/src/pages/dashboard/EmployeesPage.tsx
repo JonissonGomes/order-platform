@@ -21,7 +21,7 @@ import { qk, useDepartments, useEmployees, useProfiles } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
 import { formatPhone } from "@/lib/format";
-import type { CreateEmployeeRequest, EmployeeRole } from "@/types";
+import type { CreateEmployeeRequest, EmployeeRole, Profile } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, UserCog } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -35,7 +35,21 @@ const ROLE_LABELS: Record<EmployeeRole, string> = {
 };
 
 const HEADERS = ["Nome", "E-mail", "Função", "Perfil", "Setor", "Situação"];
-const EMPTY = { name: "", email: "", password: "", phone: "", role: "attendant" as EmployeeRole, profileId: "", departmentId: "" };
+const EMPTY = {
+  name: "",
+  email: "",
+  password: "",
+  phone: "",
+  role: "attendant" as EmployeeRole,
+  profileId: "",
+  departmentId: "",
+};
+
+function assignableProfiles(profiles: Profile[] | undefined) {
+  return (profiles ?? []).filter(
+    p => p.isActive && p.name !== "Super Admin" && !(p.permissions ?? []).includes("*")
+  );
+}
 
 function NewEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const queryClient = useQueryClient();
@@ -43,6 +57,11 @@ function NewEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenChange
   const departments = useDepartments();
   const [form, setForm] = useState(EMPTY);
   const set = (patch: Partial<typeof EMPTY>) => setForm(f => ({ ...f, ...patch }));
+
+  const profileOptions = useMemo(
+    () => assignableProfiles(profiles.data),
+    [profiles.data]
+  );
 
   const create = useMutation({
     mutationFn: () => {
@@ -52,7 +71,7 @@ function NewEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenChange
         password: form.password,
         phone: form.phone || undefined,
         role: form.role,
-        profileId: form.profileId || undefined,
+        profileId: form.profileId,
         departmentId: form.departmentId || undefined,
       };
       return api.employees.create(payload);
@@ -66,14 +85,20 @@ function NewEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const valid = form.name.trim() && form.email.includes("@") && form.password.length >= 6;
+  const valid =
+    form.name.trim() &&
+    form.email.includes("@") &&
+    form.password.length >= 6 &&
+    Boolean(form.profileId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Novo colaborador</DialogTitle>
-          <DialogDescription>O perfil define o que ele pode acessar no sistema.</DialogDescription>
+          <DialogDescription>
+            O perfil de acesso define o que ele pode fazer. A função é só um rótulo organizacional.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Nome *" htmlFor="e-name" className="sm:col-span-2">
@@ -90,7 +115,7 @@ function NewEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenChange
             <Input id="e-phone" inputMode="tel" value={form.phone}
               onChange={e => set({ phone: formatPhone(e.target.value) })} />
           </FormField>
-          <FormField label="Função">
+          <FormField label="Função (rótulo)" hint="Não altera permissões">
             <Select value={form.role} onValueChange={v => set({ role: v as EmployeeRole })}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -98,11 +123,13 @@ function NewEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenChange
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Perfil de acesso">
+          <FormField label="Perfil de acesso *">
             <Select value={form.profileId} onValueChange={v => set({ profileId: v })}>
               <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                {(profiles.data ?? []).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                {profileOptions.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </FormField>
@@ -158,7 +185,7 @@ export default function EmployeesPage() {
       <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
         <FiltersDialog
           title="Função"
-          description="Filtre colaboradores por função."
+          description="Filtre colaboradores por função (rótulo)."
           value={roleFilter}
           onApply={setRoleFilter}
           options={(Object.keys(ROLE_LABELS) as EmployeeRole[]).map(role => ({

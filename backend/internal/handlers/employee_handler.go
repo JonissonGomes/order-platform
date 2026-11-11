@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"order-platform/backend/internal/auth"
@@ -39,7 +40,7 @@ type CreateEmployeeRequest struct {
 	Name         string              `json:"name" binding:"required"`
 	Phone        string              `json:"phone,omitempty"`
 	Role         models.EmployeeRole `json:"role" binding:"required"`
-	ProfileID    string              `json:"profileId,omitempty"` // Se vazio, usa o perfil padrão do role
+	ProfileID    string              `json:"profileId" binding:"required"` // Única fonte de permissão
 	DepartmentID string              `json:"departmentId,omitempty"`
 }
 
@@ -97,7 +98,7 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 		utils.RespondWithBadRequest(c, utils.ErrInvalidID)
 		return
 	}
-	profile, status, msg := h.resolveProfile(c, req.ProfileID, req.Role)
+	profile, status, msg := h.resolveProfile(c, req.ProfileID)
 	if profile == nil {
 		utils.RespondWithError(c, status, msg)
 		return
@@ -159,50 +160,30 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 	})
 }
 
-// resolveProfile retorna o perfil pelo ID informado ou, se vazio, o perfil padrão do role.
-// Em caso de erro retorna profile nil com o status HTTP e a mensagem a responder.
-func (h *EmployeeHandler) resolveProfile(c *gin.Context, rawProfileID string, role models.EmployeeRole) (*models.Profile, int, string) {
+// resolveProfile retorna o perfil pelo ID. Recusa inativos, Super Admin legado e "*".
+func (h *EmployeeHandler) resolveProfile(c *gin.Context, rawProfileID string) (*models.Profile, int, string) {
 	ctx := c.Request.Context()
-
-	var profile *models.Profile
-	var err error
-	if rawProfileID != "" {
-		profileID, idErr := primitive.ObjectIDFromHex(rawProfileID)
-		if idErr != nil {
-			return nil, http.StatusBadRequest, utils.ErrInvalidID
-		}
-		profile, err = h.profileRepo.GetProfileByID(ctx, profileID)
-	} else {
-		profile, err = h.profileRepo.GetProfileByName(ctx, mapRoleToProfileName(role))
+	if strings.TrimSpace(rawProfileID) == "" {
+		return nil, http.StatusBadRequest, utils.ErrProfileNotFound
 	}
-
+	profileID, idErr := primitive.ObjectIDFromHex(rawProfileID)
+	if idErr != nil {
+		return nil, http.StatusBadRequest, utils.ErrInvalidID
+	}
+	profile, err := h.profileRepo.GetProfileByID(ctx, profileID)
 	if err != nil {
 		return nil, http.StatusInternalServerError, utils.ErrInternalServer
 	}
-	if profile == nil || !profile.IsActive {
+	if profile == nil || !profile.IsActive || models.IsSuperAdminProfile(profile) {
 		return nil, http.StatusBadRequest, utils.ErrProfileNotFound
 	}
-	// Impede conceder um perfil com mais privilégios do que o usuário atual possui
+	if models.HasPermission(profile.Permissions, "*") {
+		return nil, http.StatusBadRequest, utils.ErrProfileNotFound
+	}
 	if !canGrantPermissions(c, profile.Permissions) {
 		return nil, http.StatusForbidden, utils.ErrForbidden
 	}
 	return profile, 0, ""
-}
-
-// mapRoleToProfileName mapeia EmployeeRole para nome do Profile
-func mapRoleToProfileName(role models.EmployeeRole) string {
-	switch role {
-	case models.EmployeeRoleAdmin:
-		return "Admin"
-	case models.EmployeeRoleDepartmentManager:
-		return "Gerente de Departamento"
-	case models.EmployeeRoleAttendant:
-		return "Atendente"
-	case models.EmployeeRoleTechnician:
-		return "Técnico"
-	default:
-		return "Atendente" // Default
-	}
 }
 
 // GetEmployee retrieves an employee by ID
@@ -313,7 +294,7 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 		employee.Role = req.Role
 	}
 	if req.ProfileID != "" {
-		profile, status, msg := h.resolveProfile(c, req.ProfileID, employee.Role)
+		profile, status, msg := h.resolveProfile(c, req.ProfileID)
 		if profile == nil {
 			utils.RespondWithError(c, status, msg)
 			return

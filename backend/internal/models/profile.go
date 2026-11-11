@@ -17,16 +17,18 @@ type Profile struct {
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
-// DefaultProfiles retorna os perfis padrão do sistema
+// ProfileNameSuperAdmin é o nome legado do perfil removido do produto
+// (super admin passa a existir apenas via SUPER_ADMIN_* no ENV).
+const ProfileNameSuperAdmin = "Super Admin"
+
+// IsSuperAdminProfile indica se o perfil é o legado de acesso total (não atribuível).
+func IsSuperAdminProfile(p *Profile) bool {
+	return p != nil && p.Name == ProfileNameSuperAdmin
+}
+
+// DefaultProfiles retorna os perfis padrão do sistema (sem Super Admin — só ENV).
 func DefaultProfiles() []*Profile {
 	return []*Profile{
-		{
-			Name:        "Super Admin",
-			Description: "Acesso total ao sistema",
-			Permissions: []string{"*"},
-			IsDefault:   true,
-			IsActive:    true,
-		},
 		{
 			Name:        "Admin",
 			Description: "Administrador do sistema",
@@ -55,9 +57,6 @@ func DefaultProfiles() []*Profile {
 			Permissions: []string{
 				"customers.*",
 				"service_orders.create", "service_orders.read", "service_orders.update",
-				"service_orders.status.pending", "service_orders.status.evaluating",
-				"service_orders.status.approved", "service_orders.status.ready",
-				"service_orders.status.delivered", "service_orders.status.cancelled",
 				"products.read", "cash.sale", "cash.read", "dashboard.read",
 			},
 			IsDefault: true,
@@ -68,9 +67,6 @@ func DefaultProfiles() []*Profile {
 			Description: "Realiza consertos e atualiza status técnico",
 			Permissions: []string{
 				"service_orders.read", "service_orders.update",
-				"service_orders.status.in_repair", "service_orders.status.waiting_parts",
-				"service_orders.status.testing", "service_orders.status.ready",
-				"service_orders.status.unrepairable",
 				"notes.create", "service_orders.notes.create",
 				"products.read", "inventory.read", "dashboard.read",
 			},

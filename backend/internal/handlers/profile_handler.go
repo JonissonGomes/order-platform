@@ -36,10 +36,12 @@ type UpdateProfileRequest struct {
 	IsActive    *bool     `json:"isActive,omitempty"`
 }
 
-// ListProfiles lists all profiles
+// ListProfiles lists all profiles (omite o legado Super Admin).
 func (h *ProfileHandler) ListProfiles(c *gin.Context) {
 	ctx := c.Request.Context()
-	filter := bson.M{}
+	filter := bson.M{
+		"name": bson.M{"$ne": models.ProfileNameSuperAdmin},
+	}
 
 	// Filter by active status if provided
 	if active := boolQuery(c, "isActive"); active != nil {
@@ -67,7 +69,7 @@ func (h *ProfileHandler) GetProfile(c *gin.Context) {
 		utils.RespondWithInternalError(c)
 		return
 	}
-	if profile == nil {
+	if profile == nil || models.IsSuperAdminProfile(profile) {
 		utils.RespondWithNotFound(c, utils.ErrProfileNotFound)
 		return
 	}
@@ -87,6 +89,10 @@ func (h *ProfileHandler) CreateProfile(c *gin.Context) {
 	permissions := normalizePermissions(req.Permissions)
 	if name == "" || len(permissions) == 0 {
 		utils.RespondWithBadRequest(c, "")
+		return
+	}
+	if strings.EqualFold(name, models.ProfileNameSuperAdmin) || models.HasPermission(permissions, "*") {
+		utils.RespondWithBadRequest(c, "Perfil Super Admin / acesso total não pode ser criado")
 		return
 	}
 	if !canGrantPermissions(c, permissions) {
@@ -113,7 +119,7 @@ func (h *ProfileHandler) CreateProfile(c *gin.Context) {
 }
 
 // UpdateProfile atualiza um perfil. Em perfis padrão o nome e o status não podem ser
-// alterados e o perfil Super Admin é imutável; as permissões dos demais podem ser editadas.
+// alterados; as permissões podem ser editadas. Perfis customizados podem ser desativados.
 func (h *ProfileHandler) UpdateProfile(c *gin.Context) {
 	profileID, ok := parseIDParam(c, "id")
 	if !ok {
@@ -155,17 +161,22 @@ func (h *ProfileHandler) UpdateProfile(c *gin.Context) {
 // applyProfileUpdate aplica as alterações respeitando as regras de perfis padrão.
 // Retorna (status HTTP, mensagem) em caso de erro, ou (0, "") em caso de sucesso.
 func (h *ProfileHandler) applyProfileUpdate(c *gin.Context, profile *models.Profile, req *UpdateProfileRequest) (int, string) {
+	if models.IsSuperAdminProfile(profile) {
+		return http.StatusBadRequest, "O perfil Super Admin legado não pode ser alterado"
+	}
+
 	nameChange := req.Name != nil && strings.TrimSpace(*req.Name) != profile.Name
 	statusChange := req.IsActive != nil && *req.IsActive != profile.IsActive
 	if profile.IsDefault && (nameChange || statusChange) {
 		return http.StatusBadRequest, utils.ErrDefaultProfileLocked
 	}
-	if profile.IsDefault && profile.Name == "Super Admin" && req.Permissions != nil {
-		return http.StatusBadRequest, "O perfil Super Admin não pode ser alterado"
-	}
 
 	if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
-		profile.Name = strings.TrimSpace(*req.Name)
+		name := strings.TrimSpace(*req.Name)
+		if strings.EqualFold(name, models.ProfileNameSuperAdmin) {
+			return http.StatusBadRequest, "Nome Super Admin não é permitido"
+		}
+		profile.Name = name
 	}
 	if req.Description != nil {
 		profile.Description = *req.Description
@@ -177,6 +188,9 @@ func (h *ProfileHandler) applyProfileUpdate(c *gin.Context, profile *models.Prof
 		permissions := normalizePermissions(*req.Permissions)
 		if len(permissions) == 0 {
 			return http.StatusBadRequest, utils.ErrInvalidRequest
+		}
+		if models.HasPermission(permissions, "*") {
+			return http.StatusBadRequest, "Acesso total (*) não pode ser concedido via perfil"
 		}
 		if !canGrantPermissions(c, permissions) {
 			return http.StatusForbidden, utils.ErrForbidden

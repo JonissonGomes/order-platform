@@ -87,16 +87,115 @@ export function permissionsFromRole(role: UserRole | undefined): Permission[] {
   return [];
 }
 
-/** Catálogo de permissões conhecidas, usado para exibição em Perfis. */
-export const PERMISSION_GROUPS: { resource: string; label: string }[] = [
-  { resource: "dashboard", label: "Dashboard" },
-  { resource: "service_orders", label: "Ordens de serviço" },
-  { resource: "customers", label: "Clientes" },
-  { resource: "products", label: "Produtos" },
-  { resource: "inventory", label: "Estoque" },
-  { resource: "cash", label: "Caixa" },
-  { resource: "reports", label: "Relatórios" },
-  { resource: "employees", label: "Colaboradores" },
-  { resource: "departments", label: "Setores" },
-  { resource: "profiles", label: "Perfis" },
+export type PermissionActionKey = string;
+
+export interface PermissionAction {
+  key: PermissionActionKey;
+  label: string;
+}
+
+export interface PermissionModule {
+  resource: string;
+  label: string;
+  actions: PermissionAction[];
+}
+
+const CRUD: PermissionAction[] = [
+  { key: "read", label: "Ver" },
+  { key: "create", label: "Criar" },
+  { key: "update", label: "Editar" },
 ];
+
+/** Catálogo módulo × ações para editor de perfis (espelha o que a API exige). */
+export const PERMISSION_CATALOG: PermissionModule[] = [
+  { resource: "dashboard", label: "Dashboard", actions: [{ key: "read", label: "Ver" }] },
+  { resource: "service_orders", label: "Ordens de serviço", actions: CRUD },
+  { resource: "customers", label: "Clientes", actions: CRUD },
+  { resource: "products", label: "Produtos", actions: CRUD },
+  { resource: "inventory", label: "Estoque", actions: CRUD },
+  {
+    resource: "cash",
+    label: "Caixa",
+    actions: [
+      { key: "read", label: "Ver" },
+      { key: "open", label: "Abrir" },
+      { key: "close", label: "Fechar" },
+      { key: "sale", label: "Vender" },
+      { key: "movement", label: "Sangria/reforço" },
+    ],
+  },
+  { resource: "reports", label: "Relatórios", actions: [{ key: "read", label: "Ver" }] },
+  { resource: "employees", label: "Colaboradores", actions: CRUD },
+  { resource: "departments", label: "Setores", actions: CRUD },
+  { resource: "profiles", label: "Perfis", actions: CRUD },
+  { resource: "branches", label: "Filiais", actions: CRUD },
+];
+
+/** Compatível com telas que só listam recursos. */
+export const PERMISSION_GROUPS = PERMISSION_CATALOG.map(({ resource, label }) => ({
+  resource,
+  label,
+}));
+
+export function permissionKey(resource: string, action: string): Permission {
+  return `${resource}.${action}`;
+}
+
+/** Converte lista persistida → mapa recurso.ação ligado/desligado. */
+export function permissionsToToggleState(
+  perms: readonly Permission[] | undefined
+): Record<string, boolean> {
+  const state: Record<string, boolean> = {};
+  for (const mod of PERMISSION_CATALOG) {
+    for (const action of mod.actions) {
+      const key = permissionKey(mod.resource, action.key);
+      state[key] = hasPermission(perms, key);
+    }
+  }
+  return state;
+}
+
+/**
+ * Converte toggles → lista normalizada para salvar.
+ * Se todas as ações de um módulo estiverem ligadas, grava `recurso.*`.
+ * Ignora permissões fora do catálogo (ex.: status legados).
+ */
+export function toggleStateToPermissions(state: Record<string, boolean>): Permission[] {
+  const out: Permission[] = [];
+  for (const mod of PERMISSION_CATALOG) {
+    const keys = mod.actions.map(a => permissionKey(mod.resource, a.key));
+    const enabled = keys.filter(k => state[k]);
+    if (enabled.length === 0) continue;
+    if (enabled.length === keys.length) {
+      out.push(`${mod.resource}.*`);
+    } else {
+      out.push(...enabled);
+    }
+  }
+  return out;
+}
+
+export function summarizePermissions(perms: readonly Permission[] | undefined): [string, string[]][] {
+  if (!perms || perms.length === 0) return [];
+  if (perms.includes("*")) return [["Acesso total", ["*"]]];
+
+  const labelByResource = Object.fromEntries(
+    PERMISSION_CATALOG.map(m => [m.resource, m.label])
+  );
+  const actionLabel = (resource: string, action: string) => {
+    const mod = PERMISSION_CATALOG.find(m => m.resource === resource);
+    return mod?.actions.find(a => a.key === action)?.label ?? action;
+  };
+
+  const state = permissionsToToggleState(perms);
+  const rows: [string, string[]][] = [];
+  for (const mod of PERMISSION_CATALOG) {
+    const labels = mod.actions
+      .filter(a => state[permissionKey(mod.resource, a.key)])
+      .map(a => actionLabel(mod.resource, a.key));
+    if (labels.length > 0) {
+      rows.push([labelByResource[mod.resource] ?? mod.resource, labels]);
+    }
+  }
+  return rows;
+}

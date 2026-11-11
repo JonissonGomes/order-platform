@@ -36,8 +36,12 @@ func NewProfileRepository(db *mongo.Database) *ProfileRepository {
 // InitializeDefaultProfiles garante que todos os perfis padrão existam.
 // Perfis novos são inseridos; em perfis IsDefault existentes, permissões ausentes
 // do catálogo atual são mescladas (edições manuais já presentes são preservadas).
+// O perfil legado "Super Admin" é desativado (acesso total fica só via ENV).
 func (r *ProfileRepository) InitializeDefaultProfiles(ctx context.Context) error {
 	now := time.Now()
+	if err := r.deactivateLegacySuperAdminProfile(ctx, now); err != nil {
+		return err
+	}
 	for _, profile := range models.DefaultProfiles() {
 		existing, err := r.GetProfileByName(ctx, profile.Name)
 		if err != nil {
@@ -67,6 +71,20 @@ func (r *ProfileRepository) InitializeDefaultProfiles(ctx context.Context) error
 		}
 	}
 	return nil
+}
+
+func (r *ProfileRepository) deactivateLegacySuperAdminProfile(ctx context.Context, now time.Time) error {
+	existing, err := r.GetProfileByName(ctx, models.ProfileNameSuperAdmin)
+	if err != nil || existing == nil {
+		return err
+	}
+	if !existing.IsActive && !existing.IsDefault {
+		return nil
+	}
+	existing.IsActive = false
+	existing.IsDefault = false
+	existing.UpdatedAt = now
+	return r.UpdateProfile(ctx, existing.ID, existing)
 }
 
 func mergePermissions(current, desired []string) []string {

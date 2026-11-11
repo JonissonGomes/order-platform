@@ -235,7 +235,8 @@ export interface CreateEmployeeRequest {
   name: string;
   phone?: string;
   role: EmployeeRole;
-  profileId?: string;
+  /** Obrigatório: única fonte de permissão do colaborador. */
+  profileId: string;
   departmentId?: string;
 }
 

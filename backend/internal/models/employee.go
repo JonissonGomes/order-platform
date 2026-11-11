@@ -34,30 +34,15 @@ type Employee struct {
 	UpdatedBy    primitive.ObjectID `bson:"updatedBy" json:"updatedBy"` // Employee ID
 }
 
-// CanChangeStatus verifica se o colaborador pode mudar para o status especificado
-// (considerando as permissões do Profile, quando carregado, e o role como fallback)
+// CanChangeStatus verifica se o colaborador pode mudar para o status especificado.
+// A única fonte é o Profile (EmployeeRole é só rótulo).
 func (e *Employee) CanChangeStatus(status ServiceOrderStatus) bool {
-	if e.Profile != nil && e.Profile.IsActive {
-		perms := e.Profile.Permissions
-		if HasPermission(perms, "service_orders.status."+string(status)) ||
-			HasPermission(perms, "service_orders.*") ||
-			HasPermission(perms, "*") {
-			return true
-		}
-	}
-
-	switch e.Role {
-	case EmployeeRoleAdmin:
-		return true
-	case EmployeeRoleDepartmentManager:
-		return true
-	case EmployeeRoleAttendant:
-		return status == StatusPending || status == StatusEvaluating || status == StatusApproved ||
-			status == StatusReady || status == StatusDelivered || status == StatusCancelled
-	case EmployeeRoleTechnician:
-		return status == StatusInRepair || status == StatusWaitingParts || status == StatusTesting ||
-			status == StatusReady || status == StatusUnrepairable
-	default:
+	if e.Profile == nil || !e.Profile.IsActive {
 		return false
 	}
+	perms := e.Profile.Permissions
+	return HasPermission(perms, "service_orders.status."+string(status)) ||
+		HasPermission(perms, "service_orders.update") ||
+		HasPermission(perms, "service_orders.*") ||
+		HasPermission(perms, "*")
 }
