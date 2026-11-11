@@ -47,6 +47,11 @@ const (
 	ErrInvalidAmount          = "Valor inválido"
 	ErrDefaultProfileLocked   = "O nome e o status de perfis padrão não podem ser alterados"
 	ErrPortalNotFound         = "Ordem não encontrada. Verifique o número e os 4 últimos dígitos do telefone"
+	ErrCloseoutIncomplete     = "Preencha o parecer técnico e a resolução antes de marcar pronta/entregue"
+	ErrCloseoutPartsOrLabor   = "Inclua as peças usadas ou confirme explicitamente que foi só mão de obra"
+	ErrCloseoutLaborWithParts = "Desmarque “só mão de obra” para lançar peças, ou remova as peças"
+	ErrOrderClosed            = "Esta ordem não permite mais alterações de laudo ou peças"
+	ErrPartNotFound           = "Peça não encontrada nesta ordem"
 )
 
 // RespondWithError sends a standardized error response

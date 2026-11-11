@@ -36,6 +36,8 @@ import type {
   UpdateEmployeeRequest,
   UpdateProductRequest,
   UpdateProfileRequest,
+  AddOrderPartRequest,
+  OrderCloseoutRequest,
   UpdateServiceOrderRequest,
   UpdateServiceOrderStatusRequest,
 } from "@/types";
@@ -148,6 +150,21 @@ export const api = {
     updateStatus: async (id: string, data: UpdateServiceOrderStatusRequest) =>
       itemOf<ServiceOrder>(
         await fetchAPI<unknown>(`/api/service-orders/${id}/status`, send("PATCH", data)),
+        "order"
+      ),
+    closeout: async (id: string, data: OrderCloseoutRequest) =>
+      itemOf<ServiceOrder>(
+        await fetchAPI<unknown>(`/api/service-orders/${id}/closeout`, send("PUT", data)),
+        "order"
+      ),
+    addPart: async (id: string, data: AddOrderPartRequest) =>
+      itemOf<ServiceOrder>(
+        await fetchAPI<unknown>(`/api/service-orders/${id}/parts`, send("POST", data)),
+        "order"
+      ),
+    removePart: async (id: string, partId: string) =>
+      itemOf<ServiceOrder>(
+        await fetchAPI<unknown>(`/api/service-orders/${id}/parts/${partId}`, send("DELETE")),
         "order"
       ),
     addNote: async (id: string, content: string, isPublic = false) =>

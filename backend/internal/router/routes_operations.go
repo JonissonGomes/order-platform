@@ -31,6 +31,9 @@ func registerOperationRoutes(api *gin.RouterGroup, d *deps) {
 		// O handler ainda valida a transição e Employee.CanChangeStatus (permissão por status)
 		orders.PATCH("/:id/status", perm("service_orders.update"), d.serviceOrder.UpdateStatus)
 		orders.PATCH("/:id/assign", perm("service_orders.update"), d.serviceOrder.Assign)
+		orders.PUT("/:id/closeout", perm("service_orders.update"), d.serviceOrder.UpdateCloseout)
+		orders.POST("/:id/parts", perm("service_orders.update"), d.serviceOrder.AddPart)
+		orders.DELETE("/:id/parts/:partId", perm("service_orders.update"), d.serviceOrder.RemovePart)
 		orders.POST("/:id/notes",
 			middleware.RequireAnyPermission("notes.create", "service_orders.notes.create", "service_orders.update"),
 			d.serviceOrder.AddNote)

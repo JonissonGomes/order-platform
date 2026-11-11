@@ -26,6 +26,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { closeoutReadyMessage, OrderCloseoutPanel } from "./OrderCloseoutPanel";
 import { OrderNotes } from "./OrderNotes";
 
 function Info({ label, value }: { label: string; value?: string | number | null }) {
@@ -49,6 +50,7 @@ function StatusChanger({ order }: { order: ServiceOrder }) {
       setNotes("");
       queryClient.invalidateQueries({ queryKey: qk.orders });
       queryClient.invalidateQueries({ queryKey: ["service-order", order.id] });
+      queryClient.invalidateQueries({ queryKey: qk.products });
       toast.success(`Status alterado para ${ORDER_STATUS[status].label}`);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -59,6 +61,9 @@ function StatusChanger({ order }: { order: ServiceOrder }) {
     order.status,
     ...NEXT_STATUSES[order.status].filter(s => can(`service_orders.status.${s}`)),
   ];
+
+  const gateMessage =
+    status === "ready" || status === "delivered" ? closeoutReadyMessage(order) : null;
 
   return (
     <section className="space-y-2 border rounded-md p-3 bg-muted/30">
@@ -73,8 +78,16 @@ function StatusChanger({ order }: { order: ServiceOrder }) {
       </Select>
       <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
         placeholder="Observação da mudança (opcional)" className="bg-card" />
-      <Button size="sm" disabled={status === order.status || mutation.isPending}
-        onClick={() => mutation.mutate()}>
+      {gateMessage && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+          {gateMessage}
+        </p>
+      )}
+      <Button
+        size="sm"
+        disabled={status === order.status || mutation.isPending || Boolean(gateMessage)}
+        onClick={() => mutation.mutate()}
+      >
         {mutation.isPending ? "Salvando…" : "Atualizar status"}
       </Button>
     </section>
@@ -175,6 +188,8 @@ export function OrderDetailSheet({ order: summary, onOpenChange }: OrderDetailSh
               )}
 
               <Info label="Defeito relatado" value={order.problemDescription} />
+
+              <OrderCloseoutPanel key={`${order.id}-${order.updatedAt}`} order={order} />
 
               {order.checklist && order.checklist.length > 0 && (
                 <section className="space-y-2">

@@ -70,6 +70,30 @@ func (h *ServiceOrderHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
+	// Gate de entrega: laudo + peças ou “só mão de obra”; baixa estoque em ready/delivered.
+	if req.Status == models.StatusReady || req.Status == models.StatusDelivered {
+		if msg := validateDeliveryCloseout(order); msg != "" {
+			utils.RespondWithBadRequest(c, msg)
+			return
+		}
+		if err := h.consumePendingParts(ctx, order, actor.ID); err != nil {
+			if err == errInsufficientStock {
+				utils.RespondWithConflict(c, utils.ErrInsufficientStock)
+				return
+			}
+			utils.RespondWithInternalError(c)
+			return
+		}
+	}
+
+	// Cancelamento: estorna peças já consumidas.
+	if req.Status == models.StatusCancelled {
+		if err := h.reverseConsumedParts(ctx, order, actor.ID); err != nil {
+			utils.RespondWithInternalError(c)
+			return
+		}
+	}
+
 	changed, err := h.orderRepo.UpdateStatus(ctx, id, previous, req.Status, actor.ID)
 	if err != nil {
 		utils.RespondWithInternalError(c)

@@ -173,20 +173,22 @@ export function ProductFormDialog({
             />
           </FormField>
 
-          <FormField label="Preço de custo (R$)" htmlFor="p-cost">
+          <FormField label="Valor de compra (R$)" htmlFor="p-cost">
             <Input
               id="p-cost"
               inputMode="decimal"
               value={form.cost}
               onChange={e => set({ cost: e.target.value })}
+              placeholder="Custo interno / estoque"
             />
           </FormField>
-          <FormField label="Preço de venda (R$)" htmlFor="p-price">
+          <FormField label="Valor final — cliente (R$)" htmlFor="p-price">
             <Input
               id="p-price"
               inputMode="decimal"
               value={form.price}
               onChange={e => set({ price: e.target.value })}
+              placeholder="Lançado na OS / venda"
             />
           </FormField>
 

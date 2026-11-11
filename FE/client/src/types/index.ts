@@ -152,6 +152,11 @@ export interface ServiceOrder {
   depositAmount?: number;
   warrantyDays?: number;
   expectedAt?: string;
+  technicalReport?: string;
+  resolution?: string;
+  laborOnly?: boolean;
+  laborCost?: number;
+  parts?: ServiceOrderPart[];
   notes?: Note[];
   statusHistory?: StatusHistory[];
   createdAt: string;
@@ -160,6 +165,20 @@ export interface ServiceOrder {
   updatedBy: string;
   statusChangedBy?: string;
   statusChangedAt?: string;
+}
+
+export interface ServiceOrderPart {
+  id: string;
+  productId: string;
+  name: string;
+  sku?: string;
+  barcode?: string;
+  qty: number;
+  unitPrice: number;
+  unitCost: number;
+  consumed?: boolean;
+  createdAt: string;
+  createdBy: string;
 }
 
 export interface Department {
@@ -277,6 +296,18 @@ export type UpdateServiceOrderRequest = Partial<CreateServiceOrderRequest> & {
 export interface UpdateServiceOrderStatusRequest {
   status: ServiceOrderStatus;
   notes?: string;
+}
+
+export interface OrderCloseoutRequest {
+  technicalReport: string;
+  resolution: string;
+  laborOnly: boolean;
+  laborCost: number;
+}
+
+export interface AddOrderPartRequest {
+  productId: string;
+  qty: number;
 }
 
 export interface CreateDepartmentRequest {

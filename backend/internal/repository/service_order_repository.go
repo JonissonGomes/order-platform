@@ -167,6 +167,96 @@ func (r *ServiceOrderRepository) CountServiceOrders(ctx context.Context, filter 
 	return r.collection.CountDocuments(ctx, filter)
 }
 
+// UpdateCloseout salva laudo técnico, mão de obra e recalcula finalCost.
+func (r *ServiceOrderRepository) UpdateCloseout(
+	ctx context.Context,
+	id primitive.ObjectID,
+	technicalReport, resolution string,
+	laborOnly bool,
+	laborCost, finalCost float64,
+	parts []models.ServiceOrderPart,
+	updatedBy primitive.ObjectID,
+) error {
+	set := bson.M{
+		"technicalReport": technicalReport,
+		"resolution":      resolution,
+		"laborOnly":       laborOnly,
+		"laborCost":       laborCost,
+		"finalCost":       finalCost,
+		"updatedAt":       time.Now(),
+		"updatedBy":       updatedBy,
+	}
+	if parts != nil {
+		set["parts"] = parts
+	}
+	_, err := r.collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": set})
+	return err
+}
+
+// PushPart adiciona uma peça à OS.
+func (r *ServiceOrderRepository) PushPart(
+	ctx context.Context,
+	id primitive.ObjectID,
+	part *models.ServiceOrderPart,
+	laborOnly bool,
+	finalCost float64,
+	updatedBy primitive.ObjectID,
+) error {
+	if part.ID.IsZero() {
+		part.ID = primitive.NewObjectID()
+	}
+	if part.CreatedAt.IsZero() {
+		part.CreatedAt = time.Now()
+	}
+	_, err := r.collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{
+		"$push": bson.M{"parts": part},
+		"$set": bson.M{
+			"laborOnly": laborOnly,
+			"finalCost": finalCost,
+			"updatedAt": time.Now(),
+			"updatedBy": updatedBy,
+		},
+	})
+	return err
+}
+
+// PullPart remove uma peça pelo id e atualiza totais.
+func (r *ServiceOrderRepository) PullPart(
+	ctx context.Context,
+	id, partID primitive.ObjectID,
+	finalCost float64,
+	laborOnly bool,
+	updatedBy primitive.ObjectID,
+) error {
+	_, err := r.collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{
+		"$pull": bson.M{"parts": bson.M{"_id": partID}},
+		"$set": bson.M{
+			"finalCost": finalCost,
+			"laborOnly": laborOnly,
+			"updatedAt": time.Now(),
+			"updatedBy": updatedBy,
+		},
+	})
+	return err
+}
+
+// ReplacePartsAndFinalCost persiste consumo/estorno das peças e o valor final.
+func (r *ServiceOrderRepository) ReplacePartsAndFinalCost(
+	ctx context.Context,
+	id primitive.ObjectID,
+	parts []models.ServiceOrderPart,
+	finalCost float64,
+	updatedBy primitive.ObjectID,
+) error {
+	_, err := r.collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
+		"parts":     parts,
+		"finalCost": finalCost,
+		"updatedAt": time.Now(),
+		"updatedBy": updatedBy,
+	}})
+	return err
+}
+
 // GetServiceOrdersByCustomerID retrieves all service orders for a customer
 func (r *ServiceOrderRepository) GetServiceOrdersByCustomerID(ctx context.Context, customerID primitive.ObjectID) ([]*models.ServiceOrder, error) {
 	filter := bson.M{"customerId": customerID}

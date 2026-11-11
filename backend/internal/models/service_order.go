@@ -48,13 +48,34 @@ type ServiceOrder struct {
 	DepositAmount      float64            `bson:"depositAmount,omitempty" json:"depositAmount,omitempty"`
 	WarrantyDays       int                `bson:"warrantyDays,omitempty" json:"warrantyDays,omitempty"`
 	ExpectedAt         *time.Time         `bson:"expectedAt,omitempty" json:"expectedAt,omitempty"`
-	Notes              []Note             `bson:"notes,omitempty" json:"notes,omitempty"`
-	CreatedAt          time.Time          `bson:"createdAt" json:"createdAt"`
-	UpdatedAt          time.Time          `bson:"updatedAt" json:"updatedAt"`
-	CreatedBy          primitive.ObjectID `bson:"createdBy" json:"createdBy"`                                 // Employee ID
-	UpdatedBy          primitive.ObjectID `bson:"updatedBy" json:"updatedBy"`                                 // Employee ID
-	StatusChangedBy    primitive.ObjectID `bson:"statusChangedBy,omitempty" json:"statusChangedBy,omitempty"` // Employee ID
-	StatusChangedAt    time.Time          `bson:"statusChangedAt,omitempty" json:"statusChangedAt,omitempty"`
+	// Laudo técnico exigido antes de ready/delivered
+	TechnicalReport string             `bson:"technicalReport,omitempty" json:"technicalReport,omitempty"`
+	Resolution      string             `bson:"resolution,omitempty" json:"resolution,omitempty"`
+	LaborOnly       bool               `bson:"laborOnly,omitempty" json:"laborOnly,omitempty"`
+	LaborCost       float64            `bson:"laborCost,omitempty" json:"laborCost,omitempty"`
+	Parts           []ServiceOrderPart `bson:"parts,omitempty" json:"parts,omitempty"`
+	Notes           []Note             `bson:"notes,omitempty" json:"notes,omitempty"`
+	CreatedAt       time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt       time.Time          `bson:"updatedAt" json:"updatedAt"`
+	CreatedBy       primitive.ObjectID `bson:"createdBy" json:"createdBy"`                                 // Employee ID
+	UpdatedBy       primitive.ObjectID `bson:"updatedBy" json:"updatedBy"`                                 // Employee ID
+	StatusChangedBy primitive.ObjectID `bson:"statusChangedBy,omitempty" json:"statusChangedBy,omitempty"` // Employee ID
+	StatusChangedAt time.Time          `bson:"statusChangedAt,omitempty" json:"statusChangedAt,omitempty"`
+}
+
+// ServiceOrderPart é uma peça lançada na OS (price = cliente; cost = interno).
+type ServiceOrderPart struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	ProductID primitive.ObjectID `bson:"productId" json:"productId"`
+	Name      string             `bson:"name" json:"name"`
+	SKU       string             `bson:"sku,omitempty" json:"sku,omitempty"`
+	Barcode   string             `bson:"barcode,omitempty" json:"barcode,omitempty"`
+	Qty       int                `bson:"qty" json:"qty"`
+	UnitPrice float64            `bson:"unitPrice" json:"unitPrice"` // cobrado do cliente
+	UnitCost  float64            `bson:"unitCost" json:"unitCost"`   // custo interno / estoque
+	Consumed  bool               `bson:"consumed,omitempty" json:"consumed,omitempty"`
+	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
+	CreatedBy primitive.ObjectID `bson:"createdBy" json:"createdBy"`
 }
 
 type Note struct {
@@ -63,6 +84,20 @@ type Note struct {
 	IsPublic  bool               `bson:"isPublic" json:"isPublic"` // Visível no portal do cliente
 	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
 	CreatedBy primitive.ObjectID `bson:"createdBy" json:"createdBy"` // Employee ID
+}
+
+// PartsSubtotal soma qty * unitPrice das peças da OS.
+func PartsSubtotal(parts []ServiceOrderPart) float64 {
+	var total float64
+	for _, p := range parts {
+		total += float64(p.Qty) * p.UnitPrice
+	}
+	return total
+}
+
+// ComputeFinalCost = mão de obra + peças (valor ao cliente).
+func ComputeFinalCost(laborCost float64, parts []ServiceOrderPart) float64 {
+	return laborCost + PartsSubtotal(parts)
 }
 
 var validTransitions = map[ServiceOrderStatus][]ServiceOrderStatus{

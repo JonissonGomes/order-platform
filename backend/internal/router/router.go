@@ -73,7 +73,8 @@ func New(db *database.MongoDB) *gin.Engine {
 		customer:   handlers.NewCustomerHandler(customerRepo, branchRepo),
 		serviceOrder: handlers.NewServiceOrderHandler(
 			serviceOrderRepo, customerRepo, departmentRepo, statusHistoryRepo,
-			employeeRepo, branchRepo, counterRepo, notifications.NoopChannel{},
+			employeeRepo, branchRepo, counterRepo, productRepo, movementRepo,
+			notifications.NoopChannel{},
 		),
 		product:  handlers.NewProductHandler(productRepo, movementRepo, branchRepo),
 		cash:     handlers.NewCashHandler(cashRepo, branchRepo),
