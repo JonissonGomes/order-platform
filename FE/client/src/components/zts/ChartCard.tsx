@@ -40,7 +40,9 @@ export function ChartCard({
         {loading ? (
           <Skeleton className="h-full w-full" />
         ) : empty ? (
-          <p className="text-xs text-muted-foreground py-2">{emptyLabel}</p>
+          <div className="h-full min-h-16 flex items-center justify-center">
+            <p className="text-xs text-muted-foreground text-center px-2">{emptyLabel}</p>
+          </div>
         ) : (
           children
         )}

@@ -77,17 +77,23 @@ export function DashboardSidebar({ onLogout }: { onLogout: () => void }) {
 
       <SidebarContent className="gap-0 py-2 overscroll-contain group-data-[collapsible=icon]:pr-2">
         {groups.map(group => (
-          <SidebarGroup key={group.label} className="py-1.5">
-            <SidebarGroupLabel className="text-[0.6875rem] uppercase tracking-[0.12em] text-sidebar-foreground/50 px-3">
-              {group.label}
-            </SidebarGroupLabel>
+          <SidebarGroup key={group.label || group.items[0]?.path} className="py-1.5">
+            {group.label ? (
+              <SidebarGroupLabel className="text-[0.6875rem] uppercase tracking-[0.12em] text-sidebar-foreground/50 px-3">
+                {group.label}
+              </SidebarGroupLabel>
+            ) : null}
             <SidebarMenu className="gap-0.5 px-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:items-center">
               {group.items.map(item => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton
                     isActive={active?.path === item.path}
                     tooltip={item.label}
-                    className="h-10 sm:h-9 rounded-sm font-normal data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:font-medium"
+                    className={
+                      item.pinned
+                        ? "h-10 sm:h-9 rounded-sm font-semibold bg-[#e8eef4] text-[#1a1f26] hover:bg-white hover:text-[#1a1f26] data-[active=true]:bg-white data-[active=true]:text-[#1a1f26] shadow-sm"
+                        : "h-10 sm:h-9 rounded-sm font-normal data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary data-[active=true]:font-medium"
+                    }
                     onClick={() => go(item.path, item.external)}
                   >
                     <item.icon className="h-4 w-4" />

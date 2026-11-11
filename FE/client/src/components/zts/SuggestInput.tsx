@@ -26,7 +26,7 @@ export function SuggestInput({
   placeholder,
   disabled,
   className,
-  limit = 40,
+  limit = 80,
 }: SuggestInputProps) {
   const autoId = useId();
   const inputId = id ?? autoId;

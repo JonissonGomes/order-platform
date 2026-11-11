@@ -89,7 +89,7 @@ export function permissionsFromRole(role: UserRole | undefined): Permission[] {
 
 /** Catálogo de permissões conhecidas, usado para exibição em Perfis. */
 export const PERMISSION_GROUPS: { resource: string; label: string }[] = [
-  { resource: "dashboard", label: "Resumo" },
+  { resource: "dashboard", label: "Dashboard" },
   { resource: "service_orders", label: "Ordens de serviço" },
   { resource: "customers", label: "Clientes" },
   { resource: "products", label: "Produtos" },

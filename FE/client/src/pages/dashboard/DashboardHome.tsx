@@ -1,7 +1,6 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { OrderDetailSheet } from "@/components/orders/OrderDetailSheet";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartCard } from "@/components/zts/ChartCard";
 import { EmptyState } from "@/components/zts/EmptyState";
@@ -38,7 +37,6 @@ function ListSkeleton({ rows = 4 }: { rows?: number }) {
 }
 
 export default function DashboardHome() {
-  const { user } = useAuth();
   const { can } = usePermissions();
   const [, setLocation] = useLocation();
   const [selected, setSelected] = useState<ServiceOrder | null>(null);
@@ -70,8 +68,6 @@ export default function DashboardHome() {
   return (
     <div>
       <PageHeader
-        title="Resumo"
-        description={`Olá, ${user?.name?.split(" ")[0] ?? "equipe"}. Visão rápida da operação da loja.`}
         actions={
           can("service_orders.create") && (
             <Button size="sm" onClick={() => setLocation("/dashboard/ordens/nova")}>
@@ -121,16 +117,18 @@ export default function DashboardHome() {
 
       <div className="grid gap-4 lg:grid-cols-2 mb-4">
         <Card className="gap-3 py-4">
-          <CardHeader className="px-4 flex-row items-center justify-between gap-2">
+          <CardHeader className="px-4">
             <CardTitle className="text-sm">Precisam de atenção</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="shrink-0"
-              onClick={() => setLocation("/dashboard/ordens")}
-            >
-              Ver todas
-            </Button>
+            <CardAction>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setLocation("/dashboard/ordens")}
+              >
+                Ver todas
+              </Button>
+            </CardAction>
           </CardHeader>
           <CardContent className="px-4">
             {orders.isPending ? (
@@ -188,15 +186,18 @@ export default function DashboardHome() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="gap-3 py-4">
-          <CardHeader className="px-4 flex-row items-center justify-between gap-2">
+          <CardHeader className="px-4">
             <CardTitle className="text-sm">Estoque para repor</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation("/dashboard/produtos")}
-            >
-              Ver estoque
-            </Button>
+            <CardAction>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setLocation("/dashboard/produtos")}
+              >
+                Ver estoque
+              </Button>
+            </CardAction>
           </CardHeader>
           <CardContent className="px-4">
             {products.isPending ? (

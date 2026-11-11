@@ -9,7 +9,7 @@
  *
  * PRIVADAS (/dashboard/*, dentro do DashboardLayout, filtradas por permissão):
  * Operação
- * - /dashboard                  Resumo                 (dashboard.read)
+ * - /dashboard                  Dashboard              (dashboard.read)
  * - /dashboard/ordens           Lista de OS            (service_orders.read)
  * - /dashboard/ordens/nova      Nova OS                (service_orders.create)
  * - /dashboard/clientes         Clientes               (customers.read)
