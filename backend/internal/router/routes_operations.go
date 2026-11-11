@@ -66,8 +66,8 @@ func registerOperationRoutes(api *gin.RouterGroup, d *deps) {
 // registerPortalRoutes registra rotas públicas do portal do cliente
 func registerPortalRoutes(api *gin.RouterGroup, d *deps) {
 	portal := api.Group("/portal")
-	// Limite por IP para dificultar tentativa de adivinhar os 4 dígitos do telefone
-	portal.Use(middleware.RateLimitByIP(20, 10*time.Minute))
+	// Limite por IP (permite polling leve + consultas; ainda freia brute-force de telefone)
+	portal.Use(middleware.RateLimitByIP(60, 10*time.Minute))
 	{
 		portal.POST("/lookup", d.portal.Lookup)
 		portal.POST("/respond", d.portal.Respond)

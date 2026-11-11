@@ -135,7 +135,7 @@ export function OrderDetailSheet({ order: summary, onOpenChange }: OrderDetailSh
 
   return (
     <Sheet open={Boolean(summary)} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-0 gap-0">
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 gap-0">
         {order && (
           <>
             <SheetHeader className="border-b p-4">

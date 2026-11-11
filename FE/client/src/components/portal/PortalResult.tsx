@@ -3,11 +3,17 @@ import { StatusBadge } from "@/components/zts/StatusBadge";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { statusLabel } from "@/lib/orderStatus";
-import { PORTAL_STEPS, portalClientMessage, portalStepIndex } from "@/lib/portalSteps";
+import {
+  PORTAL_STEPS,
+  portalClientMessage,
+  portalStepIndex,
+  portalStepReachedAt,
+} from "@/lib/portalSteps";
 import { cn } from "@/lib/utils";
 import type { PortalLookup } from "@/types";
 import { useMutation } from "@tanstack/react-query";
 import { CalendarClock, Check, Loader2, MessageSquare, Smartphone, Wrench } from "lucide-react";
+import { useMemo } from "react";
 import { toast } from "sonner";
 
 export function PortalResult({
@@ -19,11 +25,11 @@ export function PortalResult({
   phoneLast4: string;
   onUpdated?: (next: PortalLookup) => void;
 }) {
-  const timeline = [...(data.timeline ?? [])].reverse();
   const messages = data.messages ?? [];
   const step = portalStepIndex(data.status);
   const ended = step < 0;
   const canRespond = data.status === "evaluating" && Boolean(data.estimatedCost);
+  const reachedAt = useMemo(() => portalStepReachedAt(data.timeline), [data.timeline]);
 
   const respond = useMutation({
     mutationFn: (decision: "approved" | "cancelled") =>
@@ -107,6 +113,7 @@ export function PortalResult({
             const done = !ended && (i < step || (i === step && data.status === "delivered"));
             const current = !ended && i === step && data.status !== "delivered";
             const todo = ended ? i > 0 : i > step;
+            const at = reachedAt[i];
             return (
               <li
                 key={label}
@@ -119,7 +126,7 @@ export function PortalResult({
                   <span
                     className={cn(
                       "absolute left-[0.55rem] top-5 bottom-0 w-0.5",
-                      done ? "bg-emerald-500" : "bg-border"
+                      done || current ? "bg-emerald-500" : "bg-border"
                     )}
                     aria-hidden
                   />
@@ -138,7 +145,10 @@ export function PortalResult({
                   <p className={cn("text-sm", current || done ? "font-semibold" : "font-medium")}>
                     {label}
                   </p>
-                  {current && (
+                  {at && (done || current) && (
+                    <p className="text-xs text-muted-foreground">{formatDateTime(at)}</p>
+                  )}
+                  {current && !at && (
                     <p className="text-xs text-muted-foreground">
                       {data.statusLabel ?? statusLabel(data.status)}
                     </p>
@@ -148,6 +158,12 @@ export function PortalResult({
             );
           })}
         </ol>
+        {ended && (
+          <p className="text-xs text-muted-foreground mt-2">
+            {data.statusLabel ?? statusLabel(data.status)}
+            {data.updatedAt ? ` · ${formatDateTime(data.updatedAt)}` : ""}
+          </p>
+        )}
       </section>
 
       <div className="grid grid-cols-2 gap-2">
@@ -162,25 +178,6 @@ export function PortalResult({
           <p className="text-sm font-medium">{data.serviceType || "—"}</p>
         </div>
       </div>
-
-      {timeline.length > 0 && (
-        <section>
-          <h3 className="zts-eyebrow mb-2">Histórico</h3>
-          <ol className="border-l ml-1 pl-4 space-y-3">
-            {timeline.map((t, i) => (
-              <li key={`${t.at}-${i}`} className="relative">
-                <span
-                  className={`absolute -left-[21px] top-1.5 h-2 w-2 rounded-[1px] ${
-                    i === 0 ? "bg-primary" : "bg-border"
-                  }`}
-                />
-                <p className="text-sm font-medium">{t.statusLabel ?? statusLabel(t.status)}</p>
-                <p className="text-xs text-muted-foreground">{formatDateTime(t.at)}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
 
       {messages.length > 0 && (
         <section>
@@ -199,10 +196,6 @@ export function PortalResult({
           </ul>
         </section>
       )}
-
-      <p className="text-[0.6875rem] text-muted-foreground text-center">
-        Atualizado em {formatDateTime(data.updatedAt)}
-      </p>
     </div>
   );
 }

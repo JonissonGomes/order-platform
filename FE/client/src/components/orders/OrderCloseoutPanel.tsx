@@ -2,18 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { SuggestInput } from "@/components/zts/SuggestInput";
 import { qk, useProducts } from "@/hooks/queries";
 import { api } from "@/lib/api";
 import { formatCurrency, formatIntegerInput, formatMoneyInput, moneyToInput, parseMoney } from "@/lib/format";
-import type { ServiceOrder } from "@/types";
+import type { Product, ServiceOrder } from "@/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -35,6 +29,7 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
   const [laborOnly, setLaborOnly] = useState(Boolean(order.laborOnly));
   const [laborCost, setLaborCost] = useState(moneyToInput(order.laborCost ?? 0));
   const [productId, setProductId] = useState("");
+  const [productQuery, setProductQuery] = useState("");
   const [qty, setQty] = useState("1");
 
   useEffect(() => {
@@ -78,6 +73,7 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
       }),
     onSuccess: () => {
       setProductId("");
+      setProductQuery("");
       setQty("1");
       setLaborOnly(false);
       invalidate();
@@ -223,24 +219,40 @@ export function OrderCloseoutPanel({ order }: { order: ServiceOrder }) {
 
           {canEdit && (
             <div className="flex flex-wrap gap-2 items-end">
-              <div className="flex-1 min-w-[10rem] space-y-1">
-                <Label>Produto</Label>
-                <Select value={productId || undefined} onValueChange={setProductId}>
-                  <SelectTrigger className="bg-card">
-                    <SelectValue placeholder="Selecionar peça" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeProducts.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} · {formatCurrency(p.price)} · est. {p.qty}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="relative flex-1 min-w-[12rem] space-y-1 overflow-visible">
+                <Label htmlFor="os-part-product">Produto</Label>
+                <SuggestInput
+                  id="os-part-product"
+                  value={productQuery}
+                  options={activeProducts}
+                  placeholder="Buscar peça por nome ou código"
+                  className="bg-card"
+                  getLabel={(p: Product) => p.name}
+                  getSearchText={(p: Product) =>
+                    [p.sku, p.barcode, p.category].filter(Boolean).join(" ")
+                  }
+                  onChange={v => {
+                    setProductQuery(v);
+                    if (productId) setProductId("");
+                  }}
+                  onSelect={(p: Product) => {
+                    setProductId(p.id);
+                    setProductQuery(p.name);
+                  }}
+                  renderOption={(p: Product) => (
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate">{p.name}</span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">
+                        {formatCurrency(p.price)} · est. {p.qty}
+                      </span>
+                    </span>
+                  )}
+                />
               </div>
               <div className="w-20 space-y-1">
-                <Label>Qtd</Label>
+                <Label htmlFor="os-part-qty">Qtd</Label>
                 <Input
+                  id="os-part-qty"
                   inputMode="numeric"
                   value={qty}
                   onChange={e => setQty(formatIntegerInput(e.target.value, 4))}

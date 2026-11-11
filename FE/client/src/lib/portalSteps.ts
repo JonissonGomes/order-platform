@@ -1,4 +1,4 @@
-import type { ServiceOrderStatus } from "@/types";
+import type { PortalTimelineEntry, ServiceOrderStatus } from "@/types";
 
 /** Etapas visíveis no portal do cliente (espelha o protótipo ZTS). */
 export const PORTAL_STEPS = [
@@ -26,6 +26,22 @@ export function portalStepIndex(status: string): number {
     unrepairable: -1,
   };
   return map[status as ServiceOrderStatus] ?? 0;
+}
+
+/** Primeiro horário em que cada etapa do andamento foi atingida (via histórico). */
+export function portalStepReachedAt(
+  timeline: readonly PortalTimelineEntry[] | undefined
+): (string | undefined)[] {
+  const reached: (string | undefined)[] = Array(PORTAL_STEPS.length).fill(undefined);
+  const chronological = [...(timeline ?? [])].sort(
+    (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()
+  );
+  for (const entry of chronological) {
+    const idx = portalStepIndex(entry.status);
+    if (idx < 0) continue;
+    if (!reached[idx]) reached[idx] = entry.at;
+  }
+  return reached;
 }
 
 export function portalClientMessage(status: string): string {

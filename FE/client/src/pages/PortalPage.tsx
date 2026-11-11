@@ -6,12 +6,13 @@ import { api } from "@/lib/api";
 import { digitsOnly } from "@/lib/format";
 import type { PortalLookup } from "@/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, RefreshCw, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Loader2, Search } from "lucide-react";
+import { useState } from "react";
 import { Link } from "wouter";
 
 const CLOSED_STATUSES = new Set(["delivered", "cancelled", "unrepairable"]);
-const POLL_MS = 15_000;
+/** Intervalo folgado para caber no rate limit do portal (~60 req / 10 min). */
+const POLL_MS = 45_000;
 
 type PortalSession = { orderNumber: string; phoneLast4: string };
 
@@ -19,7 +20,7 @@ function portalQueryKey(s: PortalSession) {
   return ["portal-lookup", s.orderNumber, s.phoneLast4] as const;
 }
 
-/** Portal público: cliente consulta a OS e acompanha atualizações em tempo quase real. */
+/** Portal público: cliente consulta a OS e acompanha atualizações em background. */
 export default function PortalPage() {
   const queryClient = useQueryClient();
   const [orderNumber, setOrderNumber] = useState("");
@@ -45,22 +46,23 @@ export default function PortalPage() {
     },
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
-    staleTime: 5_000,
-    retry: 1,
+    staleTime: POLL_MS,
+    retry: false,
   });
 
-  const polling = useMemo(() => {
-    const status = lookup.data?.status;
-    return Boolean(session && status && !CLOSED_STATUSES.has(status));
-  }, [session, lookup.data?.status]);
+  const initialLoading = lookup.isPending && !lookup.data;
+  /** Erro só na 1ª consulta; falhas de sync em background ficam silenciosas. */
+  const showLookupError = Boolean(session && lookup.isError && !lookup.data);
 
   const startLookup = () => {
     const next: PortalSession = {
       orderNumber: orderNumber.trim().replace(/^#/, "").toUpperCase(),
       phoneLast4: last4,
     };
+    const same =
+      session?.orderNumber === next.orderNumber && session?.phoneLast4 === next.phoneLast4;
     setSession(next);
-    void queryClient.invalidateQueries({ queryKey: portalQueryKey(next) });
+    if (same) void lookup.refetch();
   };
 
   return (
@@ -125,8 +127,8 @@ export default function PortalPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={!valid || lookup.isFetching}>
-                {lookup.isFetching && !lookup.data ? (
+              <Button type="submit" className="w-full" disabled={!valid || initialLoading}>
+                {initialLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Search className="h-4 w-4" />
@@ -135,42 +137,20 @@ export default function PortalPage() {
               </Button>
             </form>
 
-            {lookup.isError && session && (
+            {showLookupError && (
               <div className="border border-destructive/30 bg-destructive/5 text-destructive text-xs rounded-md p-3">
                 {(lookup.error as Error).message || "Não encontramos uma OS com estes dados."}
               </div>
             )}
 
             {lookup.data && session && (
-              <>
-                <div className="flex items-center justify-between gap-2 text-[0.6875rem] text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5">
-                    <RefreshCw
-                      className={`h-3 w-3 ${lookup.isFetching ? "animate-spin" : ""}`}
-                    />
-                    {polling
-                      ? "Atualizando automaticamente a cada 15s"
-                      : "Consulta finalizada — sem novas atualizações"}
-                  </span>
-                  {polling && (
-                    <button
-                      type="button"
-                      className="underline underline-offset-2 hover:text-foreground"
-                      disabled={lookup.isFetching}
-                      onClick={() => void lookup.refetch()}
-                    >
-                      Atualizar agora
-                    </button>
-                  )}
-                </div>
-                <PortalResult
-                  data={lookup.data}
-                  phoneLast4={session.phoneLast4}
-                  onUpdated={(next: PortalLookup) => {
-                    queryClient.setQueryData(portalQueryKey(session), next);
-                  }}
-                />
-              </>
+              <PortalResult
+                data={lookup.data}
+                phoneLast4={session.phoneLast4}
+                onUpdated={(next: PortalLookup) => {
+                  queryClient.setQueryData(portalQueryKey(session), next);
+                }}
+              />
             )}
           </div>
         </div>
