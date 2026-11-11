@@ -13,6 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { printOrderReceipt } from "@/lib/orderReceipt";
 import { ORDER_STATUS, ORDER_STATUS_LIST } from "@/lib/orderStatus";
+import { deliveredAt as orderDeliveredAt } from "@/lib/reports";
 import type { ServiceOrder, ServiceOrderStatus } from "@/types";
 import { ClipboardList, FilePlus2, Printer, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -97,7 +98,10 @@ export default function OrdersList() {
       </div>
 
       {isPending ? (
-        <TableSkeleton columns={7} headers={["OS", "Cliente", "Aparelho", "Status", "Previsão", "Orçamento", "Valor final"]} />
+        <TableSkeleton
+          columns={8}
+          headers={["OS", "Cliente", "Aparelho", "Status", "Previsão", "Entrega", "Orçamento", "Valor final"]}
+        />
       ) : error ? (
         <ErrorState message={error.message} onRetry={() => refetch()} />
       ) : filtered.length === 0 ? (
@@ -117,6 +121,7 @@ export default function OrdersList() {
                   <TableHead>Aparelho</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Previsão</TableHead>
+                  <TableHead>Entrega</TableHead>
                   <TableHead className="text-right">Orçamento</TableHead>
                   <TableHead className="text-right">Valor final</TableHead>
                   <TableHead className="text-right w-[4rem]">Ações</TableHead>
@@ -134,6 +139,11 @@ export default function OrdersList() {
                       <StatusBadge status={o.status} />
                     </TableCell>
                     <TableCell>{formatDate(o.expectedAt)}</TableCell>
+                    <TableCell>
+                      {o.status === "delivered"
+                        ? formatDate(orderDeliveredAt(o))
+                        : "—"}
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {o.estimatedCost ? formatCurrency(o.estimatedCost) : "—"}
                     </TableCell>
