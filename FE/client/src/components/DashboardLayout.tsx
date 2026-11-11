@@ -8,7 +8,7 @@ import { ShieldAlert } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
-import { DashboardSidebar, findActiveItem } from "./DashboardSidebar";
+import { DashboardSidebar } from "./DashboardSidebar";
 import { Button } from "./ui/button";
 import { motion } from "framer-motion";
 
@@ -22,7 +22,7 @@ function AccessDenied() {
         Seu perfil não tem permissão para acessar esta página. Fale com um administrador.
       </p>
       <Button variant="outline" onClick={() => setLocation("/dashboard")}>
-        Voltar ao resumo
+        Voltar ao dashboard
       </Button>
     </div>
   );
@@ -53,11 +53,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     redirectOnUnauthenticated: true,
     redirectPath: HOME_PATH,
   });
-  const [location] = useLocation();
 
   if (loading || !user) return <DashboardLayoutSkeleton />;
-
-  const activeLabel = findActiveItem(location)?.label ?? "ZTS Cell";
 
   const handleLogout = async () => {
     await logout();
@@ -70,17 +67,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {
           "--sidebar-width": "16.5rem",
           "--sidebar-width-mobile": "19rem",
-          /* Rail de ícones um pouco mais largo + respiro à direita quando colapsado */
           "--sidebar-width-icon": "3.75rem",
         } as CSSProperties
       }
     >
       <DashboardSidebar onLogout={handleLogout} />
       <SidebarInset className="bg-background min-w-0 overflow-x-hidden">
-        <header className="sticky top-0 z-30 flex h-12 sm:h-14 items-center gap-2 border-b bg-card/95 backdrop-blur-sm px-2 sm:px-3 supports-[padding:max(0px)]:pt-[env(safe-area-inset-top)]">
-          {/* Desktop: toggle pelo logo ZTS na sidebar. Mobile: botão no topo. */}
-          <SidebarTrigger className="h-9 w-9 rounded-sm shrink-0 md:hidden" />
-          <span className="text-sm font-medium truncate">{activeLabel}</span>
+        {/* Só no mobile: abrir menu. Desktop usa o logo na sidebar. Sem título de página. */}
+        <header className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b bg-card/95 backdrop-blur-sm px-2 md:hidden supports-[padding:max(0px)]:pt-[env(safe-area-inset-top)]">
+          <SidebarTrigger className="h-9 w-9 rounded-sm shrink-0" />
+          <span className="text-sm font-medium truncate">ZTS Cell</span>
         </header>
         <Content>{children}</Content>
       </SidebarInset>

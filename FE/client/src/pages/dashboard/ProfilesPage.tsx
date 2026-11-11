@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { ListPagination } from "@/components/zts/ListPagination";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { useProfiles } from "@/hooks/queries";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
@@ -31,8 +30,6 @@ export default function ProfilesPage() {
 
   return (
     <div>
-      <PageHeader title="Perfis de acesso" description="Permissões de cada perfil. O menu e as telas respeitam estas regras." />
-
       {isPending ? (
         <div className="grid gap-4 md:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-44" />)}

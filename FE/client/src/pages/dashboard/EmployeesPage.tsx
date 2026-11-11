@@ -15,7 +15,6 @@ import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FiltersDialog } from "@/components/zts/FiltersDialog";
 import { FormField } from "@/components/zts/FormField";
 import { ListPagination } from "@/components/zts/ListPagination";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { qk, useDepartments, useEmployees, useProfiles } from "@/hooks/queries";
@@ -156,30 +155,24 @@ export default function EmployeesPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Colaboradores"
-        description="Equipe, perfis de acesso e setores."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <FiltersDialog
-              title="Função"
-              description="Filtre colaboradores por função."
-              value={roleFilter}
-              onApply={setRoleFilter}
-              options={(Object.keys(ROLE_LABELS) as EmployeeRole[]).map(role => ({
-                value: role,
-                label: ROLE_LABELS[role],
-                count: roleCounts[role] ?? 0,
-              }))}
-            />
-            {can("employees.create") && (
-              <Button size="sm" onClick={() => setOpen(true)}>
-                <Plus className="h-4 w-4" /> Novo colaborador
-              </Button>
-            )}
-          </div>
-        }
-      />
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+        <FiltersDialog
+          title="Função"
+          description="Filtre colaboradores por função."
+          value={roleFilter}
+          onApply={setRoleFilter}
+          options={(Object.keys(ROLE_LABELS) as EmployeeRole[]).map(role => ({
+            value: role,
+            label: ROLE_LABELS[role],
+            count: roleCounts[role] ?? 0,
+          }))}
+        />
+        {can("employees.create") && (
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" /> Novo colaborador
+          </Button>
+        )}
+      </div>
       {isPending ? (
         <TableSkeleton columns={HEADERS.length} headers={HEADERS} />
       ) : error ? (

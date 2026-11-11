@@ -7,7 +7,6 @@ import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FiltersDialog } from "@/components/zts/FiltersDialog";
 import { KpiCard } from "@/components/zts/KpiCard";
 import { ListPagination } from "@/components/zts/ListPagination";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { useServiceOrders } from "@/hooks/queries";
@@ -68,33 +67,48 @@ export default function WarrantiesPage() {
   }, [filter, search, resetPage]);
 
   return (
-    <div>
-      <PageHeader
-        title="Garantias"
-        description="Consulte por IMEI, OS ou cliente antes de abrir um novo atendimento."
-        actions={
-          <FiltersDialog
-            title="Situação da garantia"
-            value={filter}
-            onApply={setFilter}
-            options={[
-              { value: "active", label: "Ativas (> 7 dias)", count: active.length - expiringSoon.length },
-              { value: "soon", label: "Vencem em 7 dias", count: expiringSoon.length },
-              { value: "expired", label: "Vencidas", count: warranties.length - active.length },
-            ]}
+    <div className="flex flex-col min-h-[calc(100dvh-7rem)]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            placeholder="Buscar IMEI, OS ou cliente"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
           />
-        }
-      />
+        </div>
+        <FiltersDialog
+          title="Situação da garantia"
+          value={filter}
+          onApply={setFilter}
+          options={[
+            { value: "active", label: "Ativas (> 7 dias)", count: active.length - expiringSoon.length },
+            { value: "soon", label: "Vencem em 7 dias", count: expiringSoon.length },
+            { value: "expired", label: "Vencidas", count: warranties.length - active.length },
+          ]}
+        />
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-3 mb-5">
         <KpiCard label="Garantias ativas" icon={BadgeCheck} loading={isPending} value={active.length} />
-        <KpiCard label="Vencem em 7 dias" icon={TimerReset} loading={isPending} value={expiringSoon.length}
-          tone={expiringSoon.length ? "warning" : "default"} />
-        <KpiCard label="Vencidas" icon={ShieldOff} loading={isPending} value={warranties.length - active.length} />
+        <KpiCard
+          label="Vencem em 7 dias"
+          icon={TimerReset}
+          loading={isPending}
+          value={expiringSoon.length}
+          tone={expiringSoon.length ? "warning" : "default"}
+        />
+        <KpiCard
+          label="Vencidas"
+          icon={ShieldOff}
+          loading={isPending}
+          value={warranties.length - active.length}
+        />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(14rem,20rem)] mb-4">
-        {(isPending || warranties.length > 0) && (
+      {(isPending || warranties.length > 0) && (
+        <div className="mb-4">
           <ChartCard title="Garantias por prazo restante" loading={isPending} empty={warranties.length === 0}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chart}>
@@ -106,14 +120,79 @@ export default function WarrantiesPage() {
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
+        </div>
+      )}
+
+      <div className="mb-4">
+        {isPending ? (
+          <TableSkeleton columns={HEADERS.length} headers={HEADERS} rows={4} />
+        ) : error ? (
+          <ErrorState message={error.message} onRetry={() => refetch()} />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={BadgeCheck}
+            title="Nenhuma garantia registrada"
+            description="Ordens entregues com garantia aparecerão aqui."
+          />
+        ) : (
+          <>
+            <div className="border rounded-md bg-card overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pageItems.map(w => (
+                    <TableRow
+                      key={w.order.id}
+                      className="cursor-pointer"
+                      onClick={() => setSelected(w.order)}
+                    >
+                      <TableCell className="font-mono text-xs font-medium">#{w.order.orderNumber}</TableCell>
+                      <TableCell>{w.order.customer?.name ?? "—"}</TableCell>
+                      <TableCell>
+                        {w.order.productBrand} {w.order.productModel}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{w.order.imei || "—"}</TableCell>
+                      <TableCell>{formatDate(w.endsAt.toISOString())}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`rounded-sm ${
+                            w.active
+                              ? w.daysLeft <= 7
+                                ? "border-amber-300 bg-amber-50 text-amber-800"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {w.active ? `${w.daysLeft} dia(s) restantes` : "Vencida"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <ListPagination
+              page={page}
+              pageCount={pageCount}
+              total={total}
+              pageSize={pageSize}
+              onPageChange={setPage}
+            />
+          </>
         )}
-        <div className="border rounded-md bg-card p-4 space-y-3">
-          <h2 className="text-sm font-semibold">Política de garantia</h2>
-          <ul className="space-y-2 text-sm">
+      </div>
+
+      <footer className="mt-auto pt-4 border-t">
+        <div className="border rounded-md bg-card p-4">
+          <h2 className="text-sm font-semibold mb-3">Política de garantia</h2>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm mb-3">
             {POLICY.map(p => (
-              <li key={p.svc} className="flex justify-between gap-3">
-                <span>{p.svc}</span>
-                <span className="font-mono text-xs tabular-nums">{p.days}</span>
+              <li key={p.svc} className="flex justify-between gap-3 sm:block sm:space-y-0.5">
+                <span className="text-muted-foreground">{p.svc}</span>
+                <span className="font-mono text-xs tabular-nums font-medium">{p.days}</span>
               </li>
             ))}
           </ul>
@@ -121,55 +200,8 @@ export default function WarrantiesPage() {
             Cobre peça e mão de obra. Perde validade com queda, líquido, mau uso ou violação do lacre.
           </p>
         </div>
-      </div>
+      </footer>
 
-      <div className="relative max-w-sm mb-4">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          className="pl-8"
-          placeholder="Buscar IMEI, OS ou cliente"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
-
-      {isPending ? (
-        <TableSkeleton columns={HEADERS.length} headers={HEADERS} rows={4} />
-      ) : error ? (
-        <ErrorState message={error.message} onRetry={() => refetch()} />
-      ) : filtered.length === 0 ? (
-        <EmptyState icon={BadgeCheck} title="Nenhuma garantia registrada"
-          description="Ordens entregues com garantia aparecerão aqui." />
-      ) : (
-        <>
-          <div className="border rounded-md bg-card overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>{HEADERS.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
-              </TableHeader>
-              <TableBody>
-                {pageItems.map(w => (
-                  <TableRow key={w.order.id} className="cursor-pointer" onClick={() => setSelected(w.order)}>
-                    <TableCell className="font-mono text-xs font-medium">#{w.order.orderNumber}</TableCell>
-                    <TableCell>{w.order.customer?.name ?? "—"}</TableCell>
-                    <TableCell>{w.order.productBrand} {w.order.productModel}</TableCell>
-                    <TableCell className="font-mono text-xs">{w.order.imei || "—"}</TableCell>
-                    <TableCell>{formatDate(w.endsAt.toISOString())}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`rounded-sm ${w.active
-                        ? w.daysLeft <= 7 ? "border-amber-300 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"
-                        : "bg-muted text-muted-foreground"}`}>
-                        {w.active ? `${w.daysLeft} dia(s) restantes` : "Vencida"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <ListPagination page={page} pageCount={pageCount} total={total} pageSize={pageSize} onPageChange={setPage} />
-        </>
-      )}
       <OrderDetailSheet order={selected} onOpenChange={open => !open && setSelected(null)} />
     </div>
   );

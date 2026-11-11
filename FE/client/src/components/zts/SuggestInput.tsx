@@ -1,12 +1,22 @@
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
-interface SuggestInputProps {
+interface SuggestInputProps<T> {
   id?: string;
   value: string;
-  options: string[];
+  options: T[];
   onChange: (value: string) => void;
+  /** Texto exibido e, por padrão, usado no filtro. Default: String(option). */
+  getLabel?: (option: T) => string;
+  /** Texto extra para filtro (ex.: SKU, código). */
+  getSearchText?: (option: T) => string;
+  /** Conteúdo customizado de cada linha. */
+  renderOption?: (option: T) => ReactNode;
+  /** Disparado ao escolher na lista / Enter na sugestão. */
+  onSelect?: (option: T) => void;
+  /** Enter sem sugestão (ex.: leitor de código de barras). */
+  onSubmitValue?: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -18,29 +28,39 @@ interface SuggestInputProps {
  * Campo aberto com lista flutuante abaixo (sobrepõe o conteúdo seguinte).
  * Digitação livre + escolha por clique/teclado.
  */
-export function SuggestInput({
+export function SuggestInput<T>({
   id,
   value,
   options,
   onChange,
+  getLabel: getLabelProp,
+  getSearchText,
+  renderOption,
+  onSelect,
+  onSubmitValue,
   placeholder,
   disabled,
   className,
   limit = 80,
-}: SuggestInputProps) {
+}: SuggestInputProps<T>) {
   const autoId = useId();
   const inputId = id ?? autoId;
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const getLabel = getLabelProp ?? ((o: T) => String(o));
 
   const filtered = useMemo(() => {
     const term = value.trim().toLowerCase();
     const base = !term
       ? options
-      : options.filter(o => o.toLowerCase().includes(term));
+      : options.filter(o => {
+          const label = getLabel(o).toLowerCase();
+          const extra = (getSearchText?.(o) ?? "").toLowerCase();
+          return label.includes(term) || extra.includes(term);
+        });
     return base.slice(0, limit);
-  }, [options, value, limit]);
+  }, [options, value, limit, getLabel, getSearchText]);
 
   useEffect(() => {
     setHighlight(0);
@@ -55,10 +75,14 @@ export function SuggestInput({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  const pick = (opt: string) => {
-    onChange(opt);
+  const pick = (opt: T) => {
+    if (onSelect) onSelect(opt);
+    else onChange(getLabel(opt));
     setOpen(false);
   };
+
+  const optionKey = (opt: T, i: number) =>
+    `${getLabel(opt)}::${getSearchText?.(opt) ?? ""}::${i}`;
 
   return (
     <div ref={rootRef} className="relative">
@@ -83,21 +107,27 @@ export function SuggestInput({
             setOpen(true);
             return;
           }
-          if (!open || filtered.length === 0) {
-            if (e.key === "Escape") setOpen(false);
+          if (e.key === "Escape") {
+            setOpen(false);
             return;
           }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (filtered.length > 0) {
+              pick(filtered[highlight] ?? filtered[0]);
+            } else if (onSubmitValue && value.trim()) {
+              onSubmitValue(value.trim());
+              setOpen(false);
+            }
+            return;
+          }
+          if (!open || filtered.length === 0) return;
           if (e.key === "ArrowDown") {
             e.preventDefault();
             setHighlight(h => (h + 1) % filtered.length);
           } else if (e.key === "ArrowUp") {
             e.preventDefault();
             setHighlight(h => (h - 1 + filtered.length) % filtered.length);
-          } else if (e.key === "Enter") {
-            e.preventDefault();
-            pick(filtered[highlight] ?? value);
-          } else if (e.key === "Escape") {
-            setOpen(false);
           }
         }}
       />
@@ -113,7 +143,7 @@ export function SuggestInput({
           )}
         >
           {filtered.map((opt, i) => (
-            <li key={opt} role="option" aria-selected={i === highlight}>
+            <li key={optionKey(opt, i)} role="option" aria-selected={i === highlight}>
               <button
                 type="button"
                 className={cn(
@@ -124,7 +154,7 @@ export function SuggestInput({
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => pick(opt)}
               >
-                {opt}
+                {renderOption ? renderOption(opt) : getLabel(opt)}
               </button>
             </li>
           ))}

@@ -5,23 +5,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarcodeInput } from "@/components/zts/BarcodeInput";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FiltersDialog } from "@/components/zts/FiltersDialog";
 import { KpiCard } from "@/components/zts/KpiCard";
 import { ListPagination } from "@/components/zts/ListPagination";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { useProducts } from "@/hooks/queries";
 import { usePermissions } from "@/hooks/usePermissions";
-import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Product } from "@/types";
 import { AlertTriangle, Package, Plus, Search, Tag, WalletCards } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useMemo, useState } from "react";
 
 type StockFilter = "ok" | "low" | "out";
 
@@ -60,7 +56,6 @@ export default function ProductsPage() {
   const [stockFilter, setStockFilter] = useState<StockFilter[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [newBarcode, setNewBarcode] = useState<string | undefined>();
   const [adjusting, setAdjusting] = useState<Product | null>(null);
   const [labeling, setLabeling] = useState<Product | null>(null);
 
@@ -94,48 +89,42 @@ export default function ProductsPage() {
     resetPage();
   }, [search, stockFilter, resetPage]);
 
-  const openNew = (barcode?: string) => {
+  const openNew = () => {
     setEditing(null);
-    setNewBarcode(barcode);
     setFormOpen(true);
   };
 
-  // Leitor USB: busca no estoque; se não achar, oferece cadastro com o código lido.
-  const handleScan = useCallback(
-    async (code: string) => {
-      try {
-        const product = await api.products.byBarcode(code);
-        if (product?.id) {
-          if (canAdjust) setAdjusting(product);
-          else toast.info(`${product.name}: ${product.qty} em estoque`);
-          return;
-        }
-        throw new Error("not-found");
-      } catch {
-        if (canWrite) {
-          toast.info(`Código ${code} não cadastrado. Complete o cadastro.`);
-          openNew(code);
-        } else {
-          toast.error(`Produto com código ${code} não encontrado.`);
-        }
-      }
-    },
-    [canWrite, canAdjust]
-  );
-
   return (
     <div>
-      <PageHeader
-        title="Produtos e estoque"
-        description="Acessórios e peças. Bipe um código para localizar, vender ou cadastrar."
-        actions={
-          canWrite && (
-            <Button size="sm" onClick={() => openNew()}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            placeholder="Buscar por nome, código ou categoria"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <FiltersDialog
+            title="Estoque"
+            description="Filtre produtos por situação de estoque."
+            value={stockFilter}
+            onApply={setStockFilter}
+            options={[
+              { value: "ok", label: "Estoque ok", count: stockCounts.ok },
+              { value: "low", label: "Abaixo do mínimo", count: stockCounts.low },
+              { value: "out", label: "Zerado", count: stockCounts.out },
+            ]}
+          />
+          {canWrite && (
+            <Button size="sm" onClick={openNew}>
               <Plus className="h-4 w-4" /> Novo produto
             </Button>
-          )
-        }
-      />
+          )}
+        </div>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <KpiCard label="Itens cadastrados" icon={Package} loading={isPending} value={(data ?? []).length} />
@@ -156,32 +145,6 @@ export default function ProductsPage() {
         />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_auto] mb-4">
-        <BarcodeInput onScan={handleScan} />
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-8"
-              placeholder="Buscar por nome, código ou categoria"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <FiltersDialog
-            title="Estoque"
-            description="Filtre produtos por situação de estoque."
-            value={stockFilter}
-            onApply={setStockFilter}
-            options={[
-              { value: "ok", label: "Estoque ok", count: stockCounts.ok },
-              { value: "low", label: "Abaixo do mínimo", count: stockCounts.low },
-              { value: "out", label: "Zerado", count: stockCounts.out },
-            ]}
-          />
-        </div>
-      </div>
-
       {isPending ? (
         <TableSkeleton columns={HEADERS.length} headers={HEADERS} />
       ) : error ? (
@@ -190,7 +153,7 @@ export default function ProductsPage() {
         <EmptyState
           icon={Package}
           title="Nenhum produto cadastrado"
-          description="Cadastre um produto ou bipe um código para começar."
+          description="Cadastre um produto para começar."
         />
       ) : (
         <>
@@ -242,7 +205,6 @@ export default function ProductsPage() {
                             size="sm"
                             onClick={() => {
                               setEditing(p);
-                              setNewBarcode(undefined);
                               setFormOpen(true);
                             }}
                           >
@@ -268,12 +230,8 @@ export default function ProductsPage() {
 
       <ProductFormDialog
         open={formOpen}
-        onOpenChange={open => {
-          setFormOpen(open);
-          if (!open) setNewBarcode(undefined);
-        }}
+        onOpenChange={setFormOpen}
         product={editing}
-        initialBarcode={newBarcode}
       />
       <StockAdjustDialog product={adjusting} onOpenChange={open => !open && setAdjusting(null)} />
       <ProductLabelDialog product={labeling} onOpenChange={open => !open && setLabeling(null)} />

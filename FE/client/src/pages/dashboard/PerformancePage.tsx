@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { ChartCard } from "@/components/zts/ChartCard";
 import { EmptyState } from "@/components/zts/EmptyState";
 import { KpiCard } from "@/components/zts/KpiCard";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { useServiceOrders } from "@/hooks/queries";
 import { buildAttentionQueue } from "@/lib/attention";
 import { formatCurrency } from "@/lib/format";
@@ -52,8 +51,6 @@ export default function PerformancePage() {
 
   return (
     <div>
-      <PageHeader title="Desempenho" description="Indicadores para ajustar preço, estoque e prazos." />
-
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-5">
         <KpiCard label="Ticket médio" icon={ShoppingBag} loading={isPending}
           value={formatCurrency(stats.ticket)} hint="Por OS entregue" />

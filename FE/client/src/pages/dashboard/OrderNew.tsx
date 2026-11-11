@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/zts/FormField";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { SuggestInput } from "@/components/zts/SuggestInput";
 import { qk, useDepartments } from "@/hooks/queries";
 import { api } from "@/lib/api";
@@ -113,8 +112,6 @@ export default function OrderNew() {
         if (valid) create.mutate();
       }}
     >
-      <PageHeader title="Nova ordem de serviço" description="Cadastre cliente, aparelho, checklist e orçamento." />
-
       <div className="space-y-4">
         <Card className="gap-3 py-4">
           <CardHeader className="px-4"><CardTitle className="text-sm">1. Cliente</CardTitle></CardHeader>

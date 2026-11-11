@@ -12,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CustomerDetailSheet } from "@/components/customers/CustomerDetailSheet";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FormField } from "@/components/zts/FormField";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
 import { ListPagination } from "@/components/zts/ListPagination";
 import { useClientPagination } from "@/hooks/useClientPagination";
@@ -111,21 +110,21 @@ export default function CustomersList() {
 
   return (
     <div>
-      <PageHeader
-        title="Clientes"
-        description="Base de clientes da assistência e do balcão."
-        actions={
-          can("customers.create") && (
-            <Button size="sm" onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4" /> Novo cliente
-            </Button>
-          )
-        }
-      />
-      <div className="relative max-w-sm mb-4">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input className="pl-8" placeholder="Buscar por nome, telefone, CPF ou e-mail"
-          value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            placeholder="Buscar por nome, telefone, CPF ou e-mail"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        {can("customers.create") && (
+          <Button size="sm" className="shrink-0" onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4" /> Novo cliente
+          </Button>
+        )}
       </div>
 
       {isPending ? (

@@ -61,9 +61,9 @@ export function CashEntryForm({ disabled }: { disabled: boolean }) {
   const blocked = disabled || available.length === 0;
 
   return (
-    <Card className="gap-3 py-4 px-4">
+    <Card className="gap-3 py-4 px-4 h-full">
       <h2 className="text-sm font-semibold">Outros lançamentos</h2>
-      <div className="grid gap-2.5">
+      <div className="grid gap-2.5 content-start">
         <FormField label="Tipo">
           <Select value={kind} onValueChange={v => setKind(v as CashMovementKind)} disabled={blocked}>
             <SelectTrigger className="w-full">

@@ -102,9 +102,9 @@ export function CashSessionPanel({ session, summary, loading, canOpen, canClose 
       )}
 
       {canAct ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end max-w-2xl">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
           <FormField
-            className="sm:w-44"
+            className="sm:w-36"
             label={isOpen ? "Dinheiro contado (R$)" : "Fundo de troco (R$)"}
             htmlFor="cash-amount"
             hint={isOpen && amount ? `Diferença: ${formatCurrency(parseMoney(amount) - expected)}` : undefined}
@@ -117,7 +117,7 @@ export function CashSessionPanel({ session, summary, loading, canOpen, canClose 
               onChange={e => setAmount(formatMoneyInput(e.target.value))}
             />
           </FormField>
-          <FormField className="sm:flex-1 sm:min-w-[12rem]" label="Observações" htmlFor="cash-notes">
+          <FormField className="sm:flex-1 sm:min-w-[8rem]" label="Observações" htmlFor="cash-notes">
             <Input id="cash-notes" value={notes} onChange={e => setNotes(e.target.value)} />
           </FormField>
           {isOpen ? (

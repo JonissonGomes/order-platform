@@ -14,7 +14,6 @@ import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FiltersDialog } from "@/components/zts/FiltersDialog";
 import { FormField } from "@/components/zts/FormField";
 import { ListPagination } from "@/components/zts/ListPagination";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { qk, useDepartments } from "@/hooks/queries";
@@ -127,28 +126,22 @@ export default function DepartmentsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Setores"
-        description="Áreas internas responsáveis pelas ordens de serviço."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <FiltersDialog
-              title="Situação"
-              value={statusFilter}
-              onApply={setStatusFilter}
-              options={[
-                { value: "active", label: "Ativos", count: statusCounts.active },
-                { value: "inactive", label: "Inativos", count: statusCounts.inactive },
-              ]}
-            />
-            {can("departments.create") && (
-              <Button size="sm" onClick={() => openDialog(null)}>
-                <Plus className="h-4 w-4" /> Novo setor
-              </Button>
-            )}
-          </div>
-        }
-      />
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+        <FiltersDialog
+          title="Situação"
+          value={statusFilter}
+          onApply={setStatusFilter}
+          options={[
+            { value: "active", label: "Ativos", count: statusCounts.active },
+            { value: "inactive", label: "Inativos", count: statusCounts.inactive },
+          ]}
+        />
+        {can("departments.create") && (
+          <Button size="sm" onClick={() => openDialog(null)}>
+            <Plus className="h-4 w-4" /> Novo setor
+          </Button>
+        )}
+      </div>
       {isPending ? (
         <TableSkeleton columns={HEADERS.length} headers={HEADERS} rows={4} />
       ) : error ? (

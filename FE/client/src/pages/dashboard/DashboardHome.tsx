@@ -5,10 +5,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChartCard } from "@/components/zts/ChartCard";
 import { EmptyState } from "@/components/zts/EmptyState";
 import { KpiCard } from "@/components/zts/KpiCard";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { StatusBadge } from "@/components/zts/StatusBadge";
 import { useCashSession, useProducts, useServiceOrders } from "@/hooks/queries";
-import { usePermissions } from "@/hooks/usePermissions";
 import { buildAttentionQueue } from "@/lib/attention";
 import { formatCurrency, isSameDay } from "@/lib/format";
 import { OPEN_STATUSES } from "@/lib/orderStatus";
@@ -18,7 +16,6 @@ import {
   AlertTriangle,
   CalendarClock,
   ClipboardList,
-  FilePlus2,
   PackageCheck,
   Wallet,
 } from "lucide-react";
@@ -37,7 +34,6 @@ function ListSkeleton({ rows = 4 }: { rows?: number }) {
 }
 
 export default function DashboardHome() {
-  const { can } = usePermissions();
   const [, setLocation] = useLocation();
   const [selected, setSelected] = useState<ServiceOrder | null>(null);
 
@@ -67,16 +63,6 @@ export default function DashboardHome() {
 
   return (
     <div>
-      <PageHeader
-        actions={
-          can("service_orders.create") && (
-            <Button size="sm" onClick={() => setLocation("/dashboard/ordens/nova")}>
-              <FilePlus2 className="h-4 w-4" /> Nova OS
-            </Button>
-          )
-        }
-      />
-
       {allFailed && (
         <div className="mb-4 border border-amber-300 bg-amber-50 text-amber-900 rounded-md p-3 text-sm">
           Não foi possível carregar os dados da API. Verifique a conexão com o backend.

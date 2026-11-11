@@ -3,7 +3,6 @@ import { ChartCard } from "@/components/zts/ChartCard";
 import { EmptyState } from "@/components/zts/EmptyState";
 import { FilterChips } from "@/components/zts/FilterChips";
 import { KpiCard } from "@/components/zts/KpiCard";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { useCashMovements, useCashSession, useServiceOrders } from "@/hooks/queries";
 import { dayKey, formatCurrency } from "@/lib/format";
 import { buildRevenue, orderValue, revenueByPayment } from "@/lib/reports";
@@ -61,12 +60,14 @@ export default function BillingPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Faturamento"
-        description="Receita das ordens entregues no período; formas de pagamento vêm da sessão de caixa atual."
-        actions={<FilterChips showAll={false} options={PERIODS.map(p => ({ ...p }))} value={period}
-          onChange={v => v !== "all" && setPeriod(v as "7" | "30" | "90")} />}
-      />
+      <div className="flex justify-end mb-4">
+        <FilterChips
+          showAll={false}
+          options={PERIODS.map(p => ({ ...p }))}
+          value={period}
+          onChange={v => v !== "all" && setPeriod(v as "7" | "30" | "90")}
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-5">
         <KpiCard label="Faturamento" icon={TrendingUp} loading={loading} value={formatCurrency(report.total)} hint={`Últimos ${days} dias`} />

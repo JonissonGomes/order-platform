@@ -3,7 +3,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FiltersDialog } from "@/components/zts/FiltersDialog";
 import { ListPagination } from "@/components/zts/ListPagination";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { StatusBadge } from "@/components/zts/StatusBadge";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { useServiceOrders } from "@/hooks/queries";
@@ -93,23 +92,19 @@ export default function AgendaPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Agenda"
-        description="Retiradas, previsões de entrega e retornos de garantia."
-        actions={
-          <FiltersDialog
-            title="Previsão"
-            description="Filtre por atraso, hoje, futuras ou sem data."
-            value={filter}
-            onApply={setFilter}
-            options={(Object.keys(BUCKET_LABEL) as AgendaBucket[]).map(k => ({
-              value: k,
-              label: BUCKET_LABEL[k],
-              count: counts[k],
-            }))}
-          />
-        }
-      />
+      <div className="flex justify-end mb-4">
+        <FiltersDialog
+          title="Previsão"
+          description="Filtre por atraso, hoje, futuras ou sem data."
+          value={filter}
+          onApply={setFilter}
+          options={(Object.keys(BUCKET_LABEL) as AgendaBucket[]).map(k => ({
+            value: k,
+            label: BUCKET_LABEL[k],
+            count: counts[k],
+          }))}
+        />
+      </div>
 
       {isPending ? (
         <div className="space-y-3">

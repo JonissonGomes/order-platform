@@ -5,7 +5,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { EmptyState, ErrorState } from "@/components/zts/EmptyState";
 import { FiltersDialog } from "@/components/zts/FiltersDialog";
 import { ListPagination } from "@/components/zts/ListPagination";
-import { PageHeader } from "@/components/zts/PageHeader";
 import { StatusBadge } from "@/components/zts/StatusBadge";
 import { TableSkeleton } from "@/components/zts/TableSkeleton";
 import { useClientPagination } from "@/hooks/useClientPagination";
@@ -56,18 +55,6 @@ export default function OrdersList() {
 
   return (
     <div>
-      <PageHeader
-        title="Ordens de serviço"
-        description="Acompanhe e atualize os aparelhos na bancada."
-        actions={
-          can("service_orders.create") && (
-            <Button size="sm" onClick={() => setLocation("/dashboard/ordens/nova")}>
-              <FilePlus2 className="h-4 w-4" /> Nova OS
-            </Button>
-          )
-        }
-      />
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -78,17 +65,24 @@ export default function OrdersList() {
             placeholder="Buscar por OS, cliente, aparelho ou IMEI"
           />
         </div>
-        <FiltersDialog
-          title="Status da OS"
-          description="Marque os status que deseja ver na lista."
-          value={statusFilter}
-          onApply={setStatusFilter}
-          options={ORDER_STATUS_LIST.map(s => ({
-            value: s,
-            label: ORDER_STATUS[s].label,
-            count: counts[s] ?? 0,
-          }))}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <FiltersDialog
+            title="Status da OS"
+            description="Marque os status que deseja ver na lista."
+            value={statusFilter}
+            onApply={setStatusFilter}
+            options={ORDER_STATUS_LIST.map(s => ({
+              value: s,
+              label: ORDER_STATUS[s].label,
+              count: counts[s] ?? 0,
+            }))}
+          />
+          {can("service_orders.create") && (
+            <Button size="sm" onClick={() => setLocation("/dashboard/ordens/nova")}>
+              <FilePlus2 className="h-4 w-4" /> Nova OS
+            </Button>
+          )}
+        </div>
       </div>
 
       {isPending ? (
