@@ -3,7 +3,7 @@
  *
  * PÚBLICAS (sem autenticação):
  * - /          Home (marca ZTS Cell)
- * - /login     Login de colaboradores
+ * - /zts/login Login de colaboradores (somente via URL direta; sem link na UI)
  * - /portal    Portal do cliente: consulta de OS (nº da OS + 4 últimos dígitos do telefone)
  * - /404       Não encontrado
  *
@@ -34,7 +34,7 @@ export const ROUTES = {
   // Públicas
   HOME: "/",
   NOT_FOUND: "/404",
-  LOGIN: "/login",
+  LOGIN: "/zts/login",
   PORTAL: "/portal",
 
   // Dashboard

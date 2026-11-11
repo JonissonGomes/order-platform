@@ -1,4 +1,4 @@
-import { LOGIN_PATH } from "@/const";
+import { HOME_PATH } from "@/const";
 import { api, type User } from "@/lib/api";
 import { permissionsFromRole } from "@/lib/permissions";
 import type { Employee, Permission } from "@/types";
@@ -17,7 +17,7 @@ type UseAuthOptions = {
  * (várias chamadas de useAuth na mesma tela fazem um único GET /auth/me).
  */
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = LOGIN_PATH } =
+  const { redirectOnUnauthenticated = false, redirectPath = HOME_PATH } =
     options ?? {};
   const queryClient = useQueryClient();
 

@@ -1,6 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { LOGIN_PATH } from "@/const";
+import { HOME_PATH } from "@/const";
 import { usePermissions } from "@/hooks/usePermissions";
 import { hasPermission, requiredPermissionFor } from "@/lib/permissions";
 import { ShieldAlert } from "lucide-react";
@@ -48,7 +48,10 @@ function Content({ children }: { children: ReactNode }) {
 
 /** Shell ZTS Cell: sidebar escura filtrada por permissão + área de conteúdo. */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const { loading, user, logout } = useAuth({ redirectOnUnauthenticated: true });
+  const { loading, user, logout } = useAuth({
+    redirectOnUnauthenticated: true,
+    redirectPath: HOME_PATH,
+  });
   const [location] = useLocation();
 
   if (loading || !user) return <DashboardLayoutSkeleton />;
@@ -57,7 +60,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const handleLogout = async () => {
     await logout();
-    window.location.href = LOGIN_PATH;
+    window.location.href = HOME_PATH;
   };
 
   return (

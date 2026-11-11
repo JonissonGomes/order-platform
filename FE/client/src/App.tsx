@@ -67,7 +67,7 @@ function DashboardRoutes() {
 
 /**
  * Router da aplicação (veja src/routes.ts para a lista documentada).
- * Públicas: /, /login, /portal. Privadas: /dashboard/*
+ * Públicas: /, /zts/login (só URL), /portal. Privadas: /dashboard/*
  */
 function Router() {
   const [location] = useLocation();

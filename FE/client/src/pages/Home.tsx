@@ -47,9 +47,6 @@ export default function Home() {
               onClick={() => setLocation("/portal")}>
               Acompanhar OS
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setLocation("/login")}>
-              Área da equipe
-            </Button>
           </div>
         </div>
       </header>
